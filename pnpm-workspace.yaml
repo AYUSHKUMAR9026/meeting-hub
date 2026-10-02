@@ -1,3 +1,14 @@
 packages:
   - apps/*
   - packages/*
+minimumReleaseAgeExclude:
+  - '@types/node@24.19.1'
+
+# Dependencies allowed (true) or explicitly denied (false) to run install scripts.
+allowBuilds:
+  esbuild: true
+  # Optional native speedups pulled in by testcontainers' ssh2 dependency — not needed.
+  cpu-features: false
+  ssh2: false
+  # Postinstall only prints a version check notice.
+  protobufjs: false
