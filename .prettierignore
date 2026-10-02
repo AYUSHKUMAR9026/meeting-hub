@@ -1,0 +1,6 @@
+pnpm-lock.yaml
+**/migrations/meta/**
+**/.next/**
+**/dist/**
+packages/contracts/openapi.json
+apps/web/src/lib/api/schema.d.ts
