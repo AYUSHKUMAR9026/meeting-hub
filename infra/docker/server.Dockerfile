@@ -36,7 +36,7 @@ COPY --from=build --chown=node:node /out/package.json ./package.json
 COPY --from=build --chown=node:node /out/node_modules ./node_modules
 COPY --from=build --chown=node:node /repo/apps/server/dist ./dist
 COPY --from=build --chown=node:node /repo/packages/db/migrations ./migrations
-COPY --chown=node:node infra/docker/server-entrypoint.sh /usr/local/bin/server-entrypoint
+COPY --chown=node:node --chmod=0755 infra/docker/server-entrypoint.sh /usr/local/bin/server-entrypoint
 USER node
 EXPOSE 4000
 HEALTHCHECK --interval=15s --timeout=3s --start-period=10s \
