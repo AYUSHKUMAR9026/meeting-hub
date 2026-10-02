@@ -17,7 +17,11 @@ export interface CreateDbOptions {
   applicationName?: string;
 }
 
-export function createDb({ connectionString, max = 10, applicationName }: CreateDbOptions): DbClient {
+export function createDb({
+  connectionString,
+  max = 10,
+  applicationName,
+}: CreateDbOptions): DbClient {
   const pool = new pg.Pool({
     connectionString,
     max,

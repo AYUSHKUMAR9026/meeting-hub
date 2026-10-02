@@ -10,6 +10,8 @@ allowBuilds:
   esbuild: true
   # Prebuilt native msgpack used by BullMQ.
   msgpackr-extract: true
+  # Native resolver used by eslint import resolution (checks its prebuilt binding).
+  unrs-resolver: true
   # Optional native speedups pulled in by testcontainers' ssh2 dependency — not needed.
   cpu-features: false
   ssh2: false

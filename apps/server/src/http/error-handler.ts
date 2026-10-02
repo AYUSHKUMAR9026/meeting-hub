@@ -97,9 +97,14 @@ export function toProblem(err: unknown, req: FastifyRequest, opts: ProblemOption
   }
 
   const error = err instanceof Error ? err : new Error(String(err));
-  return problem(req, 500, 'INTERNAL_ERROR', opts.exposeInternals
-    ? { detail: error.message, ...(error.stack ? { stack: error.stack } : {}) }
-    : { detail: 'An unexpected error occurred.' });
+  return problem(
+    req,
+    500,
+    'INTERNAL_ERROR',
+    opts.exposeInternals
+      ? { detail: error.message, ...(error.stack ? { stack: error.stack } : {}) }
+      : { detail: 'An unexpected error occurred.' },
+  );
 }
 
 export function registerErrorHandling(app: FastifyInstance, opts: ProblemOptions): void {

@@ -25,7 +25,9 @@ describe('migrations', () => {
   });
 
   it('enables vector, pg_trgm and unaccent', async () => {
-    const { rows } = await client.pool.query<{ extname: string }>('SELECT extname FROM pg_extension');
+    const { rows } = await client.pool.query<{ extname: string }>(
+      'SELECT extname FROM pg_extension',
+    );
     expect(rows.map((r) => r.extname)).toEqual(
       expect.arrayContaining(['vector', 'pg_trgm', 'unaccent']),
     );
@@ -36,7 +38,9 @@ describe('migrations', () => {
       .insert(domainEvents)
       .values({ type: 'test.event', payload: { ok: true } })
       .returning();
-    expect(row?.id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+    expect(row?.id).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
+    );
     expect(row?.processedAt).toBeNull();
   });
 
@@ -55,7 +59,9 @@ describe('migrations', () => {
   });
 
   it('supports pgvector types', async () => {
-    const result = await client.db.execute(sql`SELECT '[1,2,3]'::vector <-> '[1,2,4]'::vector AS d`);
+    const result = await client.db.execute(
+      sql`SELECT '[1,2,3]'::vector <-> '[1,2,4]'::vector AS d`,
+    );
     expect(Number(result.rows[0]?.d)).toBe(1);
   });
 });

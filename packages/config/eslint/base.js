@@ -19,7 +19,10 @@ export function baseConfig({ tsconfigRootDir }) {
         parserOptions: { projectService: true, tsconfigRootDir },
       },
       rules: {
-        '@typescript-eslint/consistent-type-imports': ['error', { fixStyle: 'inline-type-imports' }],
+        '@typescript-eslint/consistent-type-imports': [
+          'error',
+          { fixStyle: 'inline-type-imports' },
+        ],
         '@typescript-eslint/no-unused-vars': [
           'error',
           { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },

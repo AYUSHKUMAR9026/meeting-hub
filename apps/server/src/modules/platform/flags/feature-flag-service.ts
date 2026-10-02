@@ -110,13 +110,18 @@ export class FeatureFlagService {
   private async refresh(): Promise<Snapshot> {
     try {
       const rows = await this.options.store.loadAll();
-      const snapshot: Snapshot = { loadedAt: this.now(), global: new Map(), byWorkspace: new Map() };
+      const snapshot: Snapshot = {
+        loadedAt: this.now(),
+        global: new Map(),
+        byWorkspace: new Map(),
+      };
       for (const row of rows) {
         if (row.workspaceId === null) {
           snapshot.global.set(row.key, row.enabled);
         } else {
           let scoped = snapshot.byWorkspace.get(row.workspaceId);
-          if (!scoped) snapshot.byWorkspace.set(row.workspaceId, (scoped = new Map<string, boolean>()));
+          if (!scoped)
+            snapshot.byWorkspace.set(row.workspaceId, (scoped = new Map<string, boolean>()));
           scoped.set(row.key, row.enabled);
         }
       }

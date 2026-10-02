@@ -15,6 +15,8 @@ registerShutdown(logger, config.SHUTDOWN_TIMEOUT_MS, async () => {
 });
 
 // Connect eagerly so problems show up at boot; /ready reports the live state either way.
-deps.redis.connect().catch((err: unknown) => logger.warn({ err }, 'redis not reachable at startup'));
+deps.redis
+  .connect()
+  .catch((err: unknown) => logger.warn({ err }, 'redis not reachable at startup'));
 
 await app.listen({ host: config.API_HOST, port: config.API_PORT });
