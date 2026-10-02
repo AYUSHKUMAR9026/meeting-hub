@@ -28,5 +28,8 @@ export function createApiDeps(config: Config, logger: Logger): ApiDeps {
 
 export async function closeApiDeps(deps: ApiDeps): Promise<void> {
   deps.s3.destroy();
-  await Promise.allSettled([deps.db.close(), deps.redis.quit()]);
+  // quit() waits for a server reply, so only use it on a live connection.
+  const redisClosed =
+    deps.redis.status === 'ready' ? deps.redis.quit() : Promise.resolve(deps.redis.disconnect());
+  await Promise.allSettled([deps.db.close(), redisClosed]);
 }

@@ -1,6 +1,6 @@
 import cors from '@fastify/cors';
 import swagger from '@fastify/swagger';
-import Fastify, { type FastifyBaseLogger, type FastifyInstance } from 'fastify';
+import Fastify, { type FastifyBaseLogger, type FastifyInstance, LogController } from 'fastify';
 import {
   jsonSchemaTransform,
   jsonSchemaTransformObject,
@@ -26,7 +26,7 @@ export async function buildApp(deps: ApiDeps): Promise<FastifyInstance> {
     loggerInstance: deps.logger as FastifyBaseLogger,
     genReqId,
     requestIdHeader: false,
-    requestIdLogLabel: 'request_id',
+    logController: new LogController({ requestIdLogLabel: 'request_id' }),
     return503OnClosing: true,
   }).withTypeProvider<ZodTypeProvider>();
 
