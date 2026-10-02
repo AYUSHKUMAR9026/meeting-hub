@@ -16,7 +16,7 @@
     "test:integration": "turbo run test:integration --concurrency=1",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "infra:up": "docker compose -f infra/docker-compose.yml up -d --wait",
+    "infra:up": "docker compose -f infra/docker-compose.yml up -d --wait && docker compose -f infra/docker-compose.yml wait garage-init",
     "infra:down": "docker compose -f infra/docker-compose.yml down",
     "infra:reset": "docker compose -f infra/docker-compose.yml down -v",
     "db:generate": "pnpm --filter @meeting-hub/db generate",

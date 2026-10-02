@@ -1,0 +1,77 @@
+# Local development infrastructure for Meeting Hub.
+# All credentials below are LOCAL-DEV-ONLY defaults that match .env.example.
+name: meeting-hub
+
+x-dev-s3: &dev-s3
+  S3_ACCESS_KEY_ID: GK0123456789abcdef01234567
+  S3_SECRET_ACCESS_KEY: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+  S3_BUCKET: meeting-hub-dev
+
+services:
+  postgres:
+    image: pgvector/pgvector:0.8.7-pg18-trixie
+    environment:
+      POSTGRES_USER: meeting_hub
+      POSTGRES_PASSWORD: meeting_hub
+      POSTGRES_DB: meeting_hub
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U meeting_hub -d meeting_hub"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  redis:
+    image: redis:8.8.3-alpine
+    # BullMQ requires noeviction so queued jobs are never silently dropped.
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory-policy", "noeviction"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  garage:
+    image: dxflrs/garage:v2.4.1
+    environment:
+      GARAGE_RPC_SECRET: 4b1e2f0a9c8d7e6f5a4b3c2d1e0f9a8b7c6d5e4f3a2b1c0d9e8f7a6b5c4d3e2f
+      GARAGE_ADMIN_TOKEN: dev-admin-token
+    ports:
+      - "3900:3900" # S3 API
+    volumes:
+      - ./garage/garage.toml:/etc/garage.toml:ro
+      - garage-meta:/var/lib/garage/meta
+      - garage-data:/var/lib/garage/data
+    healthcheck:
+      test: ["CMD", "/garage", "status"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  # One-shot job: lays out the single Garage node, imports the dev key, creates the bucket.
+  garage-init:
+    image: curlimages/curl:8.22.0
+    depends_on:
+      garage:
+        condition: service_healthy
+    environment:
+      <<: *dev-s3
+      GARAGE_ADMIN_URL: http://garage:3903
+      GARAGE_ADMIN_TOKEN: dev-admin-token
+    volumes:
+      - ./garage/init.sh:/init.sh:ro
+    entrypoint: ["/bin/sh", "/init.sh"]
+    restart: "no"
+
+volumes:
+  postgres-data:
+  redis-data:
+  garage-meta:
+  garage-data:
