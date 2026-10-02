@@ -3,10 +3,13 @@ packages:
   - packages/*
 minimumReleaseAgeExclude:
   - '@types/node@24.19.1'
+  - '@aws-sdk/client-s3@3.1145.0'
 
 # Dependencies allowed (true) or explicitly denied (false) to run install scripts.
 allowBuilds:
   esbuild: true
+  # Prebuilt native msgpack used by BullMQ.
+  msgpackr-extract: true
   # Optional native speedups pulled in by testcontainers' ssh2 dependency — not needed.
   cpu-features: false
   ssh2: false

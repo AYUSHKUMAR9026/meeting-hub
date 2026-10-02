@@ -1,0 +1,4 @@
+{
+  "extends": "@meeting-hub/config/tsconfig/node.json",
+  "include": ["src", "scripts", "test", "*.ts"]
+}

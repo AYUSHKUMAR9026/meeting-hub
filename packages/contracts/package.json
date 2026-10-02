@@ -1,0 +1,25 @@
+{
+  "name": "@meeting-hub/contracts",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./openapi.json": "./openapi.json"
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@meeting-hub/config": "workspace:*",
+    "@types/node": "24.19.1",
+    "eslint": "10.11.0",
+    "typescript": "6.0.3",
+    "vitest": "5.0.3"
+  }
+}
