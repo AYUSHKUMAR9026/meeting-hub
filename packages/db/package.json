@@ -12,7 +12,6 @@
     "studio": "drizzle-kit studio",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run --passWithNoTests",
     "test:integration": "vitest run --config vitest.integration.config.ts"
   },
   "dependencies": {

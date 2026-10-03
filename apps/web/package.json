@@ -9,7 +9,6 @@
     "start": "next start --port 3000",
     "lint": "eslint .",
     "typecheck": "next typegen && tsc --noEmit",
-    "test": "vitest run --passWithNoTests",
     "api:generate": "openapi-typescript ../../packages/contracts/openapi.json -o src/lib/api/schema.d.ts",
     "test:e2e": "playwright test"
   },
