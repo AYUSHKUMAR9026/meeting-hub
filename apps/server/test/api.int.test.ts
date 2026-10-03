@@ -7,17 +7,15 @@ import pino from 'pino';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { buildApp } from '../src/app';
-import { type ApiDeps, closeApiDeps } from '../src/deps';
+import { type ApiDeps, closeApiDeps, createApiDeps } from '../src/deps';
 import { startMaintenance } from '../src/jobs/maintenance';
 import { HEARTBEAT_LAST_KEY } from '../src/jobs/processors/heartbeat';
 import { loadConfig } from '../src/lib/config';
-import { createDatabase } from '../src/lib/db';
 import { redactPaths } from '../src/lib/logger';
+import { MemoryMailer } from '../src/lib/mailer';
 import { createRedis } from '../src/lib/redis';
-import { createFeatureFlagService } from '../src/modules/platform';
 
-const PG_IMAGE = 'pgvector/pgvector:0.8.7-pg18-trixie';
-const REDIS_IMAGE = 'redis:8.8.3-alpine';
+import { PG_IMAGE, REDIS_IMAGE } from './support/global-setup';
 
 describe('api + worker against real Postgres and Redis', () => {
   let pg: StartedPostgreSqlContainer;
@@ -43,18 +41,20 @@ describe('api + worker against real Postgres and Redis', () => {
       S3_ACCESS_KEY_ID: 'test',
       S3_SECRET_ACCESS_KEY: 'test',
       FEATURE_FLAGS_CACHE_TTL_MS: '0',
+      BETTER_AUTH_SECRET: 'test-secret-test-secret-test-secret-123',
+      BETTER_AUTH_URL: 'http://localhost:3000',
+      SMTP_HOST: 'localhost',
+      RATE_LIMIT_ENABLED: 'false',
     });
     const logger = pino(
       { level: 'info', redact: { paths: redactPaths, censor: '[REDACTED]' } },
       { write: (line: string) => logLines.push(JSON.parse(line) as Record<string, unknown>) },
     );
-    const db = createDatabase(config, 'test');
     const redis = createRedis(config.REDIS_URL, 'test');
     await redis.connect();
     // S3 is exercised against Garage in local dev; here it is stubbed.
     const s3 = { send: vi.fn().mockResolvedValue({}), destroy: vi.fn() } as unknown as S3Client;
-    const flags = createFeatureFlagService({ config, db: db.db, logger });
-    deps = { config, logger, db, redis, s3, flags };
+    deps = createApiDeps(config, logger, { redis, s3, mailer: new MemoryMailer() });
     app = await buildApp(deps);
     await app.ready();
   });
@@ -100,8 +100,10 @@ describe('api + worker against real Postgres and Redis', () => {
     await deps.db.db.insert(featureFlags).values({ key: 'platform.heartbeat', enabled: false });
     const res = await app.inject({ method: 'GET', url: '/v1/system/flags' });
     expect(res.statusCode).toBe(200);
-    expect(res.json()).toEqual({
-      flags: [{ key: 'platform.heartbeat', enabled: false, source: 'database' }],
+    expect(res.json<{ flags: unknown[] }>().flags).toContainEqual({
+      key: 'platform.heartbeat',
+      enabled: false,
+      source: 'database',
     });
     await deps.db.db.delete(featureFlags);
   });

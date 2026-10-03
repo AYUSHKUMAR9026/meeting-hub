@@ -50,6 +50,7 @@ export const systemRoutes: FastifyPluginCallbackZod<{ deps: ApiDeps }> = (app, {
     app.get(
       '/v1/system/flags',
       {
+        config: { access: { kind: 'public' } },
         schema: {
           tags: ['system'],
           summary: 'Evaluated feature flags (development only)',
