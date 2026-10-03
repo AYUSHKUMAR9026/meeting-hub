@@ -56,6 +56,11 @@ export const workspaceSchema = z
     permissions: z
       .array(z.string())
       .describe("Actions the caller's role allows; use to hide UI, never to enforce"),
+    features: z
+      .array(z.string())
+      .describe(
+        'Client-visible feature flags that are on for this workspace, e.g. meetings.upload',
+      ),
     settings: workspaceSettingsSchema,
   })
   .meta({ id: 'Workspace' });
