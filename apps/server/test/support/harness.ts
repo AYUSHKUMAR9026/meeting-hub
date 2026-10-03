@@ -1,10 +1,9 @@
 /**
- * Builds the real API against the shared Testcontainers Postgres/Redis, with an in-memory mailer
- * and a stub S3, plus helpers that drive Better Auth over HTTP like a browser would.
+ * Builds the real API against the shared Testcontainers Postgres, Redis and Garage (real S3, no
+ * stubs), with an in-memory mailer, plus helpers that drive Better Auth over HTTP like a browser would.
  */
 import { randomUUID } from 'node:crypto';
 
-import type { S3Client } from '@aws-sdk/client-s3';
 import type { FastifyInstance, InjectOptions, LightMyRequestResponse } from 'fastify';
 import pino from 'pino';
 import { expect, inject, vi } from 'vitest';
@@ -15,6 +14,12 @@ import { loadConfig } from '../../src/lib/config';
 import { redactPaths } from '../../src/lib/logger';
 import { MemoryMailer } from '../../src/lib/mailer';
 import { createRedis } from '../../src/lib/redis';
+import {
+  GARAGE_ACCESS_KEY_ID,
+  GARAGE_BUCKET,
+  GARAGE_REGION,
+  GARAGE_SECRET_ACCESS_KEY,
+} from './garage';
 
 export const WEB_ORIGIN = 'http://localhost:3000';
 export const PASSWORD = 'correct-horse-battery-staple';
@@ -35,14 +40,19 @@ export async function createTestApp(env: Record<string, string> = {}): Promise<T
     BETTER_AUTH_SECRET: 'test-secret-test-secret-test-secret-123',
     DATABASE_URL: inject('databaseUrl'),
     REDIS_URL: inject('redisUrl'),
-    S3_REGION: 'test',
-    S3_BUCKET: 'test-bucket',
-    S3_ACCESS_KEY_ID: 'test',
-    S3_SECRET_ACCESS_KEY: 'test',
+    S3_ENDPOINT: inject('s3Endpoint'),
+    S3_REGION: GARAGE_REGION,
+    S3_BUCKET: GARAGE_BUCKET,
+    S3_ACCESS_KEY_ID: GARAGE_ACCESS_KEY_ID,
+    S3_SECRET_ACCESS_KEY: GARAGE_SECRET_ACCESS_KEY,
+    S3_FORCE_PATH_STYLE: 'true',
+    // The S3 minimum, so multipart tests stay small.
+    UPLOAD_PART_SIZE_BYTES: String(5 * 1024 * 1024),
     SMTP_HOST: 'localhost',
     RATE_LIMIT_ENABLED: 'false',
     FEATURE_FLAGS_CACHE_TTL_MS: '0',
-    FEATURE_FLAGS_OVERRIDE: 'workspaces.invitations=true,people.directory=true',
+    FEATURE_FLAGS_OVERRIDE:
+      'workspaces.invitations=true,people.directory=true,meetings.upload=true',
     ...env,
   });
   const logLines: Record<string, unknown>[] = [];
@@ -53,8 +63,7 @@ export async function createTestApp(env: Record<string, string> = {}): Promise<T
   const redis = createRedis(config.REDIS_URL, 'test');
   await redis.connect();
   const mailer = new MemoryMailer();
-  const s3 = { send: vi.fn().mockResolvedValue({}), destroy: vi.fn() } as unknown as S3Client;
-  const deps = createApiDeps(config, logger, { redis, s3, mailer });
+  const deps = createApiDeps(config, logger, { redis, mailer });
   const app = await buildApp(deps);
   await app.ready();
   return {

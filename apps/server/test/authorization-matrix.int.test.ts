@@ -12,7 +12,7 @@
  */
 import { randomUUID } from 'node:crypto';
 
-import { invitation, member, people, user } from '@meeting-hub/db';
+import { invitation, meetings, member, people, user } from '@meeting-hub/db';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import type { RouteAccess } from '../src/http/access';
@@ -45,6 +45,7 @@ interface CaseContext {
 interface CaseRequest {
   url: string;
   payload?: Record<string, unknown>;
+  headers?: Record<string, string>;
 }
 
 interface RouteSpec {
@@ -96,6 +97,56 @@ async function insertPerson(workspaceId: string): Promise<string> {
     .values({ workspaceId, displayName: `Person ${randomUUID().slice(0, 6)}` })
     .returning({ id: people.id });
   return row!.id;
+}
+
+/**
+ * A meeting in `ws`, created by the caller when there is one (members may only modify their own
+ * meetings, and the matrix expects role-allowed callers to succeed).
+ */
+async function insertMeeting({ ws, caller }: CaseContext): Promise<string> {
+  const [row] = await t.deps.db.db
+    .insert(meetings)
+    .values({
+      workspaceId: ws.id,
+      title: 'Matrix meeting',
+      occurredAt: new Date(),
+      createdBy: caller?.userId ?? ws.owner.userId,
+    })
+    .returning({ id: meetings.id });
+  return row!.id;
+}
+
+/** A real multipart upload in progress (in Garage) for a fresh meeting of the caller. */
+async function insertUpload(ctx: CaseContext, sizeBytes = 16) {
+  const meetingId = await insertMeeting(ctx);
+  const session = await t.deps.uploads.start(
+    { userId: ctx.ws.owner.userId, workspaceId: ctx.ws.id, role: 'owner' },
+    meetingId,
+    { fileName: 'matrix.wav', contentType: 'audio/wav', sizeBytes },
+    `matrix-${randomUUID()}`,
+    {},
+  );
+  return { meetingId, session };
+}
+
+/** An upload whose single part is already in storage, ready to complete. */
+async function insertUploadedPart(ctx: CaseContext) {
+  const { meetingId, session } = await insertUpload(ctx);
+  const res = await fetch(session.parts[0]!.url, { method: 'PUT', body: Buffer.alloc(16, 1) });
+  return { meetingId, uploadId: session.uploadId, etag: res.headers.get('etag')! };
+}
+
+/** A meeting with a completed recording upload. */
+async function insertRecordedMeeting(ctx: CaseContext): Promise<string> {
+  const { meetingId, uploadId, etag } = await insertUploadedPart(ctx);
+  await t.deps.uploads.complete(
+    { userId: ctx.ws.owner.userId, workspaceId: ctx.ws.id, role: 'owner' },
+    meetingId,
+    uploadId,
+    [{ partNumber: 1, etag }],
+    {},
+  );
+  return meetingId;
 }
 
 /** An invitation to `host` addressed to the caller (or to nobody in particular when signed out). */
@@ -220,6 +271,86 @@ const ROUTES: Record<string, RouteSpec> = {
     success: 200,
     request: ({ ws }) => ({ url: `/v1/workspaces/${ws.id}/audit-logs` }),
   },
+  'POST /v1/workspaces/:wid/meetings': {
+    access: 'meeting.create',
+    success: 201,
+    request: ({ ws }) => ({
+      url: `/v1/workspaces/${ws.id}/meetings`,
+      payload: { title: 'Matrix', occurredAt: '2026-10-01T09:00:00Z' },
+    }),
+  },
+  'GET /v1/workspaces/:wid/meetings': {
+    access: 'meeting.read',
+    success: 200,
+    request: ({ ws }) => ({ url: `/v1/workspaces/${ws.id}/meetings` }),
+  },
+  'GET /v1/meetings/:id': {
+    access: 'meeting.read',
+    success: 200,
+    request: async (ctx) => ({ url: `/v1/meetings/${await insertMeeting(ctx)}` }),
+  },
+  'PATCH /v1/meetings/:id': {
+    access: 'meeting.update',
+    success: 200,
+    request: async (ctx) => ({
+      url: `/v1/meetings/${await insertMeeting(ctx)}`,
+      payload: { title: 'Matrix renamed' },
+    }),
+  },
+  'DELETE /v1/meetings/:id': {
+    access: 'meeting.delete',
+    success: 202,
+    request: async (ctx) => ({ url: `/v1/meetings/${await insertMeeting(ctx)}` }),
+  },
+  'POST /v1/meetings/:id/uploads': {
+    access: 'recording.upload',
+    success: 201,
+    request: async (ctx) => ({
+      url: `/v1/meetings/${await insertMeeting(ctx)}/uploads`,
+      headers: { 'idempotency-key': `matrix-${randomUUID()}` },
+      payload: {
+        fileName: 'm.wav',
+        contentType: 'audio/wav',
+        sizeBytes: 16,
+        consentConfirmed: true,
+      },
+    }),
+  },
+  'POST /v1/meetings/:id/uploads/:uploadId/parts': {
+    access: 'recording.upload',
+    success: 200,
+    request: async (ctx) => {
+      const { meetingId, session } = await insertUpload(ctx);
+      return {
+        url: `/v1/meetings/${meetingId}/uploads/${session.uploadId}/parts`,
+        payload: { partNumbers: [1] },
+      };
+    },
+  },
+  'POST /v1/meetings/:id/uploads/:uploadId/complete': {
+    access: 'recording.upload',
+    success: 202,
+    request: async (ctx) => {
+      const { meetingId, uploadId, etag } = await insertUploadedPart(ctx);
+      return {
+        url: `/v1/meetings/${meetingId}/uploads/${uploadId}/complete`,
+        payload: { parts: [{ partNumber: 1, etag }] },
+      };
+    },
+  },
+  'DELETE /v1/meetings/:id/uploads/:uploadId': {
+    access: 'recording.upload',
+    success: 204,
+    request: async (ctx) => {
+      const { meetingId, session } = await insertUpload(ctx);
+      return { url: `/v1/meetings/${meetingId}/uploads/${session.uploadId}` };
+    },
+  },
+  'GET /v1/meetings/:id/recording': {
+    access: 'recording.download',
+    success: 200,
+    request: async (ctx) => ({ url: `/v1/meetings/${await insertRecordedMeeting(ctx)}/recording` }),
+  },
 };
 
 function expectedStatus(spec: RouteSpec, caller: Caller): number {
@@ -279,11 +410,12 @@ describe('authorization matrix', () => {
     const spec = ROUTES[key];
     expect(spec, `${key} has no entry in ROUTES`).toBeDefined();
     const session = caller === 'signed-out' ? null : sessions[caller];
-    const { url, payload } = await spec!.request({ ws: wsA, caller: session });
+    const { url, payload, headers } = await spec!.request({ ws: wsA, caller: session });
     const res = await call(t, session, {
       method: method as 'GET',
       url,
       ...(payload ? { payload } : {}),
+      ...(headers ? { headers } : {}),
     });
     expect(res.statusCode, res.body).toBe(expectedStatus(spec!, caller));
   });
@@ -295,11 +427,12 @@ describe('authorization matrix', () => {
 
   it.each(crossCases)("%s as workspace A's %s, on workspace B → 404", async (key, role, method) => {
     const session = sessions[role];
-    const { url, payload } = await ROUTES[key]!.request({ ws: wsB, caller: session });
+    const { url, payload, headers } = await ROUTES[key]!.request({ ws: wsB, caller: session });
     const res = await call(t, session, {
       method: method as 'GET',
       url,
       ...(payload ? { payload } : {}),
+      ...(headers ? { headers } : {}),
     });
     expect(res.statusCode, res.body).toBe(404);
   });

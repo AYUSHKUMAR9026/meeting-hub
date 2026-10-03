@@ -1,6 +1,16 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { call, createTestApp, type TestApp, uniqueEmail } from './support/harness';
+import {
+  addMember,
+  call,
+  createTestApp,
+  createUser,
+  createWorkspace,
+  type Session,
+  type TestApp,
+  uniqueEmail,
+} from './support/harness';
+import { createMeeting, startUpload } from './support/meetings';
 
 describe('rate limits (Redis-backed)', () => {
   let t: TestApp;
@@ -47,5 +57,39 @@ describe('rate limits (Redis-backed)', () => {
     }
     expect(statuses[0]).toBe(401);
     expect(statuses).toContain(429);
+  });
+});
+
+describe('upload start rate limit (per user)', () => {
+  let setup: TestApp;
+  let limited: TestApp;
+
+  beforeAll(async () => {
+    // Users are created without limits (sign-up is limited per IP); sessions live in the shared DB.
+    setup = await createTestApp();
+    limited = await createTestApp({ RATE_LIMIT_ENABLED: 'true' });
+  });
+  afterAll(async () => {
+    await setup?.close();
+    await limited?.close();
+  });
+
+  it('allows 30 upload starts per user per hour, independently of other users on the same IP', async () => {
+    const heavy = await createUser(setup, 'rl-heavy');
+    const light = await createUser(setup, 'rl-light');
+    const wsId = (await createWorkspace(setup, heavy, 'Rate limited')).id;
+    await addMember(setup, wsId, heavy, light, 'member');
+    const heavyMeeting = await createMeeting(setup, heavy, wsId);
+    const lightMeeting = await createMeeting(setup, light, wsId);
+
+    // Invalid bodies (no consent) are rejected after the limiter counted them; no storage work.
+    const attempt = (session: Session, meetingId: string) =>
+      startUpload(limited, session, meetingId, { sizeBytes: 10, consentConfirmed: false });
+    const statuses: number[] = [];
+    for (let i = 0; i < 31; i++) statuses.push((await attempt(heavy, heavyMeeting.id)).statusCode);
+    expect(statuses.slice(0, 30).every((s) => s === 400)).toBe(true);
+    expect(statuses[30]).toBe(429);
+
+    expect((await attempt(light, lightMeeting.id)).statusCode).toBe(400);
   });
 });
