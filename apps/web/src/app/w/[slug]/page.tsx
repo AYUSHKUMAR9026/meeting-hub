@@ -4,11 +4,11 @@ import { PlusIcon } from 'lucide-react';
 import Link from 'next/link';
 
 import { FormError } from '@/components/app/form-field';
+import { LinkButton } from '@/components/app/link-button';
 import { useWorkspace } from '@/components/app/workspace-context';
 import { MeetingTable } from '@/components/meetings/meeting-table';
 import { useMeetingPermissions } from '@/components/meetings/use-meeting-permissions';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useApiQuery } from '@/hooks/use-api-query';
@@ -67,13 +67,9 @@ export default function WorkspaceDashboard() {
                   .
                 </CardDescription>
                 {canCreate && (
-                  <Button
-                    className="justify-self-start"
-                    nativeButton={false}
-                    render={<Link href={newMeetingHref} />}
-                  >
+                  <LinkButton className="justify-self-start" href={newMeetingHref}>
                     <PlusIcon /> New meeting
-                  </Button>
+                  </LinkButton>
                 )}
               </div>
             ))}

@@ -1,10 +1,10 @@
 'use client';
 
 import { PlusIcon } from 'lucide-react';
-import Link from 'next/link';
 import { useState } from 'react';
 
 import { FormError, NativeSelect } from '@/components/app/form-field';
+import { LinkButton } from '@/components/app/link-button';
 import { useWorkspace } from '@/components/app/workspace-context';
 import { MeetingTable } from '@/components/meetings/meeting-table';
 import { useMeetingPermissions } from '@/components/meetings/use-meeting-permissions';
@@ -76,9 +76,9 @@ export default function MeetingsPage() {
       <div className="flex items-center justify-between gap-3">
         <h1 className="text-2xl font-semibold tracking-tight">Meetings</h1>
         {canCreate && (
-          <Button nativeButton={false} render={<Link href={`/w/${workspace.slug}/meetings/new`} />}>
+          <LinkButton href={`/w/${workspace.slug}/meetings/new`}>
             <PlusIcon /> New meeting
-          </Button>
+          </LinkButton>
         )}
       </div>
 
@@ -146,12 +146,9 @@ export default function MeetingsPage() {
                 </p>
               )}
               {!filtered && canCreate && (
-                <Button
-                  nativeButton={false}
-                  render={<Link href={`/w/${workspace.slug}/meetings/new`} />}
-                >
+                <LinkButton href={`/w/${workspace.slug}/meetings/new`}>
                   <PlusIcon /> New meeting
-                </Button>
+                </LinkButton>
               )}
             </div>
           )}
