@@ -72,6 +72,60 @@ jobs:
       - name: Integration tests
         run: pnpm test:integration
 
+  e2e:
+    name: E2E smoke test (Playwright)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: pgvector/pgvector:0.8.7-pg18-trixie
+        env:
+          POSTGRES_USER: meeting_hub
+          POSTGRES_PASSWORD: meeting_hub
+          POSTGRES_DB: meeting_hub
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U meeting_hub -d meeting_hub"
+          --health-interval 2s --health-timeout 3s --health-retries 30
+      redis:
+        image: redis:8.8.3-alpine
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 2s --health-timeout 3s --health-retries 30
+      mailpit:
+        image: axllent/mailpit:v1.31.4
+        ports: ['1025:1025', '8025:8025']
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Local-dev environment (dev defaults match the service containers)
+        run: cp .env.example .env
+
+      - run: pnpm db:migrate
+
+      - name: Install Chromium
+        run: pnpm --filter @meeting-hub/web exec playwright install --with-deps chromium
+
+      - name: E2E (starts the API and a production build of the web app)
+        run: pnpm test:e2e
+
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: playwright-report
+          path: apps/web/playwright-report
+          retention-days: 7
+
   docker:
     name: Docker image (${{ matrix.image }})
     runs-on: ubuntu-latest

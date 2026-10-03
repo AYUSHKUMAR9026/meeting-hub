@@ -22,7 +22,8 @@
     "db:generate": "pnpm --filter @meeting-hub/db generate",
     "db:migrate": "pnpm --filter @meeting-hub/db migrate",
     "db:studio": "pnpm --filter @meeting-hub/db studio",
-    "openapi:export": "pnpm --filter @meeting-hub/server openapi:export && pnpm --filter @meeting-hub/web api:generate"
+    "openapi:export": "pnpm --filter @meeting-hub/server openapi:export && pnpm --filter @meeting-hub/web api:generate",
+    "test:e2e": "pnpm --filter @meeting-hub/web test:e2e"
   },
   "devDependencies": {
     "@meeting-hub/config": "workspace:*",

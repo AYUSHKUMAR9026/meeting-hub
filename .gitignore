@@ -27,3 +27,7 @@ Thumbs.db
 .vscode/*
 !.vscode/extensions.json
 .auth-schema.generated.ts
+
+# playwright
+playwright-report/
+test-results/

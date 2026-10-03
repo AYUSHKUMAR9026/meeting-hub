@@ -10,7 +10,8 @@
     "lint": "eslint .",
     "typecheck": "next typegen && tsc --noEmit",
     "test": "vitest run --passWithNoTests",
-    "api:generate": "openapi-typescript ../../packages/contracts/openapi.json -o src/lib/api/schema.d.ts"
+    "api:generate": "openapi-typescript ../../packages/contracts/openapi.json -o src/lib/api/schema.d.ts",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@base-ui/react": "1.8.0",
@@ -28,6 +29,7 @@
   },
   "devDependencies": {
     "@meeting-hub/config": "workspace:*",
+    "@playwright/test": "1.63.0",
     "@tailwindcss/postcss": "4.3.3",
     "@types/node": "24.19.1",
     "@types/react": "19.3.0",
