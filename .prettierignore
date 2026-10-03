@@ -4,3 +4,4 @@ pnpm-lock.yaml
 **/dist/**
 packages/contracts/openapi.json
 apps/web/src/lib/api/schema.d.ts
+**/.auth-schema.generated.ts

@@ -14,6 +14,7 @@ const moduleIndex = { element: { type: 'module', fileInternalPath: 'index.ts' } 
 const lib = { element: { type: 'lib' } };
 
 export default [
+  { ignores: ['.auth-schema.generated.ts'] },
   ...baseConfig({ tsconfigRootDir: import.meta.dirname }),
   {
     files: ['src/**/*.ts'],
