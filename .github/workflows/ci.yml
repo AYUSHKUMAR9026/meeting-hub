@@ -76,26 +76,6 @@ jobs:
     name: E2E smoke test (Playwright)
     runs-on: ubuntu-latest
     timeout-minutes: 25
-    services:
-      postgres:
-        image: pgvector/pgvector:0.8.7-pg18-trixie
-        env:
-          POSTGRES_USER: meeting_hub
-          POSTGRES_PASSWORD: meeting_hub
-          POSTGRES_DB: meeting_hub
-        ports: ['5432:5432']
-        options: >-
-          --health-cmd "pg_isready -U meeting_hub -d meeting_hub"
-          --health-interval 2s --health-timeout 3s --health-retries 30
-      redis:
-        image: redis:8.8.3-alpine
-        ports: ['6379:6379']
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 2s --health-timeout 3s --health-retries 30
-      mailpit:
-        image: axllent/mailpit:v1.31.4
-        ports: ['1025:1025', '8025:8025']
     steps:
       - uses: actions/checkout@v7
 
@@ -108,7 +88,12 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      - name: Local-dev environment (dev defaults match the service containers)
+      # Same infrastructure as local dev: Postgres, Redis, Mailpit and Garage (S3), plus garage-init,
+      # which creates the bucket with the CORS rules browser uploads need.
+      - name: Start infrastructure (docker compose)
+        run: pnpm infra:up
+
+      - name: Local-dev environment (dev defaults match the compose services)
         run: cp .env.example .env
 
       - run: pnpm db:migrate
@@ -125,6 +110,10 @@ jobs:
           name: playwright-report
           path: apps/web/playwright-report
           retention-days: 7
+
+      - name: Infrastructure logs
+        if: failure()
+        run: docker compose -f infra/docker-compose.yml logs --no-color --tail=200
 
   docker:
     name: Docker image (${{ matrix.image }})

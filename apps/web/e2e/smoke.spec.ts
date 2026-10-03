@@ -1,5 +1,6 @@
 import { type Browser, expect, type Page, test } from '@playwright/test';
 
+import { wavFixture } from './fixtures';
 import { linkFromEmail } from './mailpit';
 
 // Test-only credentials for throwaway local/CI accounts.
@@ -28,7 +29,9 @@ async function newPage(browser: Browser) {
   return (await browser.newContext()).newPage();
 }
 
-test('sign up → verify → create workspace → invite → second user accepts', async ({ browser }) => {
+test('sign up → verify → workspace → invite → accept → upload a meeting recording → delete', async ({
+  browser,
+}) => {
   // 1. Owner signs up and verifies their email via Mailpit.
   const ownerPage = await newPage(browser);
   await ownerPage.goto('/sign-up');
@@ -70,4 +73,32 @@ test('sign up → verify → create workspace → invite → second user accepts
   // The owner now sees them as a member.
   await ownerPage.reload();
   await expect(ownerPage.getByTestId(`member-${invitee.email}`)).toContainText('member');
+
+  // 6. Create a meeting with the invitee as participant and upload a recording straight to
+  //    storage (~11 MiB → 3 parts of 5 MiB when the API runs with UPLOAD_PART_SIZE_BYTES=5 MiB).
+  const meetingTitle = `E2E sync ${run}`;
+  await ownerPage.getByRole('link', { name: 'Meetings' }).click();
+  await ownerPage.getByRole('link', { name: 'New meeting' }).first().click();
+  await ownerPage.getByLabel('Title').fill(meetingTitle);
+  await ownerPage.getByRole('checkbox', { name: new RegExp(invitee.name) }).check();
+  await ownerPage.getByLabel('Recording file').setInputFiles({
+    name: 'e2e-sync.wav',
+    mimeType: 'audio/wav',
+    buffer: wavFixture(11 * 1024 * 1024),
+  });
+  await expect(ownerPage.getByTestId('selected-file')).toContainText('e2e-sync.wav');
+  await ownerPage.getByRole('checkbox', { name: /agreed to be recorded/ }).check();
+  await ownerPage.getByRole('button', { name: 'Create and upload' }).click();
+
+  await expect(ownerPage).toHaveURL(/\/m\/[0-9a-f-]{36}$/, { timeout: 60_000 });
+  await expect(ownerPage.getByRole('heading', { name: meetingTitle })).toBeVisible();
+  await expect(ownerPage.getByTestId('meeting-status')).toHaveText('Uploaded');
+  await expect(ownerPage.getByTestId('recording-card')).toContainText('e2e-sync.wav');
+  await expect(ownerPage.getByLabel('Participants')).toContainText(invitee.name);
+
+  // 7. Delete it: gone from the list right away (storage is purged by the worker's job).
+  await ownerPage.getByRole('button', { name: 'Delete' }).click();
+  await ownerPage.getByRole('button', { name: 'Delete meeting' }).click();
+  await expect(ownerPage).toHaveURL(/\/meetings$/);
+  await expect(ownerPage.getByText('No meetings yet')).toBeVisible();
 });
