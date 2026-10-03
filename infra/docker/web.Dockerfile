@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1.7
 # Meeting Hub web image (Next.js standalone output).
 # Build from the repo root:
-#   docker build -f infra/docker/web.Dockerfile --build-arg NEXT_PUBLIC_API_URL=https://api.example.com -t meeting-hub-web .
+#   docker build -f infra/docker/web.Dockerfile --build-arg API_INTERNAL_URL=http://api:4000 -t meeting-hub-web .
 
 ARG NODE_VERSION=24
 
@@ -21,9 +21,11 @@ RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
     pnpm install --frozen-lockfile --filter "@meeting-hub/web..."
 
 FROM deps AS build
-# NEXT_PUBLIC_* values are inlined into the client bundle at build time.
-ARG NEXT_PUBLIC_API_URL=http://localhost:4000
-ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+# Where the Next.js server proxies /api/auth/* and /v1/* (same-origin, ADR 0002).
+# Rewrites are resolved at build time, so this is a build argument; the runtime env var of the
+# same name is used for server-side API calls.
+ARG API_INTERNAL_URL=http://localhost:4000
+ENV API_INTERNAL_URL=$API_INTERNAL_URL
 COPY . .
 RUN pnpm --filter @meeting-hub/web build
 
