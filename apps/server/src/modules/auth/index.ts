@@ -7,6 +7,11 @@ export {
   type WorkspaceActor,
 } from './authorization/authorize';
 export {
+  assertCanModifyMeeting,
+  canModifyMeeting,
+  type MeetingRef,
+} from './authorization/meeting-rules';
+export {
   type Action,
   actions,
   isWorkspaceRole,

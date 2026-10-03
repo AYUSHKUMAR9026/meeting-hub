@@ -4,12 +4,21 @@
  *   2. check `featureFlags.isEnabled('<key>')` at the feature's entry point.
  * The database (per workspace or global) and FEATURE_FLAGS_OVERRIDE can then flip it.
  * `developmentDefault` (optional) replaces the default when NODE_ENV=development.
+ * `clientVisible` flags are listed in the workspace response (`features`) so the UI can hide
+ * features that are off; the API still enforces them.
  */
 export interface FlagDefinition {
   description: string;
   defaultEnabled: boolean;
   developmentDefault?: boolean;
+  clientVisible?: boolean;
 }
+
+/** Flags whose on/off state the web app may see (to hide UI for disabled features). */
+export const clientVisibleFlags = (): FlagKey[] =>
+  (Object.entries(flagDefinitions) as [FlagKey, FlagDefinition][])
+    .filter(([, def]) => def.clientVisible)
+    .map(([key]) => key);
 
 export const flagDefinitions = {
   'platform.heartbeat': {
@@ -29,6 +38,12 @@ export const flagDefinitions = {
     description: 'The per-workspace people directory API and settings page.',
     defaultEnabled: false,
     developmentDefault: true,
+  },
+  'meetings.upload': {
+    description: 'Upload meeting recordings straight from the browser to object storage.',
+    defaultEnabled: false,
+    developmentDefault: true,
+    clientVisible: true,
   },
 } as const satisfies Record<string, FlagDefinition>;
 

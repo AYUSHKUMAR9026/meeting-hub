@@ -14,7 +14,7 @@ import {
   type WorkspaceRole,
 } from '../auth';
 import type { PeopleService } from '../people';
-import type { FeatureFlagService } from '../platform';
+import { clientVisibleFlags, type FeatureFlagService } from '../platform';
 import type {
   InvitationView,
   MemberView,
@@ -30,6 +30,8 @@ export interface WorkspaceView {
   createdAt: Date;
   role: WorkspaceRole;
   permissions: string[];
+  /** Client-visible feature flags that are on for this workspace. */
+  features: string[];
   settings: WorkspaceSettings;
 }
 
@@ -129,8 +131,17 @@ export class WorkspaceService {
       ...workspace,
       role: actor.role,
       permissions: permissionsFor(actor.role),
+      features: await this.enabledFeatures(actor.workspaceId),
       settings: await this.deps.repo.getSettings(actor.workspaceId),
     };
+  }
+
+  private async enabledFeatures(workspaceId: string): Promise<string[]> {
+    const keys = clientVisibleFlags();
+    const on = await Promise.all(
+      keys.map((key) => this.deps.flags.isEnabled(key, { workspaceId })),
+    );
+    return keys.filter((_, i) => on[i]);
   }
 
   async update(

@@ -1,6 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { FeatureFlagService, type FlagRecord, type FlagStore } from '../src/modules/platform';
+import {
+  clientVisibleFlags,
+  FeatureFlagService,
+  type FlagRecord,
+  type FlagStore,
+} from '../src/modules/platform';
 
 const WS = '0199a000-0000-7000-8000-000000000001';
 
@@ -112,11 +117,16 @@ describe('FeatureFlagService', () => {
       'auth.google_signin',
       'db.only',
       'env.only',
+      'meetings.upload',
       'people.directory',
       'platform.heartbeat',
       'workspaces.invitations',
     ]);
     expect((await flags.evaluateAll({ workspaceId: WS })).map((f) => f.key)).toContain('ws.only');
+  });
+
+  it('lists only client-visible flags for the UI', () => {
+    expect(clientVisibleFlags()).toEqual(['meetings.upload']);
   });
 
   it('isEnabled returns the boolean for typed flag keys', async () => {

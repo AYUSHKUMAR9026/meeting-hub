@@ -9,6 +9,11 @@ const booleanString = z
 
 const positiveInt = z.coerce.number().int().positive();
 
+const MiB = 1024 * 1024;
+/** S3 limits for multipart parts (every part but the last must be at least 5 MiB). */
+const MIN_PART_SIZE = 5 * MiB;
+const MAX_PART_SIZE = 5 * 1024 * MiB;
+
 /** Parses "flag.a=true,flag.b=false" into a record. Throws a descriptive message on bad input. */
 export function parseFlagOverrides(raw: string): Record<string, boolean> {
   const result: Record<string, boolean> = {};
@@ -49,6 +54,25 @@ export const configSchema = z
     S3_ACCESS_KEY_ID: z.string().min(1),
     S3_SECRET_ACCESS_KEY: z.string().min(1),
     S3_FORCE_PATH_STYLE: booleanString.default(true),
+    // Endpoint baked into presigned URLs; must be reachable from browsers (defaults to S3_ENDPOINT).
+    S3_PUBLIC_ENDPOINT: z.url().optional(),
+
+    // Direct-to-storage uploads (ADR 0003).
+    UPLOAD_PART_SIZE_BYTES: positiveInt
+      .min(MIN_PART_SIZE, 'must be at least 5 MiB (S3 minimum)')
+      .max(MAX_PART_SIZE)
+      .default(16 * MiB),
+    UPLOAD_URL_TTL_SECONDS: positiveInt
+      .min(60)
+      .max(7 * 24 * 3600)
+      .default(15 * 60),
+    UPLOAD_URL_BATCH_SIZE: positiveInt.max(100).default(10),
+    MAX_UPLOAD_BYTES: positiveInt.max(5 * 1024 ** 4).default(2 * 1024 * MiB),
+    UPLOAD_STALE_AFTER_HOURS: positiveInt.max(24 * 30).default(24),
+    DOWNLOAD_URL_TTL_SECONDS: positiveInt
+      .min(10)
+      .max(3600)
+      .default(5 * 60),
 
     FEATURE_FLAGS_OVERRIDE: z
       .string()

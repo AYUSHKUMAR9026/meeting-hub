@@ -4,8 +4,10 @@ import { AppError } from '../src/lib/errors';
 import {
   accessControlRoles,
   actions,
+  assertCanModifyMeeting,
   assertNoViolation,
   authorize,
+  canModifyMeeting,
   canGrantRole,
   checkMembershipChange,
   permissionMatrix,
@@ -33,8 +35,18 @@ describe('permission matrix', () => {
     expect(Object.fromEntries(workspaceRoles.map((r) => [r, permissionsFor(r)]))).toEqual({
       owner: actions,
       admin: actions.filter((a) => a !== 'workspace.delete'),
-      member: ['workspace.read', 'member.read', 'people.read', 'people.create', 'people.update'],
-      viewer: ['workspace.read', 'member.read', 'people.read'],
+      member: [
+        'workspace.read',
+        'member.read',
+        'people.read',
+        'people.create',
+        'people.update',
+        'meeting.read',
+        'meeting.create',
+        'meeting.update',
+        'recording.upload',
+      ],
+      viewer: ['workspace.read', 'member.read', 'people.read', 'meeting.read'],
     });
   });
 
@@ -48,6 +60,43 @@ describe('permission matrix', () => {
 
   it('only lets owners and admins read the audit log', () => {
     expect(permissionMatrix['audit.read']).toEqual(['owner', 'admin']);
+  });
+});
+
+describe('meeting rules', () => {
+  const mine = { createdBy: 'actor' };
+  const theirs = { createdBy: 'someone-else' };
+  const orphaned = { createdBy: null };
+
+  it('lets members edit and upload only to meetings they created', () => {
+    for (const action of ['meeting.update', 'recording.upload'] as const) {
+      expect(canModifyMeeting(actor('member'), action, mine)).toBe(true);
+      expect(canModifyMeeting(actor('member'), action, theirs)).toBe(false);
+      expect(canModifyMeeting(actor('member'), action, orphaned)).toBe(false);
+    }
+  });
+
+  it('lets owners and admins modify any meeting', () => {
+    for (const role of ['owner', 'admin'] as const) {
+      expect(canModifyMeeting(actor(role), 'meeting.update', theirs)).toBe(true);
+      expect(canModifyMeeting(actor(role), 'recording.upload', orphaned)).toBe(true);
+    }
+  });
+
+  it('never lets viewers modify a meeting, even one attributed to them', () => {
+    expect(canModifyMeeting(actor('viewer'), 'meeting.update', mine)).toBe(false);
+    expect(canModifyMeeting(actor('viewer'), 'recording.upload', mine)).toBe(false);
+  });
+
+  it('throws 403 NOT_MEETING_CREATOR (not 404: the meeting is visible to them)', () => {
+    const err = errorOf(() => assertCanModifyMeeting(actor('member'), 'meeting.update', theirs));
+    expect(err).toMatchObject({ status: 403, code: 'NOT_MEETING_CREATOR' });
+    expect(() => assertCanModifyMeeting(actor('member'), 'meeting.update', mine)).not.toThrow();
+  });
+
+  it('keeps delete and download for owners and admins', () => {
+    expect(permissionMatrix['meeting.delete']).toEqual(['owner', 'admin']);
+    expect(permissionMatrix['recording.download']).toEqual(['owner', 'admin']);
   });
 });
 

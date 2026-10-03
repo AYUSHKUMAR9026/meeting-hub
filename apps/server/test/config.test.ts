@@ -46,6 +46,27 @@ describe('loadConfig', () => {
     expect(config.S3_FORCE_PATH_STYLE).toBe(false);
   });
 
+  it('defaults upload settings to 16 MiB parts, 15-minute URLs and a 2 GiB limit', () => {
+    const config = loadConfig(validEnv);
+    expect(config).toMatchObject({
+      UPLOAD_PART_SIZE_BYTES: 16 * 1024 * 1024,
+      UPLOAD_URL_TTL_SECONDS: 900,
+      UPLOAD_URL_BATCH_SIZE: 10,
+      MAX_UPLOAD_BYTES: 2 * 1024 ** 3,
+      UPLOAD_STALE_AFTER_HOURS: 24,
+    });
+    expect(config.S3_PUBLIC_ENDPOINT).toBeUndefined();
+  });
+
+  it('rejects multipart parts smaller than the S3 minimum of 5 MiB', () => {
+    expect(
+      issuesFor({ ...validEnv, UPLOAD_PART_SIZE_BYTES: String(5 * 1024 * 1024 - 1) }),
+    ).toContain('UPLOAD_PART_SIZE_BYTES: must be at least 5 MiB (S3 minimum)');
+    expect(
+      loadConfig({ ...validEnv, UPLOAD_PART_SIZE_BYTES: '5242880' }).UPLOAD_PART_SIZE_BYTES,
+    ).toBe(5 * 1024 * 1024);
+  });
+
   it('treats empty strings as unset', () => {
     const config = loadConfig({ ...validEnv, API_PORT: '', FEATURE_FLAGS_OVERRIDE: '' });
     expect(config.API_PORT).toBe(4000);

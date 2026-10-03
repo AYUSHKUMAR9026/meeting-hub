@@ -34,6 +34,14 @@ export const permissionMatrix = {
   'people.update': CONTRIBUTORS,
   'people.delete': MANAGERS,
   'audit.read': MANAGERS,
+  'meeting.read': ALL,
+  'meeting.create': CONTRIBUTORS,
+  // Members may only edit / upload to meetings they created (see meeting-rules.ts).
+  'meeting.update': CONTRIBUTORS,
+  'meeting.update_any': MANAGERS,
+  'meeting.delete': MANAGERS,
+  'recording.upload': CONTRIBUTORS,
+  'recording.download': MANAGERS,
 } as const satisfies Record<string, readonly WorkspaceRole[]>;
 
 export type Action = keyof typeof permissionMatrix;

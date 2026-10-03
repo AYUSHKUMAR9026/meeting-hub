@@ -24,6 +24,14 @@ const statementSources = {
     delete: 'people.delete',
   },
   audit: { read: 'audit.read' },
+  meeting: {
+    read: 'meeting.read',
+    create: 'meeting.create',
+    update: 'meeting.update',
+    updateAny: 'meeting.update_any',
+    delete: 'meeting.delete',
+  },
+  recording: { upload: 'recording.upload', download: 'recording.download' },
 } as const satisfies Record<string, Record<string, Action>>;
 
 type Statements = { [R in keyof typeof statementSources]: (keyof (typeof statementSources)[R])[] };

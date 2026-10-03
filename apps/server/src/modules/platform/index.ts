@@ -5,7 +5,7 @@ import type { Logger } from '../../lib/logger';
 import { DbFlagStore } from './flags/db-flag-store';
 import { FeatureFlagService } from './flags/feature-flag-service';
 
-export { type FlagKey, flagDefinitions } from './flags/definitions';
+export { clientVisibleFlags, type FlagKey, flagDefinitions } from './flags/definitions';
 export {
   type FlagContext,
   type FlagEvaluation,
