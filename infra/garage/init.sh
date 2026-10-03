@@ -1,8 +1,9 @@
 #!/bin/sh
 # One-shot, idempotent bootstrap of a single-node Garage cluster for local dev:
 #   1. assign a layout to the node, 2. import a fixed dev access key,
-#   3. create the dev bucket and grant the key access to it.
-# Uses only Garage's v2 admin HTTP API so it can run from a plain curl image.
+#   3. create the dev bucket and grant the key access to it,
+#   4. set bucket CORS (browser uploads) and a lifecycle rule for abandoned multipart uploads.
+# Uses Garage's v2 admin HTTP API and curl's SigV4 signing, so it runs from a plain curl image.
 set -eu
 
 ADMIN="${GARAGE_ADMIN_URL:-http://garage:3903}"
@@ -54,5 +55,25 @@ fi
 BUCKET_ID=$(api GET "/v2/GetBucketInfo?globalAlias=${S3_BUCKET}" | compact | sed -n 's/^{"id":"\([0-9a-f]*\)".*/\1/p')
 [ -n "$BUCKET_ID" ] || { echo "garage-init: could not determine bucket id"; exit 1; }
 api POST /v2/AllowBucketKey "{\"bucketId\":\"${BUCKET_ID}\",\"accessKeyId\":\"${S3_ACCESS_KEY_ID}\",\"permissions\":{\"read\":true,\"write\":true,\"owner\":true}}" >/dev/null
+
+# Bucket settings go through the S3 API (SigV4-signed by curl), not the admin API.
+S3_URL="${S3_API_URL:-http://garage:3900}/${S3_BUCKET}"
+s3_put() { # s3_put SUBRESOURCE XML_BODY
+  curl -sS -f --aws-sigv4 "aws:amz:garage:s3" --user "${S3_ACCESS_KEY_ID}:${S3_SECRET_ACCESS_KEY}" \
+    -X PUT -H 'Content-Type: application/xml' --data-binary "$2" "${S3_URL}?$1" >/dev/null
+}
+
+# Browsers upload recordings straight to the bucket (ADR 0003): allow the web origin and EXPOSE
+# ETag, without which the browser can't read part ETags and multipart uploads can't complete.
+ORIGINS=""
+for origin in $(echo "${CORS_ALLOWED_ORIGINS:-http://localhost:3000}" | tr ',' ' '); do
+  ORIGINS="${ORIGINS}<AllowedOrigin>${origin}</AllowedOrigin>"
+done
+echo "garage-init: setting bucket CORS for ${CORS_ALLOWED_ORIGINS:-http://localhost:3000}"
+s3_put cors "<CORSConfiguration><CORSRule>${ORIGINS}<AllowedMethod>PUT</AllowedMethod><AllowedMethod>GET</AllowedMethod><AllowedMethod>HEAD</AllowedMethod><AllowedHeader>*</AllowedHeader><ExposeHeader>ETag</ExposeHeader><MaxAgeSeconds>3600</MaxAgeSeconds></CORSRule></CORSConfiguration>"
+
+# Backstop for abandoned uploads; the media.abort-stale-uploads job is the guarantee.
+echo "garage-init: aborting incomplete multipart uploads after 1 day"
+s3_put lifecycle "<LifecycleConfiguration><Rule><ID>abort-incomplete-multipart-uploads</ID><Status>Enabled</Status><Filter></Filter><AbortIncompleteMultipartUpload><DaysAfterInitiation>1</DaysAfterInitiation></AbortIncompleteMultipartUpload></Rule></LifecycleConfiguration>"
 
 echo "garage-init: done (bucket=${S3_BUCKET})"
