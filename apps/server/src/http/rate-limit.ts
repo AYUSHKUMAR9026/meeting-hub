@@ -26,7 +26,7 @@ export async function registerRateLimiting(
     nameSpace: 'rl:http:',
     // Fail open: Redis being down must not lock everyone out of signing in.
     skipOnError: true,
-    // `request.ip` honours X-Forwarded-For from the web proxy (trustProxy, see app.ts).
+    // `request.ip` honours X-Forwarded-For up to TRUST_PROXY_HOPS (see app.ts).
     keyGenerator: (req) => req.ip,
   });
 }

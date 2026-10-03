@@ -80,6 +80,8 @@ export const configSchema = z
     MAIL_FROM: z.string().min(3).default('Meeting Hub <no-reply@meeting-hub.local>'),
 
     RATE_LIMIT_ENABLED: booleanString.default(true),
+  // Proxies in front of the API whose X-Forwarded-For entries we trust (the web app = 1).
+  TRUST_PROXY_HOPS: z.coerce.number().int().min(0).max(10).default(1),
   })
   .superRefine((c, ctx) => {
     if (Boolean(c.GOOGLE_CLIENT_ID) !== Boolean(c.GOOGLE_CLIENT_SECRET)) {

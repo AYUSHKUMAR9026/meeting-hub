@@ -35,9 +35,10 @@ export async function buildApp(deps: ApiDeps): Promise<FastifyInstance> {
     requestIdHeader: false,
     logController: new LogController({ requestIdLogLabel: 'request_id' }),
     return503OnClosing: true,
-    // The API sits behind the web app's same-origin proxy (ADR 0002); trust its X-Forwarded-For
-    // so request.ip (rate limits, audit) is the browser's address. Never expose the API directly.
-    trustProxy: true,
+    // The API sits behind the web app's same-origin proxy (ADR 0002). Next.js forwards the
+    // X-Forwarded-For it received (e.g. from a load balancer) without adding to it, so trusting
+    // exactly the configured hops makes request.ip the client's address for rate limits and audit.
+    trustProxy: (_address: string, hop: number) => hop < config.TRUST_PROXY_HOPS,
   }).withTypeProvider<ZodTypeProvider>();
 
   app.decorateRequest('currentUser', null);
