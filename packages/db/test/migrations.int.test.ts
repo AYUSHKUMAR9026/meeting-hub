@@ -7,8 +7,12 @@ import {
   type DbClient,
   domainEvents,
   featureFlags,
+  meetingParticipants,
+  meetings,
+  type NewMeeting,
   organization,
   people,
+  recordings,
   runMigrations,
   sql,
   user,
@@ -158,6 +162,139 @@ describe('migrations', () => {
         .where(sql`id = ${row!.id}`);
       expect(await postgresError(update)).toMatch(/append-only/);
       expect(await postgresError(client.db.delete(auditLogs))).toMatch(/append-only/);
+    });
+  });
+
+  describe('meeting tables', () => {
+    let ws1: string;
+    let ws2: string;
+    let person1: string;
+    let person2: string;
+
+    beforeAll(async () => {
+      const [a, b] = await client.db
+        .insert(organization)
+        .values([
+          { name: 'One', slug: 'meetings-one' },
+          { name: 'Two', slug: 'meetings-two' },
+        ])
+        .returning();
+      ws1 = a!.id;
+      ws2 = b!.id;
+      const [p1, p2] = await client.db
+        .insert(people)
+        .values([
+          { workspaceId: ws1, displayName: 'In one' },
+          { workspaceId: ws2, displayName: 'In two' },
+        ])
+        .returning();
+      person1 = p1!.id;
+      person2 = p2!.id;
+    });
+
+    async function newMeeting(workspaceId: string, extra: Partial<NewMeeting> = {}) {
+      const [row] = await client.db
+        .insert(meetings)
+        .values({ workspaceId, title: 'Standup', occurredAt: new Date(), ...extra })
+        .returning();
+      return row!;
+    }
+
+    const newRecording = (meetingId: string, workspaceId: string, idempotencyKey?: string) =>
+      client.db.insert(recordings).values({
+        meetingId,
+        workspaceId,
+        storageKey: `ws/${workspaceId}/meetings/${meetingId}/original/${crypto.randomUUID()}`,
+        originalFilename: 'standup.mp3',
+        contentType: 'audio/mpeg',
+        sizeBytes: 1024,
+        idempotencyKey,
+      });
+
+    it('defaults a new meeting to awaiting_upload from an upload source', async () => {
+      const meeting = await newMeeting(ws1);
+      expect(meeting).toMatchObject({
+        status: 'awaiting_upload',
+        source: 'upload',
+        deletedAt: null,
+      });
+      expect(meeting.id).toMatch(UUID_V7);
+    });
+
+    it('rejects unknown meeting statuses', async () => {
+      expect(await postgresError(newMeeting(ws1, { status: 'bogus' as never }))).toMatch(
+        /meetings_status_check/,
+      );
+    });
+
+    it('keeps external ids unique per workspace and source', async () => {
+      await newMeeting(ws1, { source: 'zoom', externalId: 'abc' });
+      await newMeeting(ws2, { source: 'zoom', externalId: 'abc' });
+      await newMeeting(ws1, { source: 'teams', externalId: 'abc' });
+      expect(await postgresError(newMeeting(ws1, { source: 'zoom', externalId: 'abc' }))).toMatch(
+        /meetings_workspace_id_source_external_id_key/,
+      );
+    });
+
+    it("only accepts participants from the meeting's own workspace", async () => {
+      const meeting = await newMeeting(ws1);
+      await client.db
+        .insert(meetingParticipants)
+        .values({ meetingId: meeting.id, personId: person1, workspaceId: ws1 });
+      // A person of workspace 2 can't be attached, whichever workspace id is claimed.
+      const attach = (workspaceId: string) =>
+        client.db
+          .insert(meetingParticipants)
+          .values({ meetingId: meeting.id, personId: person2, workspaceId });
+      expect(await postgresError(attach(ws1))).toMatch(/meeting_participants_person_fk/);
+      expect(await postgresError(attach(ws2))).toMatch(/meeting_participants_meeting_fk/);
+    });
+
+    it("allows one recording per meeting and kind, in the meeting's workspace", async () => {
+      const meeting = await newMeeting(ws1);
+      await newRecording(meeting.id, ws1);
+      expect(await postgresError(newRecording(meeting.id, ws1))).toMatch(
+        /recordings_meeting_id_kind_key/,
+      );
+      const other = await newMeeting(ws1);
+      expect(await postgresError(newRecording(other.id, ws2))).toMatch(/recordings_meeting_fk/);
+    });
+
+    it('keeps idempotency keys unique per workspace', async () => {
+      const [m1, m2, m3] = [await newMeeting(ws1), await newMeeting(ws1), await newMeeting(ws2)];
+      await newRecording(m1.id, ws1, 'same-key');
+      await newRecording(m3.id, ws2, 'same-key');
+      expect(await postgresError(newRecording(m2.id, ws1, 'same-key'))).toMatch(
+        /recordings_workspace_id_idempotency_key_key/,
+      );
+    });
+
+    it('cascades meeting deletes to participants and recordings, person deletes to participations', async () => {
+      const meeting = await newMeeting(ws1);
+      const [leaving] = await client.db
+        .insert(people)
+        .values({ workspaceId: ws1, displayName: 'Leaving' })
+        .returning();
+      await client.db.insert(meetingParticipants).values([
+        { meetingId: meeting.id, personId: person1, workspaceId: ws1 },
+        { meetingId: meeting.id, personId: leaving!.id, workspaceId: ws1 },
+      ]);
+      await newRecording(meeting.id, ws1);
+
+      await client.db.delete(people).where(sql`id = ${leaving!.id}`);
+      const participants = await client.pool.query(
+        'SELECT person_id FROM meeting_participants WHERE meeting_id = $1',
+        [meeting.id],
+      );
+      expect(participants.rows).toEqual([{ person_id: person1 }]);
+
+      await client.db.delete(meetings).where(sql`id = ${meeting.id}`);
+      const { rows } = await client.pool.query<{ n: string }>(
+        `SELECT (SELECT count(*) FROM meeting_participants WHERE meeting_id = $1)
+              + (SELECT count(*) FROM recordings WHERE meeting_id = $1) AS n`,
+        [meeting.id],
+      );
+      expect(Number(rows[0]!.n)).toBe(0);
     });
   });
 });

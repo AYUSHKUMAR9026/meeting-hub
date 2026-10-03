@@ -6,6 +6,7 @@ import {
   jsonb,
   pgTable,
   text,
+  unique,
   uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core';
@@ -54,6 +55,8 @@ export const people = pgTable(
     updatedAt: updatedAt(),
   },
   (t) => [
+    // Target of meeting_participants' composite foreign key (same-workspace guarantee).
+    unique('people_id_workspace_id_key').on(t.id, t.workspaceId),
     uniqueIndex('people_workspace_id_email_key')
       .on(t.workspaceId, t.email)
       .where(sql`${t.email} IS NOT NULL`),

@@ -15,6 +15,13 @@
       "when": 1791004707583,
       "tag": "0001_auth_and_workspaces",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791048199214,
+      "tag": "0002_meetings_and_recordings",
+      "breakpoints": true
     }
   ]
 }
