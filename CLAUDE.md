@@ -10,6 +10,7 @@ Ask before changing anything recorded in an ADR; record new architectural decisi
 pnpm infra:up && pnpm db:migrate && pnpm dev   # full local stack
 pnpm lint && pnpm typecheck && pnpm test       # must pass before every commit
 pnpm test:integration                          # Testcontainers; needs Docker
+pnpm test:e2e                                  # Playwright smoke test; needs infra + migrated DB
 pnpm db:generate                               # after editing packages/db/src/schema
 pnpm openapi:export                            # after changing any API route or contract
 pnpm --filter @meeting-hub/server <script>     # run a script in one package
@@ -29,6 +30,8 @@ packages/db/                      Drizzle schema (src/schema) + SQL migrations (
 packages/contracts/               Zod request/response schemas + exported openapi.json
 packages/config/                  tsconfig bases, ESLint flat config, Prettier
 apps/web/src/lib/api/             openapi-fetch client; schema.d.ts is GENERATED
+apps/web/src/proxy.ts             optimistic auth redirect (Next.js Proxy); real checks are server-side
+apps/web/e2e/                     Playwright smoke test (Mailpit for email)
 ```
 
 ## Module boundary rules (enforced by `eslint-plugin-boundaries`)
@@ -46,6 +49,32 @@ apps/web/src/lib/api/             openapi-fetch client; schema.d.ts is GENERATED
 2. Check `flags.isEnabled('<key>', { workspaceId })` at the feature's entry point (route, job, UI-facing API).
 3. Turn it on via a `feature_flags` row (global: `workspace_id IS NULL`) or `FEATURE_FLAGS_OVERRIDE` locally.
 4. Remove the flag and dead branch once the feature is fully rolled out.
+
+## Auth, workspaces and authorization (ADR 0002)
+
+- Better Auth is mounted on the API at `/api/auth/*` (allowlist in `http/routes/auth.ts`); the web app proxies
+  `/api/auth/*` and `/v1/*` so the browser is same-origin. A Better Auth "organization" **is** a workspace:
+  say "workspace" in code, API and UI; Better Auth's tables keep their names.
+- **Every `/v1` route declares `config.access`**: `{ kind: 'public' }`, `{ kind: 'authenticated' }` or
+  `{ kind: 'workspace', action, flag?, workspaceFrom?, unlessSelf? }`. `http/access.ts` enforces it in one
+  `onRequest` hook (requireSession → requireWorkspace → flag → `authorize`). A `/v1` route without it fails at startup.
+- **Permissions are data**: `modules/auth/authorization/permissions.ts` (role × action). `authorize(actor, action,
+resource)` and Better Auth's access-control roles are both derived from it. Add an action there, never an
+  ad-hoc role check. Relationship rules (no granting above your role, admins can't touch owners, last owner)
+  live in `role-rules.ts`.
+- **404, not 403, across tenants**: not a member / wrong workspace / unknown id → 404 (`requireWorkspace`).
+  403 only for members whose role lacks the action.
+- **Workspace-scoped repositories**: every method on a tenant-owned table takes `workspaceId` (or resolves it through
+  the caller's membership). No unscoped "find by id" for tenant data.
+- Workspace mutations go through our services, which call Better Auth server-side (`auth.api.*` via `callAuth`) after
+  our checks, then write side effects (settings, people, audit). Don't expose Better Auth's `/organization/*` endpoints.
+- **Audit**: record security-relevant actions with `AuditService.record` (actions listed in `modules/audit`).
+  `audit_logs` is append-only (DB trigger). Never put passwords, tokens or meeting content in `metadata`.
+- **Authorization matrix test** (`apps/server/test/authorization-matrix.int.test.ts`) runs every `/v1` route × owner/
+  admin/member/viewer/non-member/signed-out plus cross-workspace 404s. **A new route needs an entry in its `ROUTES`
+  table** (access + how to build a valid request), or the test fails.
+- Better Auth schema: `pnpm --filter @meeting-hub/server auth:schema` regenerates the CLI's view; reconcile with
+  `packages/db/src/schema/auth.ts`, then `pnpm db:generate`.
 
 ## Code conventions
 
@@ -72,6 +101,10 @@ apps/web/src/lib/api/             openapi-fetch client; schema.d.ts is GENERATED
   (migrations, repositories, routes end-to-end, job processing). Use `pgvector/pgvector:0.8.7-pg18-trixie`.
 - New routes: at least one `app.inject` test for the happy path and one for the problem+json error path.
 - New flags: test both on and off paths.
+- Server integration tests share one Postgres/Redis per run (`test/support/global-setup.ts`); build the app with
+  `createTestApp()` from `test/support/harness.ts` and isolate with unique emails (`uniqueEmail`).
+- New `/v1` routes: add them to the authorization matrix test's `ROUTES` table.
+- E2E (`apps/web/e2e`, Playwright) covers the main browser flow only; keep it to smoke tests.
 
 ## Git
 
@@ -80,5 +113,5 @@ apps/web/src/lib/api/             openapi-fetch client; schema.d.ts is GENERATED
 
 ## Out of scope until their phase
 
-Auth/workspaces (Phase 2, Better Auth), meetings/uploads, transcription, AI/LLM calls, embeddings, search,
-deployment. Do not create `packages/ai` or `evals/` until those phases start.
+Meetings/uploads (Phase 3), transcription, AI/LLM calls, embeddings, search, 2FA/SSO, Postgres RLS (hardening),
+production email provider, deployment. Do not create `packages/ai` or `evals/` until those phases start.

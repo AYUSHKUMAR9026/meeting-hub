@@ -136,3 +136,22 @@ email) a row for the new member.
 - **Return 403 for non-members** — leaks which workspace IDs exist.
 - **Expose Better Auth's organization endpoints directly** — would bypass our role rules, audit and
   people side effects.
+
+## Implementation notes (added while building Phase 2)
+
+- **Route access is declarative.** Each `/v1` route sets `config.access`; one `onRequest` hook in
+  `apps/server/src/http/access.ts` runs requireSession → requireWorkspace → feature flag → `authorize()` _before_
+  body validation, so callers without access learn nothing about a route's schema. Services call `authorize()`
+  again as a second line of defence.
+- **Two routes beyond the original list:** `GET /v1/auth/providers` (public; lets the sign-in page know whether
+  Google is available) and `GET /v1/invitations/{id}` (the accept page shows who invited you to what). The accept
+  flow itself is `POST /v1/invitations/{id}/accept`. All three wrap Better Auth.
+- **The API addresses workspaces by id, the web app by slug.** `/w/[slug]` resolves the slug from
+  `GET /v1/workspaces` (the caller's own list), so a slug never reveals a workspace the caller can't see.
+- **Client IP.** Next.js rewrites pass `X-Forwarded-For` through unchanged and add none of their own, so the API
+  trusts exactly `TRUST_PROXY_HOPS` (default 1, the web server) for `request.ip`. Behind a load balancer that
+  appends the client address this yields the real client; locally it is the web server's address. Better Auth
+  only accepts a single-valued `X-Forwarded-For`, so its audit rows have no IP in local dev.
+- **Emails are sent in the background** (not awaited) so response time doesn't reveal whether an account exists.
+- **Same origin in development too:** the Next.js Proxy (`src/proxy.ts`) does an optimistic cookie-presence check;
+  every page re-checks the session server-side through `GET /v1/me`, and the API enforces everything.
