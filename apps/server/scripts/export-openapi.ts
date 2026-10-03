@@ -21,6 +21,9 @@ const config = loadConfig({
   S3_BUCKET: 'placeholder',
   S3_ACCESS_KEY_ID: 'placeholder',
   S3_SECRET_ACCESS_KEY: 'placeholder',
+  BETTER_AUTH_SECRET: 'placeholder-secret-for-openapi-export-only',
+  BETTER_AUTH_URL: 'http://localhost:3000',
+  SMTP_HOST: 'localhost',
 });
 const logger = createLogger({ ...config, NODE_ENV: 'production' });
 const deps = createApiDeps(config, logger);

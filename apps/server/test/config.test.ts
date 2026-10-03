@@ -11,6 +11,9 @@ const validEnv = {
   S3_BUCKET: 'bucket',
   S3_ACCESS_KEY_ID: 'key',
   S3_SECRET_ACCESS_KEY: 'secret',
+  BETTER_AUTH_SECRET: 'x'.repeat(32),
+  BETTER_AUTH_URL: 'http://localhost:3000',
+  SMTP_HOST: 'localhost',
 };
 
 function issuesFor(env: Record<string, string>): string[] {
@@ -87,5 +90,30 @@ describe('loadConfig', () => {
 describe('parseFlagOverrides', () => {
   it('ignores blank segments', () => {
     expect(parseFlagOverrides(' x=true,, ')).toEqual({ x: true });
+  });
+});
+
+describe('loadConfig: auth, mail and rate limits', () => {
+  it('requires a long enough auth secret', () => {
+    expect(issuesFor({ ...validEnv, BETTER_AUTH_SECRET: 'short' })).toEqual([
+      'BETTER_AUTH_SECRET: must be at least 32 characters',
+    ]);
+  });
+
+  it('requires Google client id and secret together', () => {
+    expect(issuesFor({ ...validEnv, GOOGLE_CLIENT_ID: 'id' })).toEqual([
+      'GOOGLE_CLIENT_SECRET: GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET must be set together',
+    ]);
+    expect(
+      loadConfig({ ...validEnv, GOOGLE_CLIENT_ID: 'id', GOOGLE_CLIENT_SECRET: 's' }),
+    ).toMatchObject({ GOOGLE_CLIENT_ID: 'id' });
+  });
+
+  it('defaults mail and rate-limit settings', () => {
+    expect(loadConfig(validEnv)).toMatchObject({
+      SMTP_PORT: 587,
+      SMTP_SECURE: false,
+      RATE_LIMIT_ENABLED: true,
+    });
   });
 });
