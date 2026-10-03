@@ -1,5 +1,5 @@
 import rateLimit from '@fastify/rate-limit';
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyRequest } from 'fastify';
 
 import type { Redis } from '../lib/redis';
 
@@ -13,6 +13,13 @@ export const rateLimits = {
   passwordReset: { max: 5, timeWindow: '15 minutes' },
   invite: { max: 30, timeWindow: '1 hour' },
   acceptInvitation: { max: 20, timeWindow: '15 minutes' },
+  // Per user, not per IP: colleagues behind one office NAT shouldn't share a budget.
+  uploadStart: {
+    max: 30,
+    timeWindow: '1 hour',
+    keyGenerator: (req: FastifyRequest) =>
+      req.currentUser ? `user:${req.currentUser.id}` : `ip:${req.ip}`,
+  },
 } as const;
 
 export async function registerRateLimiting(

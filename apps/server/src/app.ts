@@ -16,6 +16,7 @@ import { registerRateLimiting } from './http/rate-limit';
 import { genReqId, REQUEST_ID_HEADER } from './http/request-id';
 import { auditRoutes } from './http/routes/audit';
 import { authRoutes } from './http/routes/auth';
+import { meetingRoutes } from './http/routes/meetings';
 import { meRoutes } from './http/routes/me';
 import { peopleRoutes } from './http/routes/people';
 import { systemRoutes } from './http/routes/system';
@@ -56,6 +57,7 @@ export async function buildApp(deps: ApiDeps): Promise<FastifyInstance> {
     auth: deps.auth,
     workspaces: deps.workspaces,
     people: deps.people,
+    meetings: deps.meetings,
     flags: deps.flags,
     webOrigin: config.WEB_ORIGIN,
   });
@@ -83,6 +85,11 @@ export async function buildApp(deps: ApiDeps): Promise<FastifyInstance> {
         { name: 'invitations', description: 'Inviting people to a workspace' },
         { name: 'people', description: 'Directory of people who appear in meetings' },
         { name: 'audit', description: 'Append-only audit log' },
+        { name: 'meetings', description: 'Meetings and their participants' },
+        {
+          name: 'uploads',
+          description: 'Recording uploads straight from the browser to object storage (multipart)',
+        },
       ],
     },
     transform: jsonSchemaTransform,
@@ -95,6 +102,7 @@ export async function buildApp(deps: ApiDeps): Promise<FastifyInstance> {
   await app.register(workspaceRoutes, { deps });
   await app.register(peopleRoutes, { deps });
   await app.register(auditRoutes, { deps });
+  await app.register(meetingRoutes, { deps });
 
   if (config.NODE_ENV !== 'production') {
     app.get('/openapi.json', { schema: { hide: true } }, () => app.swagger());

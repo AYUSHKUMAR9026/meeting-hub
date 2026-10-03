@@ -18,6 +18,15 @@ export const auditActions = [
   'person.created',
   'person.updated',
   'person.deleted',
+  'meeting.created',
+  'meeting.updated',
+  'meeting.deleted',
+  'meeting.purged',
+  'upload.started',
+  'upload.completed',
+  'upload.aborted',
+  'upload.failed',
+  'recording.downloaded',
 ] as const;
 export type AuditAction = (typeof auditActions)[number];
 

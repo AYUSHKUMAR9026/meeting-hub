@@ -32,3 +32,27 @@ export const stalledJobSettings = {
 export function createQueue(name: QueueName, redisUrl: string): Queue {
   return new Queue(name, { connection: bullConnection(redisUrl), defaultJobOptions });
 }
+
+/** A producer queue that only connects to Redis when first used (building the app stays offline). */
+export interface LazyQueue {
+  get(): Queue;
+  close(): Promise<void>;
+}
+
+export function lazyQueue(
+  name: QueueName,
+  redisUrl: string,
+  onError: (err: Error) => void,
+): LazyQueue {
+  let queue: Queue | undefined;
+  return {
+    get() {
+      if (!queue) {
+        queue = createQueue(name, redisUrl);
+        queue.on('error', onError);
+      }
+      return queue;
+    },
+    close: async () => queue?.close(),
+  };
+}

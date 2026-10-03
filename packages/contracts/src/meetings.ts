@@ -230,3 +230,12 @@ export const recordingDownloadSchema = z
     downloadUrlExpiresAt: z.iso.datetime(),
   })
   .meta({ id: 'RecordingDownload' });
+
+export const meetingDeletionSchema = z
+  .object({
+    id: z.uuid(),
+    status: z
+      .literal('deletion_scheduled')
+      .describe('Hidden immediately; recordings and data are purged in the background'),
+  })
+  .meta({ id: 'MeetingDeletion' });

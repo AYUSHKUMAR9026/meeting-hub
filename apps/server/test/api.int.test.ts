@@ -14,6 +14,7 @@ import { loadConfig } from '../src/lib/config';
 import { redactPaths } from '../src/lib/logger';
 import { MemoryMailer } from '../src/lib/mailer';
 import { createRedis } from '../src/lib/redis';
+import { createMeetingMaintenance } from '../src/modules/meetings';
 
 import { PG_IMAGE, REDIS_IMAGE } from './support/global-setup';
 
@@ -52,7 +53,8 @@ describe('api + worker against real Postgres and Redis', () => {
     );
     const redis = createRedis(config.REDIS_URL, 'test');
     await redis.connect();
-    // S3 is exercised against Garage in local dev; here it is stubbed.
+    // Uploads run against a real Garage elsewhere (support/global-setup.ts); this file only needs
+    // S3 for /ready, and stops Redis mid-run, so it keeps its own containers and a stub S3.
     const s3 = { send: vi.fn().mockResolvedValue({}), destroy: vi.fn() } as unknown as S3Client;
     deps = createApiDeps(config, logger, { redis, s3, mailer: new MemoryMailer() });
     app = await buildApp(deps);
@@ -119,6 +121,13 @@ describe('api + worker against real Postgres and Redis', () => {
       redis: deps.redis,
       logger,
       flags: deps.flags,
+      meetings: createMeetingMaintenance({
+        db: deps.db.db,
+        storage: deps.storage,
+        audit: deps.audit,
+        logger,
+        staleAfterHours: 24,
+      }),
       concurrency: 1,
       heartbeatIntervalMs: 60_000,
     });

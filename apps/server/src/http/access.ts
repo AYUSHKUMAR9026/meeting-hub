@@ -20,6 +20,7 @@ import {
   requireSession,
   workspaceActorOf,
 } from '../modules/auth';
+import type { MeetingService } from '../modules/meetings';
 import type { PeopleService } from '../modules/people';
 import type { FeatureFlagService, FlagKey } from '../modules/platform';
 import {
@@ -35,8 +36,8 @@ export type RouteAccess =
   | {
       kind: 'workspace';
       action: Action;
-      /** How to find the workspace: the `wid` path param (default) or the person in `:id`. */
-      workspaceFrom?: 'param' | 'person';
+      /** How to find the workspace: the `wid` path param (default), or the person / meeting in `:id`. */
+      workspaceFrom?: 'param' | 'person' | 'meeting';
       /** Feature flag that must be on for the workspace; 404 otherwise. */
       flag?: FlagKey;
       /** Skip the action check when this path param is the caller's own user id (e.g. leaving). */
@@ -67,6 +68,7 @@ export function registerAccessControl(
     auth: Auth;
     workspaces: WorkspaceService;
     people: PeopleService;
+    meetings: MeetingService;
     flags: FeatureFlagService;
     webOrigin: string;
   },
@@ -83,13 +85,20 @@ export function registerAccessControl(
   });
 
   const session = requireSession(deps.auth);
-  const resolvers: Record<'param' | 'person', WorkspaceResolver> = {
+  const idParam = (req: FastifyRequest) => {
+    const id = param(req, 'id');
+    return id && UUID.test(id) ? id : null;
+  };
+  const resolvers: Record<'param' | 'person' | 'meeting', WorkspaceResolver> = {
     param: workspaceFromParam('wid'),
     person: (req, userId) => {
-      const personId = param(req, 'id');
-      return personId && UUID.test(personId)
-        ? deps.people.workspaceIdForMember(personId, userId)
-        : null;
+      const personId = idParam(req);
+      return personId ? deps.people.workspaceIdForMember(personId, userId) : null;
+    },
+    // Deleted meetings resolve to nothing, so every route on them is a 404.
+    meeting: (req, userId) => {
+      const meetingId = idParam(req);
+      return meetingId ? deps.meetings.workspaceIdForMember(meetingId, userId) : null;
     },
   };
 
