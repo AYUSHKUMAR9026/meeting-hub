@@ -16,7 +16,7 @@ export {
 } from './flags/feature-flag-service';
 
 export function createFeatureFlagService(deps: {
-  config: Pick<Config, 'FEATURE_FLAGS_OVERRIDE' | 'FEATURE_FLAGS_CACHE_TTL_MS'>;
+  config: Pick<Config, 'NODE_ENV' | 'FEATURE_FLAGS_OVERRIDE' | 'FEATURE_FLAGS_CACHE_TTL_MS'>;
   db: Database;
   logger: Logger;
 }): FeatureFlagService {
@@ -24,6 +24,7 @@ export function createFeatureFlagService(deps: {
     store: new DbFlagStore(deps.db),
     overrides: deps.config.FEATURE_FLAGS_OVERRIDE,
     ttlMs: deps.config.FEATURE_FLAGS_CACHE_TTL_MS,
+    environment: deps.config.NODE_ENV,
     logger: deps.logger.child({ module: 'platform.flags' }),
   });
 }

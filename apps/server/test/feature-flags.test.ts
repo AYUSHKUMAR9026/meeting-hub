@@ -109,9 +109,12 @@ describe('FeatureFlagService', () => {
     const flags = new FeatureFlagService({ store, ttlMs: 1000, overrides: { 'env.only': false } });
 
     expect((await flags.evaluateAll()).map((f) => f.key)).toEqual([
+      'auth.google_signin',
       'db.only',
       'env.only',
+      'people.directory',
       'platform.heartbeat',
+      'workspaces.invitations',
     ]);
     expect((await flags.evaluateAll({ workspaceId: WS })).map((f) => f.key)).toContain('ws.only');
   });
@@ -120,5 +123,26 @@ describe('FeatureFlagService', () => {
     const { store } = storeWith([{ key: 'platform.heartbeat', workspaceId: null, enabled: false }]);
     const flags = new FeatureFlagService({ store, ttlMs: 1000 });
     expect(await flags.isEnabled('platform.heartbeat')).toBe(false);
+  });
+
+  it('uses developmentDefault only in development', async () => {
+    const { store } = storeWith([]);
+    const dev = new FeatureFlagService({ store, ttlMs: 1000, environment: 'development' });
+    const prod = new FeatureFlagService({ store, ttlMs: 1000, environment: 'production' });
+
+    expect(await dev.isEnabled('workspaces.invitations')).toBe(true);
+    expect(await dev.isEnabled('people.directory')).toBe(true);
+    expect(await dev.isEnabled('auth.google_signin')).toBe(false);
+    expect(await prod.isEnabled('workspaces.invitations')).toBe(false);
+    expect(await prod.isEnabled('people.directory')).toBe(false);
+  });
+
+  it('lets a workspace row turn a development-default flag off', async () => {
+    const { store } = storeWith([
+      { key: 'workspaces.invitations', workspaceId: WS, enabled: false },
+    ]);
+    const flags = new FeatureFlagService({ store, ttlMs: 1000, environment: 'development' });
+    expect(await flags.isEnabled('workspaces.invitations', { workspaceId: WS })).toBe(false);
+    expect(await flags.isEnabled('workspaces.invitations')).toBe(true);
   });
 });

@@ -38,6 +38,32 @@ export class BadRequestError extends AppError {
   }
 }
 
+/** No valid session. */
+export class UnauthorizedError extends AppError {
+  constructor(message = 'Authentication required', options: Omit<AppErrorOptions, 'status'> = {}) {
+    super('UNAUTHORIZED', message, { ...options, status: 401 });
+  }
+}
+
+/**
+ * Signed in and a member, but the role does not allow the action. Never use this for resources the
+ * caller cannot see at all: those are 404 so existence is not leaked.
+ */
+export class ForbiddenError extends AppError {
+  constructor(
+    message = 'You do not have permission to do this',
+    options: Omit<AppErrorOptions, 'status'> & { code?: string } = {},
+  ) {
+    super(options.code ?? 'FORBIDDEN', message, { ...options, status: 403 });
+  }
+}
+
+export class ConflictError extends AppError {
+  constructor(code: string, message: string, options: Omit<AppErrorOptions, 'status'> = {}) {
+    super(code, message, { ...options, status: 409 });
+  }
+}
+
 /** A transient failure (network blip, rate limit, dependency down). Workers retry it with backoff. */
 export class RetryableError extends AppError {
   constructor(code: string, message: string, options: AppErrorOptions = {}) {

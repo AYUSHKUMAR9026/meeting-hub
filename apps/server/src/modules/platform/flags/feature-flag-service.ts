@@ -1,5 +1,5 @@
 import type { Logger } from '../../../lib/logger';
-import { type FlagKey, flagDefinitions, isKnownFlag } from './definitions';
+import { type FlagDefinition, type FlagKey, flagDefinitions, isKnownFlag } from './definitions';
 
 export interface FlagRecord {
   key: string;
@@ -32,6 +32,8 @@ export interface FeatureFlagServiceOptions {
   ttlMs: number;
   logger?: Logger;
   now?: () => number;
+  /** Picks `developmentDefault` over `defaultEnabled` when 'development'. */
+  environment?: string;
 }
 
 interface Snapshot {
@@ -93,8 +95,16 @@ export class FeatureFlagService {
     const global = snapshot.global.get(key);
     if (global !== undefined) return { key, enabled: global, source: 'database' };
 
-    const enabled = isKnownFlag(key) ? flagDefinitions[key].defaultEnabled : false;
-    return { key, enabled, source: 'default' };
+    return { key, enabled: this.defaultFor(key), source: 'default' };
+  }
+
+  private defaultFor(key: string): boolean {
+    if (!isKnownFlag(key)) return false;
+    const definition: FlagDefinition = flagDefinitions[key];
+    if (this.options.environment === 'development' && definition.developmentDefault !== undefined) {
+      return definition.developmentDefault;
+    }
+    return definition.defaultEnabled;
   }
 
   private async getSnapshot(): Promise<Snapshot> {

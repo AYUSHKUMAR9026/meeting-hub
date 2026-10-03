@@ -15,6 +15,17 @@ import {
   workspaceSettings,
 } from '../src';
 
+/** The Postgres error message behind a rejected Drizzle query ('' if it succeeded). */
+async function postgresError(query: PromiseLike<unknown>): Promise<string> {
+  try {
+    await query;
+    return '';
+  } catch (err) {
+    const cause = (err as { cause?: { message?: string } }).cause;
+    return cause?.message ?? String(err);
+  }
+}
+
 const UUID_V7 = /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 
 const PG_IMAGE = 'pgvector/pgvector:0.8.7-pg18-trixie';
@@ -141,15 +152,12 @@ describe('migrations', () => {
         .insert(auditLogs)
         .values({ workspaceId, action: 'test.event' })
         .returning();
-      await expect(
-        client.db
-          .update(auditLogs)
-          .set({ action: 'tampered' })
-          .where(sql`id = ${row!.id}`),
-      ).rejects.toMatchObject({ cause: { message: expect.stringMatching(/append-only/) } });
-      await expect(client.db.delete(auditLogs)).rejects.toMatchObject({
-        cause: { message: expect.stringMatching(/append-only/) },
-      });
+      const update = client.db
+        .update(auditLogs)
+        .set({ action: 'tampered' })
+        .where(sql`id = ${row!.id}`);
+      expect(await postgresError(update)).toMatch(/append-only/);
+      expect(await postgresError(client.db.delete(auditLogs))).toMatch(/append-only/);
     });
   });
 });
