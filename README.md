@@ -3,9 +3,9 @@
 AI meeting-intelligence platform: upload recordings, get transcripts with speakers, and a persistent,
 evidence-linked ledger of decisions and action items across meetings.
 
-> **Status: Phase 2 — authentication & workspaces.** Email/password sign-up with verification and password
-> reset, workspaces with owner/admin/member/viewer roles, invitations, a people directory and an audit log.
-> No meetings yet (Phase 3).
+> **Status: Phase 3 — meetings & uploads.** Accounts and workspaces with roles, invitations, a people directory and
+> an audit log (Phase 2), plus meetings with participants and recordings of up to 2 GB uploaded **straight from the
+> browser to object storage** (resumable multipart, ADR 0003). Processing and transcription come in Phase 4.
 
 ## Prerequisites
 
@@ -26,7 +26,10 @@ pnpm dev                    # web :3000, api :4000, worker
 
 Open <http://localhost:3000>, create an account, and click the verification link in **Mailpit**
 (<http://localhost:8025>) — every email the app sends lands there. After verifying you're asked to create a
-workspace; invite a teammate from **Settings → Members** (their invitation is in Mailpit too).
+workspace; invite a teammate from **Settings → Members** (their invitation is in Mailpit too). Under **Meetings → New
+meeting**, add a title, participants and an audio/video file and upload it; the bytes go from the browser straight to
+Garage, never through the API. Deleting a meeting hides it at once; the **worker** (part of `pnpm dev`) then purges its
+files from storage.
 <http://localhost:3000/status> shows PostgreSQL, Redis and S3 health.
 
 ## Commands
@@ -82,9 +85,42 @@ session cookies are first-party. See [ADR 0002](docs/adr/0002-auth-and-workspace
 | ------------------------ | --------------------- | ----------------------------------------------------- |
 | `workspaces.invitations` | on / off              | Inviting people and accepting invitations             |
 | `people.directory`       | on / off              | People directory API and settings page                |
+| `meetings.upload`        | on / off              | Recording upload endpoints and uploader UI            |
 | `auth.google_signin`     | off / off             | "Continue with Google" (also needs `GOOGLE_CLIENT_*`) |
 
 Turn one on with `FEATURE_FLAGS_OVERRIDE=flag.key=true` in `.env`, or a `feature_flags` row (global or per workspace).
+
+## Recording uploads and object storage
+
+Recordings go from the browser directly to S3-compatible storage with presigned multipart URLs (16 MiB parts,
+URLs valid 15 minutes, up to 2 GiB; see the `UPLOAD_*` variables in `.env.example`). Any S3-compatible bucket works,
+but it needs two settings that `infra/garage/init.sh` applies locally:
+
+1. **CORS** allowing the web origin to `PUT`, `GET` and `HEAD`, and **exposing the `ETag` header**. Without the exposed
+   ETag the browser can’t complete multipart uploads. For example (AWS CLI):
+
+   ```json
+   {
+     "CORSRules": [
+       {
+         "AllowedOrigins": ["https://app.example.com"],
+         "AllowedMethods": ["PUT", "GET", "HEAD"],
+         "AllowedHeaders": ["*"],
+         "ExposeHeaders": ["ETag"],
+         "MaxAgeSeconds": 3600
+       }
+     ]
+   }
+   ```
+
+   `aws s3api put-bucket-cors --bucket <bucket> --cors-configuration file://cors.json`
+
+2. A **lifecycle rule** that aborts incomplete multipart uploads after 1 day (a backstop; the worker's hourly
+   `media.abort-stale-uploads` job is the guarantee).
+
+`S3_PUBLIC_ENDPOINT` is the endpoint baked into presigned URLs; set it when browsers reach storage at a different
+address than the API does. Locally both are `http://localhost:3900`; `CORS_ALLOWED_ORIGINS` (comma-separated) changes
+the origins `garage-init` allows.
 
 ## Docker images
 
@@ -112,5 +148,9 @@ Both images run as the non-root `node` user. `API_INTERNAL_URL` (where the web s
 - **Signed in but bounced to sign-in** — the session cookie is first-party to `:3000`; always use the web origin,
   never the API port, in the browser.
 - **S3 down on `/status`** — run `pnpm infra:up` again; it waits for the `garage-init` job that creates the bucket.
+- **Upload stuck at 0 % / “CORS” errors in the browser console** — the bucket has no CORS for your web origin. Run
+  `pnpm infra:up` again (garage-init re-applies CORS); for another origin set `CORS_ALLOWED_ORIGINS` first.
+- **“Storage did not expose the ETag header”** — the bucket CORS lacks `ExposeHeaders: ETag`.
+- **Deleted meeting’s files still in storage** — purges run in the worker; make sure it is running (`pnpm dev` starts it).
 
 See [`CLAUDE.md`](CLAUDE.md) for conventions and [`docs/adr`](docs/adr) for design decisions.

@@ -1,7 +1,8 @@
 # CLAUDE.md — conventions for working in this repo
 
 Meeting Hub is a modular monolith: **web** (Next.js), **api** (Fastify) and **worker** (BullMQ) in one
-pnpm + Turborepo workspace. Read `docs/adr/0001-modular-monolith-and-stack.md` before changing architecture.
+pnpm + Turborepo workspace. Read `docs/adr/0001-modular-monolith-and-stack.md` before changing architecture (and ADR 0002 for auth,
+ADR 0003 for meetings and uploads).
 Ask before changing anything recorded in an ADR; record new architectural decisions as a new ADR.
 
 ## Commands
@@ -94,6 +95,30 @@ resource)` and Better Auth's access-control roles are both derived from it. Add 
 - Jobs: add queue names to `jobs/queues.ts`; rely on `defaultJobOptions`; make processors idempotent.
 - Pin exact dependency versions; check the latest stable version before adding one.
 
+## Meetings, uploads and storage (ADR 0003)
+
+- **Bytes never pass through the API.** Browsers upload recordings straight to S3 with presigned multipart URLs;
+  the API only creates, signs, completes and aborts uploads (`modules/media`) and keeps Postgres in step
+  (`modules/meetings`). Never add a route that accepts file bodies.
+- **Storage keys** come only from `modules/media/storage-keys.ts`: `ws/{workspaceId}/meetings/{meetingId}/<kind>/{uuid}`.
+  Never put file names or other user input in a key; the original name lives in `recordings.original_filename`.
+  Everything a meeting owns sits under its `ws/{wid}/meetings/{mid}/` prefix — deletion sweeps that prefix.
+- Presign with `deps.s3Signer` (`S3_PUBLIC_ENDPOINT`), call storage with `deps.s3`. The S3 client computes
+  checksums only `WHEN_REQUIRED`; don't change that or presigned part URLs break in browsers.
+- **Upload rules** (type allowlist, default size limit) live in `@meeting-hub/contracts/upload-rules` (no Zod) and are
+  shared by API and web; the API's `MAX_UPLOAD_BYTES` is what's enforced.
+- Bucket **CORS must allow the web origin and expose `ETag`** (set by `infra/garage/init.sh` locally; see README for
+  production). Without it browser uploads can't complete — and only browsers notice.
+- **Outbox:** state changes other modules/phases react to write a `domain_events` row in the **same transaction**
+  (e.g. `recording.uploaded` in `UploadTx.markUploaded`). Payload: ids and storage keys, never meeting content.
+  Event types are stable strings; consumers must be idempotent.
+- **Idempotency:** retried client operations take an `Idempotency-Key` (unique per workspace); completion locks the
+  recording row (`withLockedUpload`) so repeats return the same result without side effects.
+- Deleting tenant data with storage behind it = soft delete (`deleted_at`, filtered everywhere) + a maintenance job
+  that removes objects, then rows, then audits; an hourly sweep re-enqueues anything left behind.
+- Members may edit/upload only meetings they created (`authorization/meeting-rules.ts`) → 403, not 404.
+- Integration tests use a real Garage container (`test/support/garage.ts`) — don't stub S3 on upload paths.
+
 ## Testing expectations
 
 - Unit tests (`*.test.ts`) for any logic: pure functions, services with injected fakes, error mapping.
@@ -101,7 +126,7 @@ resource)` and Better Auth's access-control roles are both derived from it. Add 
   (migrations, repositories, routes end-to-end, job processing). Use `pgvector/pgvector:0.8.7-pg18-trixie`.
 - New routes: at least one `app.inject` test for the happy path and one for the problem+json error path.
 - New flags: test both on and off paths.
-- Server integration tests share one Postgres/Redis per run (`test/support/global-setup.ts`); build the app with
+- Server integration tests share one Postgres/Redis/Garage per run (`test/support/global-setup.ts`); build the app with
   `createTestApp()` from `test/support/harness.ts` and isolate with unique emails (`uniqueEmail`).
 - New `/v1` routes: add them to the authorization matrix test's `ROUTES` table.
 - E2E (`apps/web/e2e`, Playwright) covers the main browser flow only; keep it to smoke tests.
@@ -113,5 +138,5 @@ resource)` and Better Auth's access-control roles are both derived from it. Add 
 
 ## Out of scope until their phase
 
-Meetings/uploads (Phase 3), transcription, AI/LLM calls, embeddings, search, 2FA/SSO, Postgres RLS (hardening),
+Processing runs, ffmpeg/ffprobe and outbox consumers (Phase 4), transcription, AI/LLM calls, embeddings, search, 2FA/SSO, Postgres RLS (hardening),
 production email provider, deployment. Do not create `packages/ai` or `evals/` until those phases start.
