@@ -9,11 +9,13 @@
     "start": "next start --port 3000",
     "lint": "eslint .",
     "typecheck": "next typegen && tsc --noEmit",
+    "test": "vitest run",
     "api:generate": "openapi-typescript ../../packages/contracts/openapi.json -o src/lib/api/schema.d.ts",
     "test:e2e": "playwright test"
   },
   "dependencies": {
     "@base-ui/react": "1.8.0",
+    "@meeting-hub/contracts": "workspace:*",
     "better-auth": "1.7.7",
     "class-variance-authority": "0.7.1",
     "cn": "0.4.0",

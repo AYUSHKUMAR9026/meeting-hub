@@ -22,6 +22,9 @@ export type Member = Schemas['Member'];
 export type Invitation = Schemas['Invitation'];
 export type InvitationDetails = Schemas['InvitationDetails'];
 export type Person = Schemas['Person'];
+export type Meeting = Schemas['Meeting'];
+export type MeetingStatus = Schemas['MeetingStatus'];
+export type RecordingSummary = Schemas['RecordingSummary'];
 
 /** A readable message from an API error body (problem+json) or anything thrown. */
 export function problemMessage(error: unknown, fallback = 'Something went wrong'): string {

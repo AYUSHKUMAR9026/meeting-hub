@@ -15,6 +15,8 @@ const nextConfig: NextConfig = {
   // Trace files from the monorepo root so workspace dependencies are included.
   outputFileTracingRoot: join(import.meta.dirname, '../..'),
   poweredByHeader: false,
+  // Workspace packages ship TypeScript source.
+  transpilePackages: ['@meeting-hub/contracts'],
   reactStrictMode: true,
   rewrites() {
     return Promise.resolve([

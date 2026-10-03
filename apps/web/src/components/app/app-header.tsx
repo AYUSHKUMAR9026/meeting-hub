@@ -29,9 +29,18 @@ export function AppHeader({
   const pathname = usePathname();
   const router = useRouter();
   const base = `/w/${current.slug}`;
-  const nav = [
-    { href: base, label: 'Dashboard' },
-    { href: `${base}/settings`, label: 'Settings' },
+  const nav: { href: string; label: string; isActive: (path: string) => boolean }[] = [
+    { href: base, label: 'Dashboard', isActive: (p) => p === base },
+    {
+      href: `${base}/meetings`,
+      label: 'Meetings',
+      isActive: (p) => p.startsWith(`${base}/meetings`) || p.startsWith(`${base}/m/`),
+    },
+    {
+      href: `${base}/settings`,
+      label: 'Settings',
+      isActive: (p) => p.startsWith(`${base}/settings`),
+    },
   ];
 
   async function signOut() {
@@ -77,7 +86,7 @@ export function AppHeader({
 
         <nav className="flex gap-1 text-sm">
           {nav.map((item) => {
-            const active = item.href === base ? pathname === base : pathname.startsWith(item.href);
+            const active = item.isActive(pathname);
             return (
               <Link
                 key={item.href}
