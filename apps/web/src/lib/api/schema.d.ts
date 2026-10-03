@@ -1736,6 +1736,985 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/workspaces/{wid}/meetings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Meetings, newest first (cursor-paginated) */
+        get: {
+            parameters: {
+                query?: {
+                    cursor?: string;
+                    limit?: number;
+                    status?: components["schemas"]["MeetingStatusInput"];
+                    /** @description occurredAt ≥ from */
+                    from?: string;
+                    /** @description occurredAt < to */
+                    to?: string;
+                };
+                header?: never;
+                path: {
+                    wid: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["MeetingList"];
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /** Create a meeting (upload its recording afterwards) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    wid: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CreateMeetingRequestInput"];
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Meeting"];
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/meetings/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A meeting with its participants and recording */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Meeting"];
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        /** Delete a meeting: hidden at once, recordings and data purged in the background */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                202: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["MeetingDeletion"];
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        /** Edit the title, time or participants (members: only meetings they created) */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["UpdateMeetingRequestInput"];
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Meeting"];
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/v1/meetings/{id}/uploads": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start a multipart upload of the meeting recording; returns the first part URLs
+         * @description The browser PUTs each part to its presigned URL and keeps the ETag response header. Retrying with the same Idempotency-Key returns the same upload with fresh URLs.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header: {
+                    /** @description Client-generated key; retrying with the same key returns the same upload */
+                    "idempotency-key": string;
+                };
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["StartUploadRequestInput"];
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["StartUploadResponse"];
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                413: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                415: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/meetings/{id}/uploads/{uploadId}/parts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Fresh presigned URLs for more parts */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                    uploadId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["PresignPartsRequestInput"];
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PresignPartsResponse"];
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/meetings/{id}/uploads/{uploadId}/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Complete the upload; the meeting becomes `uploaded` (idempotent) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                    uploadId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CompleteUploadRequestInput"];
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                202: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["CompleteUploadResponse"];
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/meetings/{id}/uploads/{uploadId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Cancel an upload in progress */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                    uploadId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description No content */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/meetings/{id}/recording": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The original recording with a short-lived download URL (owners and admins) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["RecordingDownload"];
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1778,6 +2757,146 @@ export interface components {
             emailPassword: true;
             /** @description Google sign-in is configured and enabled */
             google: boolean;
+        };
+        /** @enum {string} */
+        MeetingStatusInput: "awaiting_upload" | "uploading" | "uploaded" | "processing" | "ready" | "partially_ready" | "failed";
+        /** @enum {string} */
+        RecordingStatusInput: "pending" | "uploading" | "uploaded" | "failed" | "deleted";
+        MeetingParticipantInput: {
+            /** Format: uuid */
+            id: string;
+            displayName: string;
+        };
+        RecordingSummaryInput: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            kind: "original" | "normalized";
+            /** @description Original file name (display only; never used as a storage key) */
+            fileName: string;
+            contentType: string;
+            sizeBytes: number;
+            durationMs: number | null;
+            status: components["schemas"]["RecordingStatusInput"];
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        MeetingInput: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            workspaceId: string;
+            title: string;
+            /** Format: date-time */
+            occurredAt: string;
+            durationMs: number | null;
+            language: string | null;
+            status: components["schemas"]["MeetingStatusInput"];
+            source: string;
+            /** @description User who created the meeting (null if deleted) */
+            createdBy: string | null;
+            participants: components["schemas"]["MeetingParticipantInput"][];
+            /** @description The original recording, if any */
+            recording: components["schemas"]["RecordingSummaryInput"] | null;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        MeetingListInput: {
+            meetings: components["schemas"]["MeetingInput"][];
+            /** @description Pass as `cursor` to get the next (older) page */
+            nextCursor: string | null;
+        };
+        CreateMeetingRequestInput: {
+            title: string;
+            /** Format: date-time */
+            occurredAt: string;
+            /**
+             * @description People directory ids
+             * @default []
+             */
+            participantIds: string[];
+        };
+        UpdateMeetingRequestInput: {
+            title?: string;
+            /** Format: date-time */
+            occurredAt?: string;
+            /** @description Replaces the participant list */
+            participantIds?: string[];
+        };
+        StartUploadRequestInput: {
+            fileName: string;
+            /** @description One of the allowed audio/video types */
+            contentType: string;
+            sizeBytes: number;
+            /**
+             * @description The uploader confirms that participants consented to being recorded
+             * @constant
+             */
+            consentConfirmed: true;
+        };
+        PresignedPartInput: {
+            partNumber: number;
+            /** Format: uri */
+            url: string;
+        };
+        StartUploadResponseInput: {
+            /** Format: uuid */
+            uploadId: string;
+            /** Format: uuid */
+            meetingId: string;
+            /** @description Bytes per part; the last part may be smaller */
+            partSize: number;
+            partCount: number;
+            /** Format: date-time */
+            urlsExpireAt: string;
+            /** @description URLs for the first batch of parts */
+            parts: components["schemas"]["PresignedPartInput"][];
+        };
+        PresignPartsRequestInput: {
+            partNumbers: number[];
+        };
+        PresignPartsResponseInput: {
+            /** Format: date-time */
+            urlsExpireAt: string;
+            parts: components["schemas"]["PresignedPartInput"][];
+        };
+        CompleteUploadRequestInput: {
+            parts: {
+                partNumber: number;
+                etag: string;
+            }[];
+        };
+        CompleteUploadResponseInput: {
+            /** Format: uuid */
+            uploadId: string;
+            /** Format: uuid */
+            meetingId: string;
+            /** @constant */
+            status: "uploaded";
+            sizeBytes: number;
+        };
+        RecordingDownloadInput: {
+            recording: components["schemas"]["RecordingSummaryInput"];
+            /**
+             * Format: uri
+             * @description Short-lived signed URL; downloads as an attachment
+             */
+            downloadUrl: string;
+            /** Format: date-time */
+            downloadUrlExpiresAt: string;
+        };
+        MeetingDeletionInput: {
+            /** Format: uuid */
+            id: string;
+            /**
+             * @description Hidden immediately; recordings and data are purged in the background
+             * @constant
+             */
+            status: "deletion_scheduled";
         };
         PersonInput: {
             /** Format: uuid */
@@ -1881,6 +3000,8 @@ export interface components {
             role: components["schemas"]["WorkspaceRoleInput"];
             /** @description Actions the caller's role allows; use to hide UI, never to enforce */
             permissions: string[];
+            /** @description Client-visible feature flags that are on for this workspace, e.g. meetings.upload */
+            features: string[];
             settings: components["schemas"]["WorkspaceSettingsInput"];
         };
         CreateWorkspaceRequestInput: {
@@ -1994,6 +3115,146 @@ export interface components {
             /** @description Google sign-in is configured and enabled */
             google: boolean;
         };
+        /** @enum {string} */
+        MeetingStatus: "awaiting_upload" | "uploading" | "uploaded" | "processing" | "ready" | "partially_ready" | "failed";
+        /** @enum {string} */
+        RecordingStatus: "pending" | "uploading" | "uploaded" | "failed" | "deleted";
+        MeetingParticipant: {
+            /** Format: uuid */
+            id: string;
+            displayName: string;
+        };
+        RecordingSummary: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            kind: "original" | "normalized";
+            /** @description Original file name (display only; never used as a storage key) */
+            fileName: string;
+            contentType: string;
+            sizeBytes: number;
+            durationMs: number | null;
+            status: components["schemas"]["RecordingStatus"];
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        Meeting: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            workspaceId: string;
+            title: string;
+            /** Format: date-time */
+            occurredAt: string;
+            durationMs: number | null;
+            language: string | null;
+            status: components["schemas"]["MeetingStatus"];
+            source: string;
+            /** @description User who created the meeting (null if deleted) */
+            createdBy: string | null;
+            participants: components["schemas"]["MeetingParticipant"][];
+            /** @description The original recording, if any */
+            recording: components["schemas"]["RecordingSummary"] | null;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        MeetingList: {
+            meetings: components["schemas"]["Meeting"][];
+            /** @description Pass as `cursor` to get the next (older) page */
+            nextCursor: string | null;
+        };
+        CreateMeetingRequest: {
+            title: string;
+            /** Format: date-time */
+            occurredAt: string;
+            /**
+             * @description People directory ids
+             * @default []
+             */
+            participantIds: string[];
+        };
+        UpdateMeetingRequest: {
+            title?: string;
+            /** Format: date-time */
+            occurredAt?: string;
+            /** @description Replaces the participant list */
+            participantIds?: string[];
+        };
+        StartUploadRequest: {
+            fileName: string;
+            /** @description One of the allowed audio/video types */
+            contentType: string;
+            sizeBytes: number;
+            /**
+             * @description The uploader confirms that participants consented to being recorded
+             * @constant
+             */
+            consentConfirmed: true;
+        };
+        PresignedPart: {
+            partNumber: number;
+            /** Format: uri */
+            url: string;
+        };
+        StartUploadResponse: {
+            /** Format: uuid */
+            uploadId: string;
+            /** Format: uuid */
+            meetingId: string;
+            /** @description Bytes per part; the last part may be smaller */
+            partSize: number;
+            partCount: number;
+            /** Format: date-time */
+            urlsExpireAt: string;
+            /** @description URLs for the first batch of parts */
+            parts: components["schemas"]["PresignedPart"][];
+        };
+        PresignPartsRequest: {
+            partNumbers: number[];
+        };
+        PresignPartsResponse: {
+            /** Format: date-time */
+            urlsExpireAt: string;
+            parts: components["schemas"]["PresignedPart"][];
+        };
+        CompleteUploadRequest: {
+            parts: {
+                partNumber: number;
+                etag: string;
+            }[];
+        };
+        CompleteUploadResponse: {
+            /** Format: uuid */
+            uploadId: string;
+            /** Format: uuid */
+            meetingId: string;
+            /** @constant */
+            status: "uploaded";
+            sizeBytes: number;
+        };
+        RecordingDownload: {
+            recording: components["schemas"]["RecordingSummary"];
+            /**
+             * Format: uri
+             * @description Short-lived signed URL; downloads as an attachment
+             */
+            downloadUrl: string;
+            /** Format: date-time */
+            downloadUrlExpiresAt: string;
+        };
+        MeetingDeletion: {
+            /** Format: uuid */
+            id: string;
+            /**
+             * @description Hidden immediately; recordings and data are purged in the background
+             * @constant
+             */
+            status: "deletion_scheduled";
+        };
         Person: {
             /** Format: uuid */
             id: string;
@@ -2096,6 +3357,8 @@ export interface components {
             role: components["schemas"]["WorkspaceRole"];
             /** @description Actions the caller's role allows; use to hide UI, never to enforce */
             permissions: string[];
+            /** @description Client-visible feature flags that are on for this workspace, e.g. meetings.upload */
+            features: string[];
             settings: components["schemas"]["WorkspaceSettings"];
         };
         CreateWorkspaceRequest: {
