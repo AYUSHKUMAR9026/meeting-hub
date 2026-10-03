@@ -9,7 +9,9 @@ export const metadata: Metadata = { title: 'Accept invitation · Meeting Hub' };
 
 export default async function AcceptInvitationPage({
   params,
-}: PageProps<'/accept-invitation/[id]'>) {
+}: {
+  params: Promise<{ id: string }>;
+}) {
   const { id } = await params;
   const user = await requireUser(`/accept-invitation/${id}`);
   return (

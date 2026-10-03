@@ -1,4 +1,5 @@
 import { notFound } from 'next/navigation';
+import type { ReactNode } from 'react';
 
 import { AppHeader } from '@/components/app/app-header';
 import { WorkspaceProvider } from '@/components/app/workspace-context';
@@ -8,7 +9,13 @@ import { getMyWorkspaces, requireUser, serverApi } from '@/lib/api/server';
  * Server-side session + membership check for everything under /w/[slug]. A workspace the user
  * doesn't belong to is a 404, mirroring the API.
  */
-export default async function WorkspaceLayout({ children, params }: LayoutProps<'/w/[slug]'>) {
+export default async function WorkspaceLayout({
+  children,
+  params,
+}: {
+  children: ReactNode;
+  params: Promise<{ slug: string }>;
+}) {
   const { slug } = await params;
   const user = await requireUser(`/w/${slug}`);
   const workspaces = await getMyWorkspaces();
