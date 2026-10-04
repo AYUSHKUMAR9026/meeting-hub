@@ -15,6 +15,9 @@ const nextConfig: NextConfig = {
   // Trace files from the monorepo root so workspace dependencies are included.
   outputFileTracingRoot: join(import.meta.dirname, '../..'),
   poweredByHeader: false,
+  // `next dev` otherwise writes apps/web/AGENTS.md + CLAUDE.md when it detects a coding agent; the
+  // repo's instructions live in the root CLAUDE.md only.
+  agentRules: false,
   // Workspace packages ship TypeScript source.
   transpilePackages: ['@meeting-hub/contracts'],
   reactStrictMode: true,

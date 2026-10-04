@@ -81,6 +81,9 @@ resource)` and Better Auth's access-control roles are both derived from it. Add 
 ## Code conventions
 
 - TypeScript strict; no `any` without a comment explaining why. Validate all external input with Zod.
+- Web: Next.js 16 has breaking changes from older versions (APIs, conventions, file layout). Read the matching guide
+  in `apps/web/node_modules/next/dist/docs/` before writing web code, and heed deprecation notices.
+  `agentRules: false` in `next.config.ts` stops `next dev` from writing its own `apps/web/AGENTS.md`/`CLAUDE.md`.
 - Config: add new env vars to `lib/config.ts` **and** `.env.example` (with a comment). Never read `process.env` elsewhere.
 - Errors: throw `AppError` subclasses with a stable `UPPER_SNAKE` `code`; never rename an existing code.
   API errors are `application/problem+json`. In jobs, throw `PermanentError` for non-retryable failures

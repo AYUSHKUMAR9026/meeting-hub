@@ -31,3 +31,8 @@ Thumbs.db
 # playwright
 playwright-report/
 test-results/
+
+# next dev writes these when it detects a coding agent (disabled via agentRules: false);
+# repo instructions live in the root CLAUDE.md only.
+apps/web/AGENTS.md
+apps/web/CLAUDE.md
