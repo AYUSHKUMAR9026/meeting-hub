@@ -1,4 +1,4 @@
-import { and, auditLogs, eq, people } from '@meeting-hub/db';
+import { and, auditLogs, eq, member, people } from '@meeting-hub/db';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import {
@@ -318,6 +318,65 @@ describe('workspaces, members and invitations', () => {
         url: `/v1/workspaces/${ws}/members/${leaver.userId}`,
       });
       expect(res.statusCode).toBe(204);
+    });
+  });
+
+  describe('concurrent owner changes', () => {
+    const ownerCount = async (wid: string) =>
+      (
+        await t.deps.db.db
+          .select({ role: member.role })
+          .from(member)
+          .where(and(eq(member.organizationId, wid), eq(member.role, 'owner')))
+      ).length;
+
+    /** A fresh workspace with exactly two owners: `owner` and a new user. */
+    async function twoOwners(label: string) {
+      const wid = (await createWorkspace(t, owner, `Race ${label}`)).id;
+      const second = await createUser(t, `race-${label}`);
+      await addMember(t, wid, owner, second, 'admin');
+      const promote = await call(t, owner, {
+        method: 'PATCH',
+        url: `/v1/workspaces/${wid}/members/${second.userId}`,
+        payload: { role: 'owner' },
+      });
+      expect(promote.statusCode, promote.body).toBe(200);
+      expect(await ownerCount(wid)).toBe(2);
+      return { wid, second };
+    }
+
+    it('serialises two owners demoting each other: one wins, the workspace keeps an owner', async () => {
+      for (const round of [1, 2, 3]) {
+        const { wid, second } = await twoOwners(`demote-${round}`);
+        const results = await Promise.all([
+          call(t, owner, {
+            method: 'PATCH',
+            url: `/v1/workspaces/${wid}/members/${second.userId}`,
+            payload: { role: 'admin' },
+          }),
+          call(t, second, {
+            method: 'PATCH',
+            url: `/v1/workspaces/${wid}/members/${owner.userId}`,
+            payload: { role: 'admin' },
+          }),
+        ]);
+        expect(results.map((r) => r.statusCode).sort()).toEqual([200, 409]);
+        expect(results.find((r) => r.statusCode === 409)!.json()).toMatchObject({
+          code: 'LAST_OWNER',
+        });
+        expect(await ownerCount(wid)).toBe(1);
+      }
+    });
+
+    it('serialises both owners leaving at once', async () => {
+      const { wid, second } = await twoOwners('leave');
+      const results = await Promise.all(
+        [owner, second].map((s) =>
+          call(t, s, { method: 'DELETE', url: `/v1/workspaces/${wid}/members/${s.userId}` }),
+        ),
+      );
+      expect(results.map((r) => r.statusCode).sort()).toEqual([204, 409]);
+      expect(await ownerCount(wid)).toBe(1);
     });
   });
 

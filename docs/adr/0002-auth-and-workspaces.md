@@ -86,6 +86,24 @@ Better Auth writes through its own adapter calls, so its rows and our follow-up 
 idempotent (`ON CONFLICT DO NOTHING` / upsert-by-email), so a retry heals a partial failure, and reads
 fall back to defaults when a settings row is missing. We accept this rather than bypass the library.
 
+### Serialising membership changes (added 2026-10-04)
+
+The last-owner rule is a read-then-write: count owners, then ask Better Auth to change a role or
+remove a member. Two owners demoting each other at the same moment could both read "2 owners" and
+both succeed, leaving none. Role changes, removals and leaving therefore run the whole sequence
+(read target → count owners → check rules → Better Auth write) inside one transaction that holds a
+**per-workspace transaction-level advisory lock** (`pg_try_advisory_xact_lock` on
+`hashtextextended('workspace-membership:<id>')`). The lock is released on commit, after Better Auth's
+write has committed, so the next change sees it.
+
+- A row lock (`SELECT … FROM member … FOR UPDATE`) was rejected: Better Auth updates `member` on its
+  own pooled connection, which would wait on our lock while we wait on it (deadlock).
+- Waiters poll `pg_try_…` with a short backoff instead of blocking in `pg_advisory_xact_lock`, so
+  they don't hold pooled connections the lock holder needs for its Better Auth call. After 10 s
+  they give up with 409 `MEMBERSHIP_CHANGE_IN_PROGRESS`.
+- `workspaces.int.test.ts` fires concurrent "demote the other owner" and "both owners leave"
+  requests and asserts exactly one wins and one owner remains.
+
 ### Email
 
 A small `Mailer` interface with an SMTP implementation (nodemailer). Locally, SMTP goes to **Mailpit**
@@ -123,8 +141,9 @@ email) a row for the new member.
 - **−** Better Auth and our tables are not written atomically (see above); follow-ups must stay idempotent.
 - **−** Every API request reads the session and membership from Postgres. Fine at our scale; a short
   cache would trade immediacy of revocation for load and would need its own ADR.
-- **−** The last-owner check is not serialised; two owners demoting each other concurrently could
-  leave none. Acceptable for now, revisit in hardening.
+- **−** Owner-affecting membership changes in one workspace run one at a time (see "Serialising
+  membership changes" below); under heavy contention a caller can get a 409
+  `MEMBERSHIP_CHANGE_IN_PROGRESS` and must retry.
 
 ## Alternatives considered
 

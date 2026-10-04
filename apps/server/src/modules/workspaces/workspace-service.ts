@@ -196,9 +196,10 @@ export class WorkspaceService {
   ): Promise<MemberView> {
     authorize(actor, 'member.update');
     const { auth, repo, audit } = this.deps;
-    const target = await repo.findMember(actor.workspaceId, targetUserId);
-    if (!target) throw new NotFoundError('Member not found');
-    if (target.role !== newRole) {
+    const previousRole = await this.serialized(actor.workspaceId, async () => {
+      const target = await repo.findMember(actor.workspaceId, targetUserId);
+      if (!target) throw new NotFoundError('Member not found');
+      if (target.role === newRole) return null;
       assertNoViolation(
         checkMembershipChange({
           actor,
@@ -213,12 +214,15 @@ export class WorkspaceService {
           headers: caller.headers,
         }),
       );
+      return target.role;
+    });
+    if (previousRole) {
       await audit.record({
         action: 'member.role_changed',
         workspaceId: actor.workspaceId,
         actorUserId: actor.userId,
         target: { type: 'user', id: targetUserId },
-        metadata: { from: target.role, to: newRole },
+        metadata: { from: previousRole, to: newRole },
         origin: caller.origin,
       });
     }
@@ -236,32 +240,34 @@ export class WorkspaceService {
     const isSelf = targetUserId === actor.userId;
     if (!isSelf) authorize(actor, 'member.remove');
 
-    const target = await repo.findMember(actor.workspaceId, targetUserId);
-    if (!target) throw new NotFoundError('Member not found');
-    assertNoViolation(
-      checkMembershipChange({
-        actor,
-        target,
-        change: { kind: 'remove' },
-        ownerCount: await repo.countOwners(actor.workspaceId),
-      }),
-    );
-
-    if (isSelf) {
-      await callAuth(() =>
-        auth.api.leaveOrganization({
-          body: { organizationId: actor.workspaceId },
-          headers: caller.headers,
+    const target = await this.serialized(actor.workspaceId, async () => {
+      const found = await repo.findMember(actor.workspaceId, targetUserId);
+      if (!found) throw new NotFoundError('Member not found');
+      assertNoViolation(
+        checkMembershipChange({
+          actor,
+          target: found,
+          change: { kind: 'remove' },
+          ownerCount: await repo.countOwners(actor.workspaceId),
         }),
       );
-    } else {
-      await callAuth(() =>
-        auth.api.removeMember({
-          body: { organizationId: actor.workspaceId, memberIdOrEmail: target.memberId },
-          headers: caller.headers,
-        }),
-      );
-    }
+      if (isSelf) {
+        await callAuth(() =>
+          auth.api.leaveOrganization({
+            body: { organizationId: actor.workspaceId },
+            headers: caller.headers,
+          }),
+        );
+      } else {
+        await callAuth(() =>
+          auth.api.removeMember({
+            body: { organizationId: actor.workspaceId, memberIdOrEmail: found.memberId },
+            headers: caller.headers,
+          }),
+        );
+      }
+      return found;
+    });
     await audit.record({
       action: 'member.removed',
       workspaceId: actor.workspaceId,
@@ -391,6 +397,21 @@ export class WorkspaceService {
     const workspace = (await repo.listForUser(user.id)).find((w) => w.id === workspaceId);
     if (!workspace) throw notFound();
     return workspace;
+  }
+
+  /**
+   * Runs a membership check-and-write under the workspace's membership lock, so the last-owner
+   * rule holds under concurrency: two owners demoting each other can't both see "2 owners".
+   */
+  private async serialized<T>(workspaceId: string, fn: () => Promise<T>): Promise<T> {
+    const result = await this.deps.repo.withMembershipLock(workspaceId, fn);
+    if (!result) {
+      throw new ConflictError(
+        'MEMBERSHIP_CHANGE_IN_PROGRESS',
+        'Another membership change in this workspace is in progress; try again',
+      );
+    }
+    return result.value;
   }
 
   private async assertInvitationsEnabled(workspaceId: string): Promise<void> {

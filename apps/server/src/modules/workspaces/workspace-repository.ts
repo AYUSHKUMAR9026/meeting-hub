@@ -6,6 +6,7 @@ import {
   invitation,
   member,
   organization,
+  sql,
   user,
   workspaceSettings,
 } from '@meeting-hub/db';
@@ -169,6 +170,34 @@ export class WorkspaceRepository {
       .from(member)
       .where(eq(member.organizationId, workspaceId));
     return members.filter((m) => parseRole(m.role) === 'owner').length;
+  }
+
+  /**
+   * Runs `fn` while this process holds the workspace's membership lock: a transaction-level advisory
+   * lock, so owner-affecting changes (role change, removal, leave) in one workspace run one at a
+   * time and each sees the previous one's committed result. Better Auth writes on its own
+   * connection, so a row lock on `member` would deadlock against its UPDATE; the advisory lock
+   * guards the whole check → write sequence instead. Waiters poll with `pg_try_…` rather than
+   * blocking, so they don't hold pooled connections the lock holder needs for that write.
+   * Returns null if the lock wasn't acquired within `waitMs`.
+   */
+  async withMembershipLock<T>(
+    workspaceId: string,
+    fn: () => Promise<T>,
+    waitMs = 10_000,
+  ): Promise<{ value: T } | null> {
+    const key = `workspace-membership:${workspaceId}`;
+    const deadline = Date.now() + waitMs;
+    for (let attempt = 0; ; attempt++) {
+      const result = await this.db.transaction(async (tx) => {
+        const { rows } = await tx.execute<{ locked: boolean }>(
+          sql`SELECT pg_try_advisory_xact_lock(hashtextextended(${key}, 0)) AS locked`,
+        );
+        return rows[0]?.locked ? { value: await fn() } : null;
+      });
+      if (result || Date.now() >= deadline) return result;
+      await new Promise((r) => setTimeout(r, Math.min(25 * 2 ** attempt, 250)));
+    }
   }
 
   async countMembers(workspaceId: string): Promise<number> {
