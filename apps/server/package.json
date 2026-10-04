@@ -16,7 +16,9 @@
     "test:integration": "vitest run --config vitest.integration.config.ts",
     "openapi:export": "tsx scripts/export-openapi.ts",
     "start:migrate": "node dist/migrate.js",
-    "auth:schema": "auth generate --config scripts/auth-cli.ts --output .auth-schema.generated.ts --yes"
+    "auth:schema": "auth generate --config scripts/auth-cli.ts --output .auth-schema.generated.ts --yes",
+    "format": "prettier --write . --ignore-path ../../.prettierignore --ignore-path ../../.gitignore",
+    "format:check": "prettier --check . --ignore-path ../../.prettierignore --ignore-path ../../.gitignore"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "3.1145.0",

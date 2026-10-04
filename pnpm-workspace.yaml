@@ -17,3 +17,5 @@ allowBuilds:
   ssh2: false
   # Postinstall only prints a version check notice.
   protobufjs: false
+  # Its postinstall would install git hooks; the root `prepare` script does that instead.
+  simple-git-hooks: false

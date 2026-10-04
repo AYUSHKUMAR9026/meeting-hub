@@ -43,7 +43,7 @@ files from storage.
 | `pnpm test`                                     | Unit tests (Vitest)                                                  |
 | `pnpm test:integration`                         | Integration tests with Testcontainers (needs Docker)                 |
 | `pnpm test:e2e`                                 | Playwright smoke test (needs `infra:up` + `db:migrate`)              |
-| `pnpm format`                                   | Prettier                                                             |
+| `pnpm format`                                   | Prettier from any package; generated files are always skipped        |
 | `pnpm infra:up` / `:down`                       | Start / stop local infrastructure (`infra:reset` also wipes volumes) |
 | `pnpm db:generate`                              | Generate a SQL migration from the Drizzle schema                     |
 | `pnpm db:migrate`                               | Apply migrations                                                     |

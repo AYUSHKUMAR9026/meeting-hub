@@ -11,7 +11,9 @@
     "typecheck": "next typegen && tsc --noEmit",
     "test": "vitest run",
     "api:generate": "openapi-typescript ../../packages/contracts/openapi.json -o src/lib/api/schema.d.ts",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "format": "prettier --write . --ignore-path ../../.prettierignore --ignore-path ../../.gitignore",
+    "format:check": "prettier --check . --ignore-path ../../.prettierignore --ignore-path ../../.gitignore"
   },
   "dependencies": {
     "@base-ui/react": "1.8.0",

@@ -10,6 +10,7 @@ Ask before changing anything recorded in an ADR; record new architectural decisi
 ```bash
 pnpm infra:up && pnpm db:migrate && pnpm dev   # full local stack
 pnpm lint && pnpm typecheck && pnpm test       # must pass before every commit
+pnpm format                                    # Prettier (any package); the pre-commit hook formats staged files
 pnpm test:integration                          # Testcontainers; needs Docker
 pnpm test:e2e                                  # Playwright smoke test; needs infra + migrated DB
 pnpm db:generate                               # after editing packages/db/src/schema
@@ -135,6 +136,9 @@ resource)` and Better Auth's access-control roles are both derived from it. Add 
 
 - Conventional commits (`feat(scope):`, `fix:`, `chore:`, `test:`, `docs:`, `build:`), small and logical.
 - Never commit `.env` or real secrets. Local dev credentials live only in `.env.example` / `docker-compose.yml`.
+- Never run Prettier on generated files (`openapi.json`, `schema.d.ts`, migration snapshots). Every `format` script
+  passes the root `.prettierignore` and `.gitignore` explicitly, and the pre-commit hook (simple-git-hooks + lint-staged)
+  formats only staged files with the same ignore files. Don't run bare `prettier .` inside a package.
 
 ## Out of scope until their phase
 

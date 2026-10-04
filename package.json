@@ -14,8 +14,8 @@
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
     "test:integration": "turbo run test:integration --concurrency=1",
-    "format": "prettier --write .",
-    "format:check": "prettier --check .",
+    "format": "prettier --write . --ignore-path .prettierignore --ignore-path .gitignore",
+    "format:check": "prettier --check . --ignore-path .prettierignore --ignore-path .gitignore",
     "infra:up": "docker compose -f infra/docker-compose.yml up -d --wait postgres redis garage mailpit && docker compose -f infra/docker-compose.yml run --rm garage-init",
     "infra:down": "docker compose -f infra/docker-compose.yml down",
     "infra:reset": "docker compose -f infra/docker-compose.yml down -v",
@@ -23,13 +23,22 @@
     "db:migrate": "pnpm --filter @meeting-hub/db migrate",
     "db:studio": "pnpm --filter @meeting-hub/db studio",
     "openapi:export": "pnpm --filter @meeting-hub/server openapi:export && pnpm --filter @meeting-hub/web api:generate",
-    "test:e2e": "pnpm --filter @meeting-hub/web test:e2e"
+    "test:e2e": "pnpm --filter @meeting-hub/web test:e2e",
+    "prepare": "simple-git-hooks"
   },
   "devDependencies": {
     "@meeting-hub/config": "workspace:*",
+    "eslint": "10.11.0",
+    "lint-staged": "17.6.0",
     "prettier": "3.9.9",
+    "simple-git-hooks": "2.14.0",
     "turbo": "2.11.6",
-    "typescript": "6.0.3",
-    "eslint": "10.11.0"
+    "typescript": "6.0.3"
+  },
+  "simple-git-hooks": {
+    "pre-commit": "pnpm exec lint-staged"
+  },
+  "lint-staged": {
+    "*": "prettier --write --ignore-unknown --ignore-path .prettierignore --ignore-path .gitignore"
   }
 }
