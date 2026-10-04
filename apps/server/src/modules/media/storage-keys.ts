@@ -21,3 +21,18 @@ export function meetingPrefix(workspaceId: string, meetingId: string): string {
 export function originalRecordingKey(workspaceId: string, meetingId: string): string {
   return `${meetingPrefix(workspaceId, meetingId)}original/${randomUUID()}`;
 }
+
+/**
+ * Outputs of a processing run (ADR 0004): `…/normalized/{runId}` and `…/peaks/{runId}`. Derived from
+ * the run id rather than random, so a retried step overwrites its own objects instead of leaving
+ * duplicates; every run still gets fresh keys.
+ */
+export function normalizedAudioKey(workspaceId: string, meetingId: string, runId: string): string {
+  assertUuid(runId, 'runId');
+  return `${meetingPrefix(workspaceId, meetingId)}normalized/${runId}`;
+}
+
+export function peaksKey(workspaceId: string, meetingId: string, runId: string): string {
+  assertUuid(runId, 'runId');
+  return `${meetingPrefix(workspaceId, meetingId)}peaks/${runId}`;
+}

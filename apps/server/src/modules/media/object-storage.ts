@@ -10,7 +10,12 @@ import {
   type S3Client,
   UploadPartCommand,
 } from '@aws-sdk/client-s3';
+import { Upload } from '@aws-sdk/lib-storage';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { createHash } from 'node:crypto';
+import { createReadStream, createWriteStream } from 'node:fs';
+import { Readable, Transform } from 'node:stream';
+import { pipeline } from 'node:stream/promises';
 
 export interface PresignedPart {
   partNumber: number;
@@ -24,6 +29,16 @@ export interface CompletedPart {
 
 /** S3's per-request limit for DeleteObjects. */
 const DELETE_BATCH = 1_000;
+/** Part size for server-side multipart uploads of files we produce. */
+const UPLOAD_PART_SIZE = 8 * 1024 * 1024;
+
+/** A download exceeded the size it was allowed to have. */
+export class ObjectTooLargeError extends Error {
+  constructor(readonly maxBytes: number) {
+    super(`object is larger than ${maxBytes} bytes`);
+    this.name = 'ObjectTooLargeError';
+  }
+}
 
 const statusOf = (err: unknown) =>
   (err as { $metadata?: { httpStatusCode?: number } } | null)?.$metadata?.httpStatusCode;
@@ -159,6 +174,141 @@ export class ObjectStorage {
       }
       deleted += keys.length;
     }
+  }
+
+  /**
+   * Streams an object to a local file, computing its SHA-256 on the way. Fails with
+   * `ObjectTooLargeError` as soon as more than `maxBytes` arrive (the file is left for the caller's
+   * temp-dir clean-up).
+   */
+  async downloadToFile(
+    key: string,
+    path: string,
+    options: { maxBytes: number; signal?: AbortSignal; onBytes?: (total: number) => void },
+  ): Promise<{ sizeBytes: number; sha256: string }> {
+    const res = await this.s3.send(
+      new GetObjectCommand({ Bucket: this.bucket, Key: key }),
+      options.signal ? { abortSignal: options.signal } : {},
+    );
+    if (!(res.Body instanceof Readable)) throw new Error('S3 returned no readable body');
+    const hash = createHash('sha256');
+    let total = 0;
+    const meter = new Transform({
+      transform(chunk: Buffer, _enc, done) {
+        total += chunk.length;
+        if (total > options.maxBytes) {
+          done(new ObjectTooLargeError(options.maxBytes));
+          return;
+        }
+        hash.update(chunk);
+        options.onBytes?.(total);
+        done(null, chunk);
+      },
+    });
+    await pipeline(
+      res.Body,
+      meter,
+      createWriteStream(path),
+      options.signal ? { signal: options.signal } : {},
+    );
+    return { sizeBytes: total, sha256: hash.digest('hex') };
+  }
+
+  /**
+   * Uploads a local file with a streaming multipart upload (aborted on `signal`, and cleaned up by
+   * lib-storage if a part fails). Returns its size and SHA-256.
+   */
+  async uploadFile(
+    key: string,
+    path: string,
+    options: { contentType: string; signal?: AbortSignal },
+  ): Promise<{ sizeBytes: number; sha256: string }> {
+    const hash = createHash('sha256');
+    let sizeBytes = 0;
+    const body = createReadStream(path).pipe(
+      new Transform({
+        transform(chunk: Buffer, _enc, done) {
+          hash.update(chunk);
+          sizeBytes += chunk.length;
+          done(null, chunk);
+        },
+      }),
+    );
+    await this.upload(key, body, options);
+    return { sizeBytes, sha256: hash.digest('hex') };
+  }
+
+  /** Uploads an in-memory body (small objects such as peaks JSON). */
+  async uploadBuffer(
+    key: string,
+    body: Buffer,
+    options: { contentType: string; signal?: AbortSignal },
+  ): Promise<void> {
+    await this.upload(key, body, options);
+  }
+
+  private async upload(
+    key: string,
+    body: Readable | Buffer,
+    options: { contentType: string; signal?: AbortSignal },
+  ): Promise<void> {
+    const upload = new Upload({
+      client: this.s3,
+      params: { Bucket: this.bucket, Key: key, Body: body, ContentType: options.contentType },
+      queueSize: 4,
+      partSize: UPLOAD_PART_SIZE,
+      leavePartsOnError: false,
+    });
+    const abort = () => void upload.abort();
+    options.signal?.addEventListener('abort', abort, { once: true });
+    try {
+      options.signal?.throwIfAborted();
+      await upload.done();
+    } finally {
+      options.signal?.removeEventListener('abort', abort);
+    }
+  }
+
+  /** Deletes the given keys (missing keys are fine), up to 1,000 per request. */
+  async deleteObjects(keys: readonly string[]): Promise<void> {
+    for (let i = 0; i < keys.length; i += DELETE_BATCH) {
+      const batch = keys.slice(i, i + DELETE_BATCH).map((Key) => ({ Key }));
+      const res = await this.s3.send(
+        new DeleteObjectsCommand({ Bucket: this.bucket, Delete: { Objects: batch, Quiet: true } }),
+      );
+      if (res.Errors?.length) {
+        const first = res.Errors[0]!;
+        throw new Error(
+          `could not delete ${res.Errors.length} objects (${first.Code}: ${first.Key})`,
+        );
+      }
+    }
+  }
+
+  /** Keys under a prefix (first 1,000), for tests and diagnostics. */
+  async listKeys(prefix: string): Promise<string[]> {
+    const page = await this.s3.send(
+      new ListObjectsV2Command({ Bucket: this.bucket, Prefix: prefix, MaxKeys: DELETE_BATCH }),
+    );
+    return (page.Contents ?? []).flatMap((o) => (o.Key ? [o.Key] : []));
+  }
+
+  /**
+   * A short-lived GET URL that the browser may render inline (an `<audio>` source). Only for files
+   * we produced ourselves; user uploads are always attachments (ADR 0003).
+   */
+  presignInline(key: string, options: { contentType: string; expiresIn: number }): Promise<string> {
+    return getSignedUrl(
+      this.signer,
+      new GetObjectCommand({
+        Bucket: this.bucket,
+        Key: key,
+        ResponseContentType: options.contentType,
+        ResponseContentDisposition: 'inline',
+        ResponseCacheControl: 'private, max-age=300',
+      }),
+      { expiresIn: options.expiresIn },
+    );
   }
 
   /** A short-lived GET URL that always downloads as an attachment, never renders inline. */

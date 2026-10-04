@@ -1,4 +1,5 @@
 import { existsSync } from 'node:fs';
+import { availableParallelism, tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
 import { z } from 'zod';
@@ -89,6 +90,24 @@ export const configSchema = z
 
     WORKER_CONCURRENCY: positiveInt.default(5),
     HEARTBEAT_INTERVAL_MS: positiveInt.default(60_000),
+
+    // Processing pipeline and media preparation (ADR 0004).
+    FFMPEG_PATH: z.string().min(1).default('ffmpeg'),
+    FFPROBE_PATH: z.string().min(1).default('ffprobe'),
+    FFMPEG_THREADS: positiveInt.max(64).default(2),
+    MEDIA_CONCURRENCY: positiveInt.max(256).default(() => availableParallelism()),
+    MEDIA_TMP_DIR: z
+      .string()
+      .min(1)
+      .default(() => tmpdir()),
+    MAX_DURATION_SECONDS: positiveInt.max(24 * 3600).default(3 * 3600),
+    MEDIA_URL_TTL_SECONDS: positiveInt
+      .min(60)
+      .max(12 * 3600)
+      .default(15 * 60),
+    OUTBOX_POLL_INTERVAL_MS: positiveInt.min(50).default(1_000),
+    PROCESSING_SWEEP_INTERVAL_MS: positiveInt.min(1_000).default(60_000),
+    SSE_HEARTBEAT_MS: positiveInt.min(100).default(15_000),
 
     BETTER_AUTH_SECRET: z.string().min(32, 'must be at least 32 characters'),
     // Public origin the browser uses: the web app, which proxies /api/auth/* to this API.
