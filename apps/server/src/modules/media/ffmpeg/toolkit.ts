@@ -29,6 +29,10 @@ export interface NormalizeResult {
   output: AudioStreamInfo & { durationMs: number | null };
 }
 
+/** Tool output names our temp file; error details only need to say "the input". */
+const withoutPath = (text: string, path: string) =>
+  text.split(`file:${path}`).join('<input>').split(path).join('<input>');
+
 /** Thrown when ffmpeg/ffprobe can't be started at all: a deployment problem, worth retrying. */
 export class MediaToolMissingError extends Error {
   constructor(cause: ProcessSpawnError) {
@@ -55,7 +59,9 @@ export class MediaToolkit {
       },
     });
     if (result.exitCode !== 0)
-      throw unreadableMedia(`ffprobe exited ${result.exitCode}: ${result.stderr}`);
+      throw unreadableMedia(
+        `ffprobe exited ${result.exitCode}: ${withoutPath(result.stderr, path)}`,
+      );
     return parseProbe(stdout);
   }
 
@@ -93,7 +99,9 @@ export class MediaToolkit {
       },
     );
     if (result.exitCode !== 0) {
-      throw unreadableMedia(`ffmpeg exited ${result.exitCode}: ${result.stderr}`);
+      throw unreadableMedia(
+        `ffmpeg exited ${result.exitCode}: ${withoutPath(result.stderr, input.inputPath)}`,
+      );
     }
     const durationMs = Math.round((peaks.sampleCount / PEAKS_PCM.sampleRate) * 1000);
     if (peaks.sampleCount === 0) {

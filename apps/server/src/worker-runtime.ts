@@ -87,7 +87,8 @@ export async function startWorkerRuntime(
 
   await redis.connect();
 
-  // A killed worker never ran its `finally`: remove job directories older than any step can run.
+  // A killed worker never ran its `finally`: remove its job directories (dead pid on this host),
+  // and any older than the longest step can run.
   const longestStep = Math.max(...[...processing.registry.values()].map((s) => s.timeoutMs));
   const removed = await sweepStaleJobDirs(config.MEDIA_TMP_DIR, longestStep + TIMEOUT_GRACE_MS);
   if (removed) logger.warn({ removed }, 'removed stale media job directories');

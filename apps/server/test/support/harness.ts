@@ -32,8 +32,9 @@ export interface TestApp {
   close: () => Promise<void>;
 }
 
-export async function createTestApp(env: Record<string, string> = {}): Promise<TestApp> {
-  const config = loadConfig({
+/** Environment for the shared test containers (API and worker alike), with `env` on top. */
+export function testEnv(env: Record<string, string> = {}): Record<string, string> {
+  return {
     NODE_ENV: 'test',
     WEB_ORIGIN,
     BETTER_AUTH_URL: WEB_ORIGIN,
@@ -54,7 +55,16 @@ export async function createTestApp(env: Record<string, string> = {}): Promise<T
     FEATURE_FLAGS_OVERRIDE:
       'workspaces.invitations=true,people.directory=true,meetings.upload=true,pipeline.media=true',
     ...env,
-  });
+  };
+}
+
+export const testConfig = (env: Record<string, string> = {}) => loadConfig(testEnv(env));
+
+export async function createTestApp(
+  env: Record<string, string> = {},
+  options: { queuePrefix?: string } = {},
+): Promise<TestApp> {
+  const config = testConfig(env);
   const logLines: Record<string, unknown>[] = [];
   const logger = pino(
     { level: 'info', redact: { paths: redactPaths, censor: '[REDACTED]' } },
@@ -63,7 +73,7 @@ export async function createTestApp(env: Record<string, string> = {}): Promise<T
   const redis = createRedis(config.REDIS_URL, 'test');
   await redis.connect();
   const mailer = new MemoryMailer();
-  const deps = createApiDeps(config, logger, { redis, mailer });
+  const deps = createApiDeps(config, logger, { redis, mailer, ...options });
   const app = await buildApp(deps);
   await app.ready();
   return {

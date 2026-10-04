@@ -267,8 +267,11 @@ export class PipelineDriver {
     if (!recorded) return 'skipped';
     await this.publish(run);
     if (final) {
+      // A permanent failure is usually the input (a bad file): code and detail say it all.
       logger.warn(
-        { err, code: failure.code, attempt, permanent: classified.permanent },
+        classified.permanent
+          ? { code: failure.code, detail: failure.detail, attempt }
+          : { err, code: failure.code, attempt },
         'step failed; run failed',
       );
       await this.auditFinished(run, 'processing.run_failed', failure);
