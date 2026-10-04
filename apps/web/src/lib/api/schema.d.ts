@@ -2715,6 +2715,396 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/meetings/{id}/processing": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The meeting's current processing run, its steps and progress
+         * @description `errorDetail` on steps is included for owners and admins only.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["MeetingProcessing"];
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/meetings/{id}/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Live processing updates (Server-Sent Events)
+         * @description A `text/event-stream`. Each `run.updated` event carries a MeetingProcessing JSON body; the first is sent on connect. A `: heartbeat` comment goes out every 15 s and the stream closes after 15 minutes (EventSource reconnects).
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Event stream */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/event-stream": string;
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/meetings/{id}/runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reprocess the recording: start a new run (owners and admins)
+         * @description 409 `RUN_ALREADY_ACTIVE` while a run is in progress.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["ReprocessRequestInput"];
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                202: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["MeetingProcessing"];
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/meetings/{id}/media": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Short-lived signed URLs for the normalized audio and its waveform peaks */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["MeetingMedia"];
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -2939,6 +3329,83 @@ export interface components {
                 path: string;
                 message: string;
             }[];
+        };
+        /** @enum {string} */
+        RunStatusInput: "queued" | "preparing_media" | "transcribing" | "analyzing" | "indexing" | "completed" | "partially_ready" | "failed" | "cancelled";
+        /** @enum {string} */
+        StepStatusInput: "pending" | "running" | "waiting_external" | "succeeded" | "failed" | "skipped";
+        /** @enum {string} */
+        StepNameInput: "prepare_media";
+        ProcessingStepInput: {
+            name: string;
+            status: components["schemas"]["StepStatusInput"];
+            attempts: number;
+            /** @description This step's own progress, 0 to 1 */
+            progress: number;
+            /** @description What the running step is doing, e.g. "transcoding" */
+            phase: string | null;
+            startedAt: string | null;
+            finishedAt: string | null;
+            errorCode: string | null;
+            /** @description Safe to show to every member */
+            errorMessage: string | null;
+            /** @description Internal detail; present for owners and admins only */
+            errorDetail?: string | null;
+        };
+        ProcessingRunInput: {
+            /** Format: uuid */
+            id: string;
+            status: components["schemas"]["RunStatusInput"];
+            /** @enum {string} */
+            trigger: "upload" | "reprocess";
+            pipelineVersion: number;
+            currentStep: string | null;
+            /** @description Overall progress, 0 to 1 */
+            progress: number;
+            errorCode: string | null;
+            /** @description Why the run failed; safe to show to every member */
+            errorMessage: string | null;
+            /** Format: date-time */
+            createdAt: string;
+            startedAt: string | null;
+            finishedAt: string | null;
+            steps: components["schemas"]["ProcessingStepInput"][];
+        };
+        MeetingProcessingInput: {
+            /** Format: uuid */
+            meetingId: string;
+            meetingStatus: components["schemas"]["MeetingStatusInput"];
+            /** @description The meeting's most recent run, if any */
+            run: components["schemas"]["ProcessingRunInput"] | null;
+        };
+        ReprocessRequestInput: {
+            /** @description Start here; earlier steps are skipped */
+            fromStep?: components["schemas"]["StepNameInput"];
+        };
+        MeetingMediaInput: {
+            audio: {
+                /**
+                 * Format: uri
+                 * @description Short-lived signed URL; plays inline
+                 */
+                url: string;
+                contentType: string;
+                sizeBytes: number;
+                durationMs: number | null;
+                codec: string | null;
+                sampleRate: number | null;
+                channels: number | null;
+            };
+            /** @description Waveform peaks JSON (audiowaveform layout) */
+            peaks: {
+                /** Format: uri */
+                url: string;
+            } | null;
+            /**
+             * Format: date-time
+             * @description When the URLs stop working; fetch new ones before
+             */
+            expiresAt: string;
         };
         HealthResponseInput: {
             /** @constant */
@@ -3296,6 +3763,83 @@ export interface components {
                 path: string;
                 message: string;
             }[];
+        };
+        /** @enum {string} */
+        RunStatus: "queued" | "preparing_media" | "transcribing" | "analyzing" | "indexing" | "completed" | "partially_ready" | "failed" | "cancelled";
+        /** @enum {string} */
+        StepStatus: "pending" | "running" | "waiting_external" | "succeeded" | "failed" | "skipped";
+        /** @enum {string} */
+        StepName: "prepare_media";
+        ProcessingStep: {
+            name: string;
+            status: components["schemas"]["StepStatus"];
+            attempts: number;
+            /** @description This step's own progress, 0 to 1 */
+            progress: number;
+            /** @description What the running step is doing, e.g. "transcoding" */
+            phase: string | null;
+            startedAt: string | null;
+            finishedAt: string | null;
+            errorCode: string | null;
+            /** @description Safe to show to every member */
+            errorMessage: string | null;
+            /** @description Internal detail; present for owners and admins only */
+            errorDetail?: string | null;
+        };
+        ProcessingRun: {
+            /** Format: uuid */
+            id: string;
+            status: components["schemas"]["RunStatus"];
+            /** @enum {string} */
+            trigger: "upload" | "reprocess";
+            pipelineVersion: number;
+            currentStep: string | null;
+            /** @description Overall progress, 0 to 1 */
+            progress: number;
+            errorCode: string | null;
+            /** @description Why the run failed; safe to show to every member */
+            errorMessage: string | null;
+            /** Format: date-time */
+            createdAt: string;
+            startedAt: string | null;
+            finishedAt: string | null;
+            steps: components["schemas"]["ProcessingStep"][];
+        };
+        MeetingProcessing: {
+            /** Format: uuid */
+            meetingId: string;
+            meetingStatus: components["schemas"]["MeetingStatus"];
+            /** @description The meeting's most recent run, if any */
+            run: components["schemas"]["ProcessingRun"] | null;
+        };
+        ReprocessRequest: {
+            /** @description Start here; earlier steps are skipped */
+            fromStep?: components["schemas"]["StepName"];
+        };
+        MeetingMedia: {
+            audio: {
+                /**
+                 * Format: uri
+                 * @description Short-lived signed URL; plays inline
+                 */
+                url: string;
+                contentType: string;
+                sizeBytes: number;
+                durationMs: number | null;
+                codec: string | null;
+                sampleRate: number | null;
+                channels: number | null;
+            };
+            /** @description Waveform peaks JSON (audiowaveform layout) */
+            peaks: {
+                /** Format: uri */
+                url: string;
+            } | null;
+            /**
+             * Format: date-time
+             * @description When the URLs stop working; fetch new ones before
+             */
+            expiresAt: string;
         };
         HealthResponse: {
             /** @constant */

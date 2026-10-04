@@ -19,6 +19,7 @@ import { authRoutes } from './http/routes/auth';
 import { meetingRoutes } from './http/routes/meetings';
 import { meRoutes } from './http/routes/me';
 import { peopleRoutes } from './http/routes/people';
+import { processingRoutes } from './http/routes/processing';
 import { systemRoutes } from './http/routes/system';
 import { workspaceRoutes } from './http/routes/workspaces';
 
@@ -90,6 +91,10 @@ export async function buildApp(deps: ApiDeps): Promise<FastifyInstance> {
           name: 'uploads',
           description: 'Recording uploads straight from the browser to object storage (multipart)',
         },
+        {
+          name: 'processing',
+          description: 'Processing runs, live progress (SSE) and the processed audio',
+        },
       ],
     },
     transform: jsonSchemaTransform,
@@ -103,6 +108,7 @@ export async function buildApp(deps: ApiDeps): Promise<FastifyInstance> {
   await app.register(peopleRoutes, { deps });
   await app.register(auditRoutes, { deps });
   await app.register(meetingRoutes, { deps });
+  await app.register(processingRoutes, { deps });
 
   if (config.NODE_ENV !== 'production') {
     app.get('/openapi.json', { schema: { hide: true } }, () => app.swagger());
