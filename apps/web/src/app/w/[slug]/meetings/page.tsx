@@ -14,7 +14,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useApiQuery } from '@/hooks/use-api-query';
+import { useRefreshWhile } from '@/hooks/use-processing';
 import { api, type Meeting, type MeetingStatus, problemMessage } from '@/lib/api/client';
+import { hasMeetingsInFlight } from '@/lib/processing';
 import { nextDay, startOfDayInZone } from '@/lib/time-zone';
 
 const statusOptions: { value: '' | MeetingStatus; label: string }[] = [
@@ -22,11 +24,14 @@ const statusOptions: { value: '' | MeetingStatus; label: string }[] = [
   { value: 'awaiting_upload', label: 'Awaiting upload' },
   { value: 'uploading', label: 'Uploading' },
   { value: 'uploaded', label: 'Uploaded' },
+  { value: 'processing', label: 'Processing' },
+  { value: 'ready', label: 'Ready' },
+  { value: 'failed', label: 'Failed' },
 ];
 
 export default function MeetingsPage() {
   const workspace = useWorkspace();
-  const { canCreate } = useMeetingPermissions(null);
+  const { canCreate, pipelineEnabled } = useMeetingPermissions(null);
   const tz = workspace.settings.timezone;
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
@@ -46,6 +51,12 @@ export default function MeetingsPage() {
     api.GET('/v1/workspaces/{wid}/meetings', {
       params: { path: { wid: workspace.id }, query },
     }),
+  );
+
+  // Statuses move on by themselves while recordings are processed; keep the first page current.
+  useRefreshWhile(
+    first.state.status === 'ok' && hasMeetingsInFlight(first.state.data.meetings, pipelineEnabled),
+    first.reload,
   );
 
   const filtered = Boolean(from || to || status);

@@ -12,15 +12,22 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useApiQuery } from '@/hooks/use-api-query';
+import { useRefreshWhile } from '@/hooks/use-processing';
 import { api, problemMessage } from '@/lib/api/client';
+import { hasMeetingsInFlight } from '@/lib/processing';
 
 export default function WorkspaceDashboard() {
   const workspace = useWorkspace();
-  const { canCreate } = useMeetingPermissions(null);
+  const { canCreate, pipelineEnabled } = useMeetingPermissions(null);
   const recent = useApiQuery(`recent-meetings:${workspace.id}`, () =>
     api.GET('/v1/workspaces/{wid}/meetings', {
       params: { path: { wid: workspace.id }, query: { limit: 5 } },
     }),
+  );
+  useRefreshWhile(
+    recent.state.status === 'ok' &&
+      hasMeetingsInFlight(recent.state.data.meetings, pipelineEnabled),
+    recent.reload,
   );
   const newMeetingHref = `/w/${workspace.slug}/meetings/new`;
 

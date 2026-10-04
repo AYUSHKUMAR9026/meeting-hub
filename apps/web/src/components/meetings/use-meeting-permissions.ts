@@ -23,5 +23,7 @@ export function useMeetingPermissions(meeting: Pick<Meeting, 'createdBy'> | null
     canDelete: can('meeting.delete'),
     canDownload: can('recording.download'),
     uploadsEnabled: workspace.features.includes('meetings.upload'),
+    pipelineEnabled: workspace.features.includes('pipeline.media'),
+    canReprocess: workspace.features.includes('pipeline.media') && can('processing.reprocess'),
   };
 }

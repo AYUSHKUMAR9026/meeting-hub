@@ -3,13 +3,15 @@
 import { DownloadIcon, FileAudioIcon } from 'lucide-react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { type FormEvent, useState } from 'react';
+import { type FormEvent, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 
 import { FormError, FormField } from '@/components/app/form-field';
 import { useWorkspace } from '@/components/app/workspace-context';
+import { AudioPlayer } from '@/components/meetings/audio-player';
 import { MeetingStatusBadge } from '@/components/meetings/meeting-status-badge';
 import { ParticipantsPicker, type PickedPerson } from '@/components/meetings/participants-picker';
+import { ProcessingPanel } from '@/components/meetings/processing-panel';
 import { RecordingUploadCard } from '@/components/meetings/recording-upload-card';
 import { useMeetingPermissions } from '@/components/meetings/use-meeting-permissions';
 import { Badge } from '@/components/ui/badge';
@@ -18,6 +20,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useApiQuery } from '@/hooks/use-api-query';
+import { useProcessing } from '@/hooks/use-processing';
 import { api, type Meeting, problemMessage } from '@/lib/api/client';
 import { formatInZone, utcToZonedLocal, zonedLocalToUtc } from '@/lib/time-zone';
 import { formatBytes } from '@/lib/upload/progress';
@@ -64,6 +67,14 @@ function MeetingDetail({ meeting, onChanged }: { meeting: Meeting; onChanged: ()
   const [deleting, setDeleting] = useState(false);
   const tz = workspace.settings.timezone;
   const recording = meeting.recording;
+  const processing = useProcessing(meeting.id);
+  const live = processing.state.status === 'ok' ? processing.state : null;
+  const run = live?.data.run ?? null;
+  // The stream knows first when the meeting moves on (processing → ready / failed).
+  const status = live?.data.meetingStatus ?? meeting.status;
+  useEffect(() => {
+    if (live && live.data.meetingStatus !== meeting.status) onChanged();
+  }, [live, meeting.status, onChanged]);
 
   async function remove() {
     setDeleting(true);
@@ -110,7 +121,7 @@ function MeetingDetail({ meeting, onChanged }: { meeting: Meeting; onChanged: ()
         </Link>
         <div className="flex flex-wrap items-center gap-3">
           <h1 className="text-2xl font-semibold tracking-tight">{meeting.title}</h1>
-          <MeetingStatusBadge status={meeting.status} />
+          <MeetingStatusBadge status={status} />
           <div className="ml-auto flex gap-2">
             {perms.canEdit && !editing && (
               <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
@@ -195,10 +206,11 @@ function MeetingDetail({ meeting, onChanged }: { meeting: Meeting; onChanged: ()
                 </Button>
               )}
             </div>
-            {recording.status === 'uploaded' && (
-              <p className="text-sm text-muted-foreground">
-                Processing will be available soon: transcripts, speakers and decisions will appear
-                here.
+            {recording.status === 'uploaded' && !run && (
+              <p className="text-sm text-muted-foreground" data-testid="processing-pending">
+                {perms.pipelineEnabled
+                  ? 'Processing will start in a moment.'
+                  : 'Processing is not enabled for this workspace yet.'}
               </p>
             )}
             {recording.status === 'uploading' && (
@@ -214,6 +226,20 @@ function MeetingDetail({ meeting, onChanged }: { meeting: Meeting; onChanged: ()
             )}
           </CardContent>
         </Card>
+      )}
+
+      {run && (
+        <ProcessingPanel
+          meetingId={meeting.id}
+          run={run}
+          live={live?.live ?? false}
+          canReprocess={perms.canReprocess}
+          onReprocessed={() => void processing.refresh()}
+        />
+      )}
+
+      {status === 'ready' && run?.status === 'completed' && (
+        <AudioPlayer key={run.id} meetingId={meeting.id} />
       )}
 
       {perms.canUpload && meeting.status === 'awaiting_upload' && (
