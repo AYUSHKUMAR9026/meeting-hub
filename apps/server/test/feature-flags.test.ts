@@ -119,6 +119,7 @@ describe('FeatureFlagService', () => {
       'env.only',
       'meetings.upload',
       'people.directory',
+      'pipeline.media',
       'platform.heartbeat',
       'workspaces.invitations',
     ]);
@@ -126,7 +127,7 @@ describe('FeatureFlagService', () => {
   });
 
   it('lists only client-visible flags for the UI', () => {
-    expect(clientVisibleFlags()).toEqual(['meetings.upload']);
+    expect(clientVisibleFlags()).toEqual(['meetings.upload', 'pipeline.media']);
   });
 
   it('isEnabled returns the boolean for typed flag keys', async () => {

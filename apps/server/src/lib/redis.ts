@@ -11,6 +11,14 @@ export function createRedis(url: string, connectionName: string): Redis {
   });
 }
 
+/**
+ * A pub/sub subscriber connection. Unlike `createRedis`, commands queue while disconnected and
+ * subscriptions are restored after a reconnect.
+ */
+export function createSubscriber(url: string, connectionName: string): Redis {
+  return new Redis(url, { connectionName, maxRetriesPerRequest: null, autoResubscribe: true });
+}
+
 /** Connection options for BullMQ queues and workers (blocking commands need maxRetriesPerRequest: null). */
 export function bullConnection(url: string) {
   return { url, maxRetriesPerRequest: null };

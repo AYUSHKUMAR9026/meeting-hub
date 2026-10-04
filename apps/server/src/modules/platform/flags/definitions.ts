@@ -45,6 +45,13 @@ export const flagDefinitions = {
     developmentDefault: true,
     clientVisible: true,
   },
+  'pipeline.media': {
+    description:
+      'Start a processing run when a recording finishes uploading (prepare_media), and allow reprocessing.',
+    defaultEnabled: false,
+    developmentDefault: true,
+    clientVisible: true,
+  },
 } as const satisfies Record<string, FlagDefinition>;
 
 export type FlagKey = keyof typeof flagDefinitions;

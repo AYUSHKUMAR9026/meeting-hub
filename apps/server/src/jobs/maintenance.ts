@@ -4,6 +4,7 @@ import type { Logger } from '../lib/logger';
 import { bullConnection, type Redis } from '../lib/redis';
 import type { MeetingMaintenance } from '../modules/meetings';
 import type { FeatureFlagService } from '../modules/platform';
+import type { ProcessingSweeper } from '../modules/processing';
 import { withErrorPolicy } from './processor';
 import { createHeartbeatProcessor, HEARTBEAT_JOB } from './processors/heartbeat';
 import {
@@ -14,7 +15,10 @@ import {
   MEETING_DELETE_JOB,
   PURGE_DELETED_SWEEP_JOB,
 } from './processors/meetings';
-import { createQueue, QUEUE_NAMES, stalledJobSettings } from './queues';
+import { createQueue, DEFAULT_QUEUE_PREFIX, QUEUE_NAMES, stalledJobSettings } from './queues';
+
+/** Repairs runs whose queued work went missing (ADR 0004). */
+export const PROCESSING_SWEEP_JOB = 'processing.sweep';
 
 export interface MaintenanceDeps {
   redisUrl: string;
@@ -24,6 +28,10 @@ export interface MaintenanceDeps {
   concurrency: number;
   heartbeatIntervalMs: number;
   meetings: MeetingMaintenance;
+  sweeper: ProcessingSweeper;
+  sweepIntervalMs: number;
+  /** BullMQ key prefix (tests isolate queues with their own). */
+  prefix?: string;
 }
 
 const HOURLY = 3_600_000;
@@ -36,7 +44,8 @@ export interface MaintenanceRuntime {
 
 export async function startMaintenance(deps: MaintenanceDeps): Promise<MaintenanceRuntime> {
   const logger = deps.logger.child({ queue: QUEUE_NAMES.maintenance });
-  const queue = createQueue(QUEUE_NAMES.maintenance, deps.redisUrl);
+  const prefix = deps.prefix ?? DEFAULT_QUEUE_PREFIX;
+  const queue = createQueue(QUEUE_NAMES.maintenance, deps.redisUrl, prefix);
 
   const heartbeat = createHeartbeatProcessor({ logger, redis: deps.redis, flags: deps.flags });
   const meetingJobDeps = {
@@ -58,6 +67,12 @@ export async function startMaintenance(deps: MaintenanceDeps): Promise<Maintenan
         return abortStaleUploads(job);
       case PURGE_DELETED_SWEEP_JOB:
         return purgeDeletedSweep(job);
+      case PROCESSING_SWEEP_JOB: {
+        const result = await deps.sweeper.sweep();
+        if (result.enqueued || result.timedOut)
+          logger.warn(result, 'processing sweep repaired runs');
+        return result;
+      }
       default:
         throw new Error(`Unknown maintenance job "${job.name}"`);
     }
@@ -65,6 +80,7 @@ export async function startMaintenance(deps: MaintenanceDeps): Promise<Maintenan
 
   const worker = new Worker(QUEUE_NAMES.maintenance, processor, {
     connection: bullConnection(deps.redisUrl),
+    prefix,
     concurrency: deps.concurrency,
     ...stalledJobSettings,
   });
@@ -97,6 +113,12 @@ export async function startMaintenance(deps: MaintenanceDeps): Promise<Maintenan
     'meeting-purge-deleted',
     { every: HOURLY },
     { name: PURGE_DELETED_SWEEP_JOB },
+  );
+
+  await queue.upsertJobScheduler(
+    'processing-sweep',
+    { every: deps.sweepIntervalMs },
+    { name: PROCESSING_SWEEP_JOB },
   );
 
   logger.info({ concurrency: deps.concurrency }, 'maintenance worker started');

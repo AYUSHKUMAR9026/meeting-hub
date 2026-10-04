@@ -4,9 +4,14 @@ import { bullConnection } from '../lib/redis';
 
 export const QUEUE_NAMES = {
   maintenance: 'maintenance',
+  /** Processing step prepare_media (ADR 0004). */
+  media: 'media',
 } as const;
 
 export type QueueName = (typeof QUEUE_NAMES)[keyof typeof QUEUE_NAMES];
+
+export const isQueueName = (name: string): name is QueueName =>
+  (Object.values(QUEUE_NAMES) as string[]).includes(name);
 
 /**
  * Defaults for every job: 5 attempts with exponential backoff (1s, 2s, 4s, 8s),
@@ -29,8 +34,17 @@ export const stalledJobSettings = {
   maxStalledCount: 2,
 };
 
-export function createQueue(name: QueueName, redisUrl: string): Queue {
-  return new Queue(name, { connection: bullConnection(redisUrl), defaultJobOptions });
+export type StalledJobSettings = typeof stalledJobSettings;
+
+/** BullMQ's Redis key prefix. Tests use a unique one so parallel test files don't share queues. */
+export const DEFAULT_QUEUE_PREFIX = 'bull';
+
+export function createQueue(
+  name: QueueName,
+  redisUrl: string,
+  prefix: string = DEFAULT_QUEUE_PREFIX,
+): Queue {
+  return new Queue(name, { connection: bullConnection(redisUrl), defaultJobOptions, prefix });
 }
 
 /** A producer queue that only connects to Redis when first used (building the app stays offline). */
@@ -43,12 +57,13 @@ export function lazyQueue(
   name: QueueName,
   redisUrl: string,
   onError: (err: Error) => void,
+  prefix: string = DEFAULT_QUEUE_PREFIX,
 ): LazyQueue {
   let queue: Queue | undefined;
   return {
     get() {
       if (!queue) {
-        queue = createQueue(name, redisUrl);
+        queue = createQueue(name, redisUrl, prefix);
         queue.on('error', onError);
       }
       return queue;

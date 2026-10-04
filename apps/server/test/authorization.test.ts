@@ -98,6 +98,11 @@ describe('meeting rules', () => {
     expect(permissionMatrix['meeting.delete']).toEqual(['owner', 'admin']);
     expect(permissionMatrix['recording.download']).toEqual(['owner', 'admin']);
   });
+
+  it('keeps reprocessing and internal error details for owners and admins', () => {
+    expect(permissionMatrix['processing.reprocess']).toEqual(['owner', 'admin']);
+    expect(permissionMatrix['processing.view_error_detail']).toEqual(['owner', 'admin']);
+  });
 });
 
 describe('authorize', () => {

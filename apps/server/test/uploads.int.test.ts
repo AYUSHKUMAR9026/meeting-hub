@@ -91,6 +91,7 @@ const maintenance = () =>
     storage: t.deps.storage,
     audit: t.deps.audit,
     logger: t.deps.logger,
+    runs: t.deps.processing.runs,
     staleAfterHours: 24,
   });
 

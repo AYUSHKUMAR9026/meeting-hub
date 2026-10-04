@@ -27,6 +27,11 @@ export const auditActions = [
   'upload.aborted',
   'upload.failed',
   'recording.downloaded',
+  'processing.run_started',
+  'processing.run_completed',
+  'processing.run_failed',
+  'processing.run_cancelled',
+  'processing.reprocess_requested',
 ] as const;
 export type AuditAction = (typeof auditActions)[number];
 

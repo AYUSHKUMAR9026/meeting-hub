@@ -7,6 +7,14 @@ import { FeatureFlagService } from './flags/feature-flag-service';
 
 export { clientVisibleFlags, type FlagKey, flagDefinitions } from './flags/definitions';
 export {
+  type AfterCommit,
+  OutboxDispatcher,
+  outboxBackoffMs,
+  type OutboxEvent,
+  type OutboxHandler,
+  type PollResult,
+} from './outbox/dispatcher';
+export {
   type FlagContext,
   type FlagEvaluation,
   type FlagRecord,

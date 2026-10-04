@@ -126,8 +126,12 @@ describe('api + worker against real Postgres and Redis', () => {
         storage: deps.storage,
         audit: deps.audit,
         logger,
+        runs: deps.processing.runs,
         staleAfterHours: 24,
       }),
+      sweeper: deps.processing.sweeper,
+      sweepIntervalMs: 60_000,
+      prefix: `api-test-1791097709681`,
       concurrency: 1,
       heartbeatIntervalMs: 60_000,
     });

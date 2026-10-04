@@ -15,6 +15,14 @@ export interface MeetingDeletionScheduler {
   scheduleDeletion(job: MeetingDeletionJob): Promise<void>;
 }
 
+/**
+ * Cancels a meeting's in-flight processing run (implemented by the processing module and injected,
+ * so meetings doesn't depend on it). Must be idempotent: deletion and purge both call it.
+ */
+export interface RunCanceller {
+  cancelForMeeting(meetingId: string, reason: 'meeting_deleted' | 'upload_failed'): Promise<void>;
+}
+
 export interface MeetingDeletionJob {
   meetingId: string;
   workspaceId: string;
@@ -42,6 +50,7 @@ export class MeetingService {
       repo: MeetingRepository;
       audit: AuditService;
       deletions: MeetingDeletionScheduler;
+      runs: RunCanceller;
       logger: Logger;
     },
   ) {}
@@ -127,6 +136,12 @@ export class MeetingService {
       target: { type: 'meeting', id },
       origin,
     });
+    try {
+      // Stops a run in flight now; the purge job cancels again in case this fails.
+      await this.deps.runs.cancelForMeeting(id, 'meeting_deleted');
+    } catch (err) {
+      this.deps.logger.error({ err, meetingId: id }, 'could not cancel processing; the purge will');
+    }
     try {
       await this.deps.deletions.scheduleDeletion({
         meetingId: id,

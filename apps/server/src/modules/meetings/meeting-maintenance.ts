@@ -2,6 +2,7 @@ import type { Logger } from '../../lib/logger';
 import type { AuditService } from '../audit';
 import { meetingPrefix, type ObjectStorage } from '../media';
 import type { MeetingRepository } from './meeting-repository';
+import type { RunCanceller } from './meeting-service';
 
 const BATCH = 100;
 
@@ -22,6 +23,7 @@ export class MeetingMaintenance {
       storage: ObjectStorage;
       audit: AuditService;
       logger: Logger;
+      runs: RunCanceller;
       staleAfterHours: number;
     },
   ) {}
@@ -54,6 +56,7 @@ export class MeetingMaintenance {
         );
         if (!done) continue;
         progressed += 1;
+        await this.deps.runs.cancelForMeeting(candidate.meetingId, 'upload_failed');
         await audit.record({
           action: 'upload.failed',
           workspaceId: candidate.workspaceId,
@@ -77,6 +80,9 @@ export class MeetingMaintenance {
     const { repo, storage, audit, logger } = this.deps;
     const meeting = await repo.findDeleted(meetingId);
     if (!meeting) return { purged: false, deletedObjects: 0, abortedUploads: 0 };
+    // Stop processing before sweeping storage: a running step notices within seconds and removes
+    // what it wrote; the rows go with the meeting below.
+    await this.deps.runs.cancelForMeeting(meeting.id, 'meeting_deleted');
 
     let abortedUploads = 0;
     for (const recording of meeting.recordings) {
