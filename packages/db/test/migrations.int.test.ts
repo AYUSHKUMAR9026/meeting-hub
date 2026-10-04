@@ -10,8 +10,11 @@ import {
   meetingParticipants,
   meetings,
   type NewMeeting,
+  type NewProcessingRun,
   organization,
   people,
+  processingRuns,
+  processingSteps,
   recordings,
   runMigrations,
   sql,
@@ -295,6 +298,128 @@ describe('migrations', () => {
         [meeting.id],
       );
       expect(Number(rows[0]!.n)).toBe(0);
+    });
+  });
+
+  describe('processing tables', () => {
+    let ws1: string;
+    let ws2: string;
+
+    beforeAll(async () => {
+      const [a, b] = await client.db
+        .insert(organization)
+        .values([
+          { name: 'Proc one', slug: 'processing-one' },
+          { name: 'Proc two', slug: 'processing-two' },
+        ])
+        .returning();
+      ws1 = a!.id;
+      ws2 = b!.id;
+    });
+
+    /** A meeting with an original recording in `workspaceId`. */
+    async function recordedMeeting(workspaceId: string) {
+      const [meeting] = await client.db
+        .insert(meetings)
+        .values({ workspaceId, title: 'Processed', occurredAt: new Date() })
+        .returning();
+      const [recording] = await client.db
+        .insert(recordings)
+        .values({
+          meetingId: meeting!.id,
+          workspaceId,
+          storageKey: `ws/${workspaceId}/meetings/${meeting!.id}/original/${crypto.randomUUID()}`,
+          originalFilename: 'a.wav',
+          contentType: 'audio/wav',
+          sizeBytes: 10,
+          status: 'uploaded',
+        })
+        .returning();
+      return { meetingId: meeting!.id, recordingId: recording!.id };
+    }
+
+    const newRun = (
+      workspaceId: string,
+      ids: { meetingId: string; recordingId: string },
+      extra: Partial<NewProcessingRun> = {},
+    ) =>
+      client.db
+        .insert(processingRuns)
+        .values({ workspaceId, ...ids, trigger: 'reprocess', pipelineVersion: 1, ...extra })
+        .returning();
+
+    it('allows at most one active run per meeting', async () => {
+      const ids = await recordedMeeting(ws1);
+      const [first] = await newRun(ws1, ids);
+      expect(first).toMatchObject({ status: 'queued' });
+      expect(first!.id).toMatch(UUID_V7);
+      expect(await postgresError(newRun(ws1, ids))).toMatch(
+        /processing_runs_one_active_per_meeting_key/,
+      );
+      // Once the first run finishes, another may start.
+      await client.db
+        .update(processingRuns)
+        .set({ status: 'completed' })
+        .where(sql`id = ${first!.id}`);
+      await newRun(ws1, ids);
+    });
+
+    it('allows one upload-triggered run per recording', async () => {
+      const ids = await recordedMeeting(ws1);
+      const [run] = await newRun(ws1, ids, { trigger: 'upload' });
+      await client.db
+        .update(processingRuns)
+        .set({ status: 'failed' })
+        .where(sql`id = ${run!.id}`);
+      expect(await postgresError(newRun(ws1, ids, { trigger: 'upload' }))).toMatch(
+        /processing_runs_upload_per_recording_key/,
+      );
+    });
+
+    it("keeps runs and steps in their meeting's workspace", async () => {
+      const ids = await recordedMeeting(ws1);
+      expect(await postgresError(newRun(ws2, ids))).toMatch(
+        /processing_runs_(meeting|recording)_fk/,
+      );
+      const [run] = await newRun(ws1, ids);
+      const step = (workspaceId: string) =>
+        client.db
+          .insert(processingSteps)
+          .values({ runId: run!.id, workspaceId, name: 'prepare_media', position: 0 });
+      expect(await postgresError(step(ws2))).toMatch(/processing_steps_run_fk/);
+      await step(ws1);
+      expect(await postgresError(step(ws1))).toMatch(/processing_steps_pkey/);
+    });
+
+    it('rejects unknown run and step statuses', async () => {
+      const ids = await recordedMeeting(ws1);
+      expect(await postgresError(newRun(ws1, ids, { status: 'bogus' as never }))).toMatch(
+        /processing_runs_status_check/,
+      );
+    });
+
+    it('cascades meeting deletes to runs and steps', async () => {
+      const ids = await recordedMeeting(ws1);
+      const [run] = await newRun(ws1, ids);
+      await client.db
+        .insert(processingSteps)
+        .values({ runId: run!.id, workspaceId: ws1, name: 'prepare_media', position: 0 });
+      await client.db.delete(meetings).where(sql`id = ${ids.meetingId}`);
+      const { rows } = await client.pool.query<{ n: string }>(
+        `SELECT (SELECT count(*) FROM processing_runs WHERE id = $1)
+              + (SELECT count(*) FROM processing_steps WHERE run_id = $1) AS n`,
+        [run!.id],
+      );
+      expect(Number(rows[0]!.n)).toBe(0);
+    });
+
+    it('gives outbox events attempts and an availability time', async () => {
+      const [row] = await client.db
+        .insert(domainEvents)
+        .values({ type: 'test.retry', payload: {} })
+        .returning();
+      expect(row).toMatchObject({ attempts: 0, lastError: null });
+      expect(row!.availableAt).toBeInstanceOf(Date);
     });
   });
 });

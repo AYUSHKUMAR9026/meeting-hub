@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { boolean, index, jsonb, pgTable, text, unique, uuid } from 'drizzle-orm/pg-core';
+import { boolean, index, integer, jsonb, pgTable, text, unique, uuid } from 'drizzle-orm/pg-core';
 
 import { organization } from './auth';
 import { createdAt, id, timestamptz, updatedAt } from './columns';
@@ -23,7 +23,11 @@ export const featureFlags = pgTable(
   (t) => [unique('feature_flags_key_workspace_id_key').on(t.key, t.workspaceId).nullsNotDistinct()],
 );
 
-/** Transactional outbox: written in the same transaction as the state change it describes. */
+/**
+ * Transactional outbox: written in the same transaction as the state change it describes, and
+ * marked processed in the same transaction as the dispatcher's effect (ADR 0004). A failed handler
+ * bumps `attempts` and pushes `available_at` out (backoff).
+ */
 export const domainEvents = pgTable(
   'domain_events',
   {
@@ -32,10 +36,13 @@ export const domainEvents = pgTable(
     payload: jsonb('payload').$type<Record<string, unknown>>().notNull(),
     createdAt: createdAt(),
     processedAt: timestamptz('processed_at'),
+    attempts: integer('attempts').notNull().default(0),
+    lastError: text('last_error'),
+    availableAt: timestamptz('available_at').notNull().defaultNow(),
   },
   (t) => [
     index('domain_events_unprocessed_idx')
-      .on(t.createdAt)
+      .on(t.createdAt, t.id)
       .where(sql`${t.processedAt} IS NULL`),
   ],
 );

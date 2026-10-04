@@ -122,6 +122,12 @@ export const recordings = pgTable(
     sizeBytes: bigint('size_bytes', { mode: 'number' }).notNull(),
     sha256: text('sha256'),
     durationMs: integer('duration_ms'),
+    // Filled in by prepare_media (ADR 0004): the audio stream's properties as probed.
+    codec: text('codec'),
+    sampleRate: integer('sample_rate'),
+    channels: integer('channels'),
+    /** Waveform peaks JSON for this audio (normalized recordings only). */
+    peaksStorageKey: text('peaks_storage_key'),
     status: text('status').$type<RecordingStatus>().notNull().default('pending'),
     s3UploadId: text('s3_upload_id'),
     partSize: integer('part_size'),
@@ -134,6 +140,8 @@ export const recordings = pgTable(
     updatedAt: updatedAt(),
   },
   (t) => [
+    // Target of processing_runs' composite foreign key (same-workspace guarantee).
+    unique('recordings_id_workspace_id_key').on(t.id, t.workspaceId),
     foreignKey({
       name: 'recordings_meeting_fk',
       columns: [t.meetingId, t.workspaceId],
@@ -151,6 +159,10 @@ export const recordings = pgTable(
     check('recordings_kind_check', sql`${t.kind} IN (${inList(recordingKinds)})`),
     check('recordings_status_check', sql`${t.status} IN (${inList(recordingStatuses)})`),
     check('recordings_size_bytes_check', sql`${t.sizeBytes} > 0`),
+    check(
+      'recordings_audio_props_check',
+      sql`(${t.sampleRate} IS NULL OR ${t.sampleRate} > 0) AND (${t.channels} IS NULL OR ${t.channels} > 0)`,
+    ),
   ],
 );
 
