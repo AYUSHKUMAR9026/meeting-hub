@@ -52,7 +52,7 @@ export async function createTestApp(env: Record<string, string> = {}): Promise<T
     RATE_LIMIT_ENABLED: 'false',
     FEATURE_FLAGS_CACHE_TTL_MS: '0',
     FEATURE_FLAGS_OVERRIDE:
-      'workspaces.invitations=true,people.directory=true,meetings.upload=true',
+      'workspaces.invitations=true,people.directory=true,meetings.upload=true,pipeline.media=true',
     ...env,
   });
   const logLines: Record<string, unknown>[] = [];

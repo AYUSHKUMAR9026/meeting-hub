@@ -12,7 +12,7 @@
  */
 import { randomUUID } from 'node:crypto';
 
-import { invitation, meetings, member, people, user } from '@meeting-hub/db';
+import { invitation, meetings, member, people, recordings, user } from '@meeting-hub/db';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import type { RouteAccess } from '../src/http/access';
@@ -26,6 +26,7 @@ import {
   type Session,
   type TestApp,
   uniqueEmail,
+  WEB_ORIGIN,
 } from './support/harness';
 
 type Caller = WorkspaceRole | 'non-member' | 'signed-out';
@@ -53,11 +54,14 @@ interface RouteSpec {
   access: 'public' | 'authenticated' | Action;
   success: number;
   request: (ctx: CaseContext) => CaseRequest | Promise<CaseRequest>;
+  /** A response that never ends (SSE): call over a real socket and stop after the status. */
+  streaming?: boolean;
 }
 
 let wsA: Workspace;
 let wsB: Workspace;
 let host: Workspace; // a third workspace used to send invitations to the callers
+let baseUrl: string; // the app on a real socket, for streaming routes
 const sessions = {} as Record<WorkspaceRole | 'non-member', Session>;
 
 // --- fixtures written straight to the database (fast, and independent of the routes under test) --
@@ -146,6 +150,24 @@ async function insertRecordedMeeting(ctx: CaseContext): Promise<string> {
     [{ partNumber: 1, etag }],
     {},
   );
+  return meetingId;
+}
+
+/** A meeting with processed (normalized) audio, written straight to the database. */
+async function insertProcessedMeeting(ctx: CaseContext): Promise<string> {
+  const meetingId = await insertMeeting(ctx);
+  await t.deps.db.db.insert(recordings).values({
+    meetingId,
+    workspaceId: ctx.ws.id,
+    kind: 'normalized',
+    storageKey: `ws/${ctx.ws.id}/meetings/${meetingId}/normalized/${randomUUID()}`,
+    peaksStorageKey: `ws/${ctx.ws.id}/meetings/${meetingId}/peaks/${randomUUID()}`,
+    originalFilename: 'm.m4a',
+    contentType: 'audio/mp4',
+    sizeBytes: 16,
+    durationMs: 1_000,
+    status: 'uploaded',
+  });
   return meetingId;
 }
 
@@ -351,7 +373,61 @@ const ROUTES: Record<string, RouteSpec> = {
     success: 200,
     request: async (ctx) => ({ url: `/v1/meetings/${await insertRecordedMeeting(ctx)}/recording` }),
   },
+  'GET /v1/meetings/:id/processing': {
+    access: 'meeting.read',
+    success: 200,
+    request: async (ctx) => ({ url: `/v1/meetings/${await insertMeeting(ctx)}/processing` }),
+  },
+  'GET /v1/meetings/:id/events': {
+    access: 'meeting.read',
+    success: 200,
+    streaming: true,
+    request: async (ctx) => ({ url: `/v1/meetings/${await insertMeeting(ctx)}/events` }),
+  },
+  'POST /v1/meetings/:id/runs': {
+    access: 'processing.reprocess',
+    success: 202,
+    request: async (ctx) => ({
+      url: `/v1/meetings/${await insertRecordedMeeting(ctx)}/runs`,
+      payload: {},
+    }),
+  },
+  'GET /v1/meetings/:id/media': {
+    access: 'meeting.read',
+    success: 200,
+    request: async (ctx) => ({ url: `/v1/meetings/${await insertProcessedMeeting(ctx)}/media` }),
+  },
 };
+
+/**
+ * Sends a case's request. Streaming routes go over a real socket: the status line is all the
+ * matrix needs, then the stream is closed.
+ */
+async function send(
+  spec: RouteSpec,
+  method: string,
+  session: Session | null,
+  { url, payload, headers }: CaseRequest,
+): Promise<{ statusCode: number; body: string }> {
+  if (!spec.streaming) {
+    const res = await call(t, session, {
+      method: method as 'GET',
+      url,
+      ...(payload ? { payload } : {}),
+      ...(headers ? { headers } : {}),
+    });
+    return { statusCode: res.statusCode, body: res.body };
+  }
+  const controller = new AbortController();
+  const res = await fetch(`${baseUrl}${url}`, {
+    method,
+    signal: controller.signal,
+    headers: { origin: WEB_ORIGIN, ...(session ? { cookie: session.cookie } : {}), ...headers },
+  });
+  const body = res.ok ? '' : await res.text();
+  controller.abort();
+  return { statusCode: res.status, body };
+}
 
 function expectedStatus(spec: RouteSpec, caller: Caller): number {
   if (spec.access === 'public') return spec.success;
@@ -369,6 +445,7 @@ const t: TestApp = await createTestApp();
 const catalog = t.app.routeCatalog.filter((r) => r.url.startsWith('/v1/'));
 
 beforeAll(async () => {
+  baseUrl = await t.app.listen({ host: '127.0.0.1', port: 0 });
   const owner = await createUser(t, 'matrix-owner');
   wsA = { id: (await createWorkspace(t, owner, 'Matrix A')).id, owner };
   sessions.owner = owner;
@@ -410,13 +487,8 @@ describe('authorization matrix', () => {
     const spec = ROUTES[key];
     expect(spec, `${key} has no entry in ROUTES`).toBeDefined();
     const session = caller === 'signed-out' ? null : sessions[caller];
-    const { url, payload, headers } = await spec!.request({ ws: wsA, caller: session });
-    const res = await call(t, session, {
-      method: method as 'GET',
-      url,
-      ...(payload ? { payload } : {}),
-      ...(headers ? { headers } : {}),
-    });
+    const req = await spec!.request({ ws: wsA, caller: session });
+    const res = await send(spec!, method, session, req);
     expect(res.statusCode, res.body).toBe(expectedStatus(spec!, caller));
   });
 
@@ -427,13 +499,8 @@ describe('authorization matrix', () => {
 
   it.each(crossCases)("%s as workspace A's %s, on workspace B → 404", async (key, role, method) => {
     const session = sessions[role];
-    const { url, payload, headers } = await ROUTES[key]!.request({ ws: wsB, caller: session });
-    const res = await call(t, session, {
-      method: method as 'GET',
-      url,
-      ...(payload ? { payload } : {}),
-      ...(headers ? { headers } : {}),
-    });
+    const req = await ROUTES[key]!.request({ ws: wsB, caller: session });
+    const res = await send(ROUTES[key]!, method, session, req);
     expect(res.statusCode, res.body).toBe(404);
   });
 });
