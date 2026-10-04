@@ -45,7 +45,10 @@ apps/web/e2e/                     Playwright smoke test (Mailpit for email)
 - Don't silence `boundaries/dependencies`; if a rule blocks you, the design needs discussing.
 - New domain module = new folder in `src/modules/` with an `index.ts` exporting its public API.
 
-## Every new feature goes behind a feature flag
+## Feature flags
+
+User-facing features under development get a feature flag. Foundational CRUD that other features depend on
+(e.g. meetings) does not. To gate a feature:
 
 1. Add the key to `apps/server/src/modules/platform/flags/definitions.ts` with a safe default (usually `false`).
 2. Check `flags.isEnabled('<key>', { workspaceId })` at the feature's entry point (route, job, UI-facing API).
