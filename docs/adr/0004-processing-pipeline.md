@@ -132,6 +132,9 @@ storage key.
   package included); no libfdk or libopus dependency.
 - Cost: AAC-LC is less efficient than Opus at low bit rates. At 40 kbit/s mono 16 kHz speech is
   clear; three hours is about 54 MB.
+- Verified in Chrome: the `<audio>` element loads the normalized file from its signed URL, reports
+  the right duration (10:00 for a 230 MB screen recording, 3:00 for a phone memo), seeks to the
+  middle through range requests and plays. The E2E test checks duration and playback in Chromium.
 
 ### Waveform peaks
 
@@ -145,7 +148,8 @@ more samples per point).
 `ws/{wid}/meetings/{mid}/normalized/{runId}` (audio) and `ws/{wid}/meetings/{mid}/peaks/{runId}`.
 Keys are **derived from the run id**, not random, so a retried or re-delivered step overwrites
 its own objects instead of leaving duplicates; each run still gets fresh keys. Both live under the
-meeting prefix, so deleting the meeting sweeps them.
+meeting prefix, so deleting the meeting sweeps them. Peaks get their own `peaks/` kind directory
+(rather than sharing `normalized/`) to keep the `<kind>/{uuid}` key convention of ADR 0003.
 
 ### Reprocessing
 
@@ -163,13 +167,18 @@ ffmpeg and ffprobe parse untrusted files. Every invocation (built in one place, 
 - passes `-protocol_whitelist file,pipe` (blocks http/tcp/… from playlists or crafted media: SSRF)
   **and** `-format_whitelist` with the containers we accept (mov/mp4/m4a, matroska/webm, ogg, wav,
   mp3, aac). The second matters: a playlist (`hls`, `concat`) whose entries are `file:` URLs would
-  otherwise pass the protocol whitelist and read local files;
+  otherwise pass the protocol whitelist and read local files. Verified with ffmpeg 9.0: a real
+  `.m3u8` playlist is refused with "Format not on whitelist"; without the whitelist only ffmpeg's own
+  segment-extension heuristic stands in the way. (Our temp input has no extension, and ffmpeg 9
+  also refuses HLS detection there, but we don't rely on that.)
 - passes `-nostdin`, `-threads FFMPEG_THREADS` and `-t` capped just above the duration limit;
 - runs with `spawn` and an argument array (no shell), a hard timeout and an `AbortSignal`, both of
   which `SIGKILL` the process;
-- works in a per-job temp directory under `MEDIA_TMP_DIR`, removed in `finally`. The worker also
-  removes stale job directories (older than the longest step timeout) at startup, which covers a
-  killed worker;
+- works in a per-job temp directory `meeting-hub-job-{host}-{pid}-…` under `MEDIA_TMP_DIR`, removed in
+  `finally`. A killed worker never reaches `finally`, so at startup the worker removes this host's job
+  directories whose pid is dead (or is its own: a restarted container reuses pids), plus any older
+  than the longest step timeout;
+- error details name the input `<input>` rather than the temp path;
 - refuses inputs larger than `MAX_UPLOAD_BYTES`.
 
 The worker image runs as the non-root `node` user and installs Alpine's `ffmpeg` package.
@@ -198,6 +207,12 @@ deleted before it returns, and the commit refuses to run for an inactive run.
   every 15 s; streams close after 15 minutes so access is re-checked when the browser reconnects.
   Headers: `Cache-Control: no-cache, no-transform`, `X-Accel-Buffering: no`.
 - The web app falls back to polling `GET …/processing` every 5 s when the stream errors.
+- **Through the Next.js rewrite proxy (verified 2026-10-04, Next.js 16.3.8):** the same stream read
+  via `:3000` and directly from `:4000` at the same time delivered every chunk within ~5 ms of each
+  other, in `next dev` and in a production build: no buffering and no compression
+  (`no-transform` is respected, no `Content-Encoding`), heartbeat at 15.0 s. No workaround is
+  needed. A buffering proxy in front of the web app in production must pass `text/event-stream`
+  through unbuffered; the polling fallback covers it if not.
 
 ### API
 

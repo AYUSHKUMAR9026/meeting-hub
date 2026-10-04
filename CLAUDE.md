@@ -2,7 +2,7 @@
 
 Meeting Hub is a modular monolith: **web** (Next.js), **api** (Fastify) and **worker** (BullMQ) in one
 pnpm + Turborepo workspace. Read `docs/adr/0001-modular-monolith-and-stack.md` before changing architecture (and ADR 0002 for auth,
-ADR 0003 for meetings and uploads).
+ADR 0003 for meetings and uploads, ADR 0004 for the processing pipeline).
 Ask before changing anything recorded in an ADR; record new architectural decisions as a new ADR.
 
 ## Commands
@@ -23,9 +23,11 @@ pnpm --filter @meeting-hub/server <script>     # run a script in one package
 ```
 apps/server/src/
   api.ts, worker.ts, migrate.ts   entry points (composition only)
+  worker-runtime.ts               the worker composed (maintenance, step workers, outbox, sweeper); tests use it too
   app.ts, deps.ts                 Fastify app factory and dependency wiring
   http/                           routes, error handler, request IDs, readiness
-  jobs/                           queues, default job options, processors
+  jobs/                           queues, default job options, processors, BullMQ step queue
+  modules/processing/             step registry, pipeline driver, sweeper, run service, progress (ADR 0004)
   modules/<name>/                 domain modules; public API is index.ts
   lib/                            config, logger, errors, db, redis, s3 (no domain logic)
 packages/db/                      Drizzle schema (src/schema) + SQL migrations (migrations/)
@@ -126,6 +128,33 @@ resource)` and Better Auth's access-control roles are both derived from it. Add 
 - Members may edit/upload only meetings they created (`authorization/meeting-rules.ts`) → 403, not 404.
 - Integration tests use a real Garage container (`test/support/garage.ts`) — don't stub S3 on upload paths.
 
+## Processing pipeline (ADR 0004)
+
+- **Postgres is the truth, BullMQ delivers.** Run and step state lives in `processing_runs` / `processing_steps`; a job is
+  `{ runId, step }` with id `{runId}.{step}` (BullMQ rejects a bare `:`). Never put state only in Redis: the sweeper
+  must be able to rebuild queued work from the database.
+- **New step = registry entry** in `modules/processing` (`StepDefinition`: name, queue, runStatus, maxAttempts, backoff,
+  timeout, weight, `isAlreadyDone`, `execute`). Append it to a **new** `PIPELINES` version; never edit an existing
+  version. Add its queue to `jobs/queues.ts` and the name to `STEP_NAMES` in `@meeting-hub/contracts`.
+- **`isAlreadyDone(run)` is check-before-do**: true when this run's output for the step already exists. `execute` returns
+  `commit(tx)` (rows written in the transaction that marks the step succeeded) and `discard()` (removes what it wrote).
+  Outputs use keys derived from the run id, so a retry overwrites instead of duplicating.
+- **Typed errors**: `PermanentError` (stable `UPPER_SNAKE` code, user-safe message, internal reason in
+  `details.internal`) fails the step and run at once; `RetryableError` or anything else is retried with jittered backoff.
+  User-safe messages never mention tools, paths or storage; `error_detail` is owner/admin only. Never put media content
+  or signed URLs in errors, logs or step metadata.
+- **ffmpeg rules**: build every command line in `modules/media/ffmpeg/args.ts`: local temp files as `file:<path>`, never a URL;
+  always `-protocol_whitelist file,pipe`, `-format_whitelist`, `-nostdin`, a thread limit and `-t`. Run through
+  `runProcess` (no shell, timeout + AbortSignal → SIGKILL) inside `withJobDir` (always removed). Unit tests assert the
+  flags; don't bypass them.
+- **Cancellation**: steps call `ctx.checkpoint()` between sub-phases and pass `ctx.signal` to every I/O call. Deleting,
+  purging or abandoning a meeting cancels its run via the injected `RunCanceller`.
+- **Outbox handlers** (`OutboxHandler`): idempotent, effect written in the dispatcher's transaction (it marks the event
+  processed in the same one); enqueue or publish in the returned after-commit callback. A handler behind a `flag` leaves
+  events unprocessed while it's off. Payloads hold ids and keys only.
+- Integration tests run the real worker runtime and real ffmpeg (`test/processing.int.test.ts`); use a unique queue
+  prefix per test file and `pipeline.media` flag rows per workspace so files don't process each other's events.
+
 ## Testing expectations
 
 - Unit tests (`*.test.ts`) for any logic: pure functions, services with injected fakes, error mapping.
@@ -148,5 +177,5 @@ resource)` and Better Auth's access-control roles are both derived from it. Add 
 
 ## Out of scope until their phase
 
-Processing runs, ffmpeg/ffprobe and outbox consumers (Phase 4), transcription, AI/LLM calls, embeddings, search, 2FA/SSO, Postgres RLS (hardening),
+Transcription and speakers (Phase 5), the waveform and transcript UI, AI/LLM calls, embeddings, search, 2FA/SSO, Postgres RLS (hardening),
 production email provider, deployment. Do not create `packages/ai` or `evals/` until those phases start.

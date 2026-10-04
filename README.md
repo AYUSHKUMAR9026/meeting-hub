@@ -3,15 +3,24 @@
 AI meeting-intelligence platform: upload recordings, get transcripts with speakers, and a persistent,
 evidence-linked ledger of decisions and action items across meetings.
 
-> **Status: Phase 3 — meetings & uploads.** Accounts and workspaces with roles, invitations, a people directory and
-> an audit log (Phase 2), plus meetings with participants and recordings of up to 2 GB uploaded **straight from the
-> browser to object storage** (resumable multipart, ADR 0003). Processing and transcription come in Phase 4.
+> **Status: Phase 4 — processing pipeline & media.** Accounts, workspaces, roles and audit (Phase 2); meetings and
+> recordings of up to 2 GB uploaded **straight from the browser to object storage** (Phase 3, ADR 0003); and now a
+> **processing run** starts automatically when an upload completes: ffmpeg validates the file and produces normalized
+> audio (AAC/M4A, mono, 16 kHz) and waveform peaks, the meeting page shows live progress over Server-Sent Events, and
+> the processed audio plays in the browser (ADR 0004). Transcription comes in Phase 5.
 
 ## Prerequisites
 
 - **Node.js 24 LTS** (see `.nvmrc`; `nvm use`)
 - **pnpm 12** — `npm install -g pnpm@12`
 - **Docker** with Compose v2 (Docker Desktop, OrbStack, or Docker Engine)
+- **ffmpeg** (with ffprobe) on `PATH` for the worker. Any recent release (6+) works.
+  - **Windows:** `winget install --id Gyan.FFmpeg -e`, then open a new terminal. If winget can't download it,
+    get `ffmpeg-release-essentials.zip` from <https://www.gyan.dev/ffmpeg/builds/>, check it against the published
+    `.sha256`, unzip it (e.g. to `%LOCALAPPDATA%Programsfmpeg`) and add its `bin` folder to your user `Path`
+    (or set `FFMPEG_PATH`/`FFPROBE_PATH` in `.env` to the two `.exe` files).
+  - **macOS:** `brew install ffmpeg` · **Debian/Ubuntu:** `sudo apt-get install ffmpeg`
+  - Check: `ffmpeg -version && ffprobe -version`
 
 ## Setup
 
@@ -28,8 +37,9 @@ Open <http://localhost:3000>, create an account, and click the verification link
 (<http://localhost:8025>) — every email the app sends lands there. After verifying you're asked to create a
 workspace; invite a teammate from **Settings → Members** (their invitation is in Mailpit too). Under **Meetings → New
 meeting**, add a title, participants and an audio/video file and upload it; the bytes go from the browser straight to
-Garage, never through the API. Deleting a meeting hides it at once; the **worker** (part of `pnpm dev`) then purges its
-files from storage.
+Garage, never through the API. As soon as the upload completes the **worker** (part of `pnpm dev`) starts a processing
+run; the meeting page shows its progress live and, when the meeting is **Ready**, plays the processed audio. Owners and
+admins can **Reprocess** a meeting. Deleting a meeting hides it at once, cancels its processing and purges its files.
 <http://localhost:3000/status> shows PostgreSQL, Redis and S3 health.
 
 ## Commands
@@ -81,12 +91,13 @@ session cookies are first-party. See [ADR 0002](docs/adr/0002-auth-and-workspace
 
 ## Feature flags
 
-| Flag                     | Default (dev / other) | What it gates                                         |
-| ------------------------ | --------------------- | ----------------------------------------------------- |
-| `workspaces.invitations` | on / off              | Inviting people and accepting invitations             |
-| `people.directory`       | on / off              | People directory API and settings page                |
-| `meetings.upload`        | on / off              | Recording upload endpoints and uploader UI            |
-| `auth.google_signin`     | off / off             | "Continue with Google" (also needs `GOOGLE_CLIENT_*`) |
+| Flag                     | Default (dev / other) | What it gates                                                    |
+| ------------------------ | --------------------- | ---------------------------------------------------------------- |
+| `workspaces.invitations` | on / off              | Inviting people and accepting invitations                        |
+| `people.directory`       | on / off              | People directory API and settings page                           |
+| `meetings.upload`        | on / off              | Recording upload endpoints and uploader UI                       |
+| `pipeline.media`         | on / off              | Processing runs on upload (backlog kept while off) and reprocess |
+| `auth.google_signin`     | off / off             | "Continue with Google" (also needs `GOOGLE_CLIENT_*`)            |
 
 Turn one on with `FEATURE_FLAGS_OVERRIDE=flag.key=true` in `.env`, or a `feature_flags` row (global or per workspace).
 
@@ -122,6 +133,22 @@ but it needs two settings that `infra/garage/init.sh` applies locally:
 address than the API does. Locally both are `http://localhost:3900`; `CORS_ALLOWED_ORIGINS` (comma-separated) changes
 the origins `garage-init` allows.
 
+## Processing pipeline
+
+Completed uploads write a `recording.uploaded` event to the `domain_events` outbox. The worker's dispatcher turns it into
+a **processing run** (Postgres holds all run and step state; BullMQ only delivers `{ runId, step }` jobs). Pipeline
+version 1 has one step, `prepare_media`: download and hash the original, `ffprobe` it, decode it once into normalized
+audio (AAC in M4A, mono, 16 kHz, 40 kbit/s) plus waveform peaks, upload both, and commit everything in one transaction.
+Invalid files fail with a clear reason (`UNREADABLE_MEDIA`, `NO_AUDIO_STREAM`, `MEDIA_TOO_SHORT`, `MEDIA_TOO_LONG`).
+A sweeper repairs anything lost between Postgres and Redis every minute, so killing the worker mid-run is safe: restart it
+and the run completes. ffmpeg only ever reads local temp files, with protocol and container whitelists. See
+[ADR 0004](docs/adr/0004-processing-pipeline.md).
+
+Live progress is a Server-Sent Events stream (`GET /v1/meetings/{id}/events`) through the same-origin proxy; it streams
+unbuffered in both `next dev` and a production build. If a proxy in front of the web app buffers responses, make it
+pass `text/event-stream` through unbuffered (`X-Accel-Buffering: no` is set for nginx); the page falls back to
+polling every 5 s either way.
+
 ## Docker images
 
 ```bash
@@ -133,7 +160,7 @@ docker run meeting-hub-server api       # default
 docker run meeting-hub-server worker
 ```
 
-Both images run as the non-root `node` user. `API_INTERNAL_URL` (where the web server proxies `/api/auth/*` and
+Both images run as the non-root `node` user. The server image includes Alpine's `ffmpeg` package for the worker. `API_INTERNAL_URL` (where the web server proxies `/api/auth/*` and
 `/v1/*`) is baked into the web build because Next.js resolves rewrites at build time.
 
 ## Troubleshooting
@@ -152,5 +179,11 @@ Both images run as the non-root `node` user. `API_INTERNAL_URL` (where the web s
   `pnpm infra:up` again (garage-init re-applies CORS); for another origin set `CORS_ALLOWED_ORIGINS` first.
 - **“Storage did not expose the ETag header”** — the bucket CORS lacks `ExposeHeaders: ETag`.
 - **Deleted meeting’s files still in storage** — purges run in the worker; make sure it is running (`pnpm dev` starts it).
+- **Meeting stuck on “Uploaded”** — the worker isn't running, or `pipeline.media` is off for the workspace (uploads
+  wait and are processed once it is turned on).
+- **Processing fails with `MEDIA_TOOLS_UNAVAILABLE`** — the worker can't start ffmpeg: install it (see Prerequisites),
+  open a new terminal so `PATH` is updated, or set `FFMPEG_PATH`/`FFPROBE_PATH`.
+- **Every page is a 404 in `pnpm dev`** after running a production build (`pnpm build`, E2E in CI mode): delete
+  `apps/web/.next` and start `pnpm dev` again.
 
 See [`CLAUDE.md`](CLAUDE.md) for conventions and [`docs/adr`](docs/adr) for design decisions.
