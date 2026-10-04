@@ -2,8 +2,10 @@
  * Test media generated at run time (no large binaries in git): a valid 16-bit mono PCM WAV of
  * roughly `bytes` bytes (a quiet 440 Hz tone).
  */
+export const WAV_SAMPLE_RATE = 44_100;
+
 export function wavFixture(bytes: number): Buffer {
-  const sampleRate = 44_100;
+  const sampleRate = WAV_SAMPLE_RATE;
   const samples = Math.floor((bytes - 44) / 2);
   const data = Buffer.alloc(44 + samples * 2);
   data.write('RIFF', 0);

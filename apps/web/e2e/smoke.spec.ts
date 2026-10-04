@@ -1,6 +1,6 @@
 import { type Browser, expect, type Page, test } from '@playwright/test';
 
-import { wavFixture } from './fixtures';
+import { WAV_SAMPLE_RATE, wavFixture } from './fixtures';
 import { linkFromEmail } from './mailpit';
 
 // Test-only credentials for throwaway local/CI accounts.
@@ -9,6 +9,12 @@ const run = Date.now().toString(36);
 const owner = { name: 'Olive Owner', email: `owner-${run}@e2e.test` };
 const invitee = { name: 'Ian Invitee', email: `invitee-${run}@e2e.test` };
 const workspaceName = `E2E Workspace ${run}`;
+
+// ~11 MiB of 16-bit mono PCM: about 131 s of audio.
+const wavBytes = 11 * 1024 * 1024;
+const wavSeconds = (wavBytes - 44) / 2 / WAV_SAMPLE_RATE;
+const formatSeconds = (s: number) =>
+  `${Math.floor(Math.round(s) / 60)}:${String(Math.round(s) % 60).padStart(2, '0')}`;
 
 async function signUp(page: Page, user: { name: string; email: string }) {
   await page.getByLabel('Name').fill(user.name);
@@ -29,7 +35,7 @@ async function newPage(browser: Browser) {
   return (await browser.newContext()).newPage();
 }
 
-test('sign up → verify → workspace → invite → accept → upload a meeting recording → delete', async ({
+test('sign up → verify → workspace → invite → accept → upload → live processing → play → delete', async ({
   browser,
 }) => {
   // 1. Owner signs up and verifies their email via Mailpit.
@@ -84,7 +90,7 @@ test('sign up → verify → workspace → invite → accept → upload a meetin
   await ownerPage.getByLabel('Recording file').setInputFiles({
     name: 'e2e-sync.wav',
     mimeType: 'audio/wav',
-    buffer: wavFixture(11 * 1024 * 1024),
+    buffer: wavFixture(wavBytes),
   });
   await expect(ownerPage.getByTestId('selected-file')).toContainText('e2e-sync.wav');
   await ownerPage.getByRole('checkbox', { name: /agreed to be recorded/ }).check();
@@ -92,11 +98,34 @@ test('sign up → verify → workspace → invite → accept → upload a meetin
 
   await expect(ownerPage).toHaveURL(/\/m\/[0-9a-f-]{36}$/, { timeout: 60_000 });
   await expect(ownerPage.getByRole('heading', { name: meetingTitle })).toBeVisible();
-  await expect(ownerPage.getByTestId('meeting-status')).toHaveText('Uploaded');
   await expect(ownerPage.getByTestId('recording-card')).toContainText('e2e-sync.wav');
   await expect(ownerPage.getByLabel('Participants')).toContainText(invitee.name);
 
-  // 7. Delete it: gone from the list right away (storage is purged by the worker's job).
+  // 7. Processing starts by itself (outbox → worker) and the page follows it live, without a
+  //    reload: the panel and its progress bar appear, then the meeting becomes Ready.
+  const panel = ownerPage.getByTestId('processing-panel');
+  await expect(panel).toBeVisible({ timeout: 30_000 });
+  await expect(panel.getByRole('progressbar', { name: 'Processing progress' })).toBeVisible();
+  await expect(ownerPage.getByTestId('meeting-status')).toHaveText('Ready', { timeout: 120_000 });
+  await expect(panel).toHaveAttribute('data-run-status', 'completed');
+  await expect(panel.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '100');
+
+  // 8. The processed audio plays in the browser and reports the recording's duration.
+  const audio = ownerPage.getByTestId('meeting-audio');
+  await expect
+    .poll(() => audio.evaluate((el: HTMLAudioElement) => el.duration), { timeout: 30_000 })
+    .toBeGreaterThan(wavSeconds - 1);
+  expect(await audio.evaluate((el: HTMLAudioElement) => el.duration)).toBeLessThan(wavSeconds + 1);
+  await expect(ownerPage.getByTestId('audio-duration')).toHaveText(formatSeconds(wavSeconds));
+  await audio.evaluate((el: HTMLAudioElement) => {
+    el.muted = true;
+    return el.play();
+  });
+  await expect
+    .poll(() => audio.evaluate((el: HTMLAudioElement) => el.currentTime), { timeout: 10_000 })
+    .toBeGreaterThan(0.2);
+
+  // 9. Delete it: gone from the list right away (storage is purged by the worker's job).
   await ownerPage.getByRole('button', { name: 'Delete' }).click();
   await ownerPage.getByRole('button', { name: 'Delete meeting' }).click();
   await expect(ownerPage).toHaveURL(/\/meetings$/);

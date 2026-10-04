@@ -1,7 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
 /**
- * End-to-end smoke tests against the real stack: web (:3000) → API (:4000) → Postgres/Redis/Garage,
+ * End-to-end smoke tests against the real stack: web (:3000) → API (:4000) + worker → Postgres/Redis/Garage,
  * with email read from Mailpit and recordings uploaded from the browser straight to Garage.
  * Needs `pnpm infra:up && pnpm db:migrate` first.
  * Locally, already-running dev servers are reused; in CI both are started here.
@@ -30,6 +30,13 @@ export default defineConfig({
       env: { UPLOAD_PART_SIZE_BYTES: String(5 * 1024 * 1024) },
       url: 'http://localhost:4000/health',
       reuseExistingServer: !isCI,
+      timeout: 120_000,
+    },
+    {
+      // Processes uploads (outbox → prepare_media with ffmpeg); needs ffmpeg on PATH.
+      command: 'pnpm --filter @meeting-hub/server exec tsx src/worker.ts',
+      cwd: repoRoot,
+      wait: { stdout: /processing worker started/ },
       timeout: 120_000,
     },
     {
