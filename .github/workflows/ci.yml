@@ -69,6 +69,9 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      - name: Install ffmpeg (prepare_media runs the real binary)
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg && ffmpeg -version | head -1
+
       - name: Integration tests
         run: pnpm test:integration
 
@@ -88,6 +91,9 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      - name: Install ffmpeg (prepare_media runs the real binary)
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg && ffmpeg -version | head -1
+
       # Same infrastructure as local dev: Postgres, Redis, Mailpit and Garage (S3), plus garage-init,
       # which creates the bucket with the CORS rules browser uploads need.
       - name: Start infrastructure (docker compose)
@@ -101,7 +107,7 @@ jobs:
       - name: Install Chromium
         run: pnpm --filter @meeting-hub/web exec playwright install --with-deps chromium
 
-      - name: E2E (starts the API and a production build of the web app)
+      - name: E2E (starts the API, the worker and a production build of the web app)
         run: pnpm test:e2e
 
       - uses: actions/upload-artifact@v7
@@ -134,5 +140,17 @@ jobs:
           file: infra/docker/${{ matrix.image }}.Dockerfile
           push: false
           tags: meeting-hub-${{ matrix.image }}:ci
+          load: true
           cache-from: type=gha,scope=${{ matrix.image }}
           cache-to: type=gha,mode=max,scope=${{ matrix.image }}
+
+      - name: The worker image runs ffmpeg as non-root
+        if: matrix.image == 'server'
+        run: |
+          docker run --rm --entrypoint sh meeting-hub-server:ci -c '
+            set -e
+            test "$(id -un)" = node
+            ffmpeg -hide_banner -loglevel error -f lavfi -i sine=duration=2 \
+              -ac 1 -ar 16000 -c:a aac -b:a 40k -f mp4 -y /tmp/t.m4a
+            ffprobe -v error -show_entries stream=codec_name,sample_rate,channels -of csv=p=0 /tmp/t.m4a
+          '

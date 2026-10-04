@@ -31,7 +31,9 @@ RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
 FROM node:${NODE_VERSION}-alpine AS runtime
 ENV NODE_ENV=production
 WORKDIR /app
-RUN apk add --no-cache tini
+# ffmpeg/ffprobe for the worker's prepare_media step (distro package; ADR 0004). Same image runs
+# the API, which never invokes them.
+RUN apk add --no-cache tini ffmpeg
 COPY --from=build --chown=node:node /out/package.json ./package.json
 COPY --from=build --chown=node:node /out/node_modules ./node_modules
 COPY --from=build --chown=node:node /repo/apps/server/dist ./dist
