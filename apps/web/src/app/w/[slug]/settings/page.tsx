@@ -34,6 +34,9 @@ export default function GeneralSettingsPage() {
         settings: {
           timezone: formValue(form, 'timezone'),
           retentionDays: Number(form.get('retentionDays')),
+          ...(form.has('transcriptLanguage')
+            ? { transcriptLanguage: formValue(form, 'transcriptLanguage').toLowerCase() || null }
+            : {}),
           glossary: formValue(form, 'glossary')
             .split('\n')
             .map((term) => term.trim())
@@ -94,6 +97,16 @@ export default function GeneralSettingsPage() {
               required
               hint="How long raw recordings are kept before deletion."
             />
+            {workspace.features.includes('transcription.enabled') && (
+              <FormField
+                id="transcriptLanguage"
+                label="Transcription language"
+                maxLength={8}
+                defaultValue={workspace.settings.transcriptLanguage ?? ''}
+                placeholder="Auto-detect"
+                hint="Leave blank to auto-detect, or enter a language code such as en or en_us."
+              />
+            )}
             <div className="grid gap-1.5">
               <Label htmlFor="glossary">Glossary</Label>
               <Textarea

@@ -2,6 +2,7 @@ import type { ProcessingRun, RunStatus } from '@/lib/api/client';
 
 const STEP_LABELS: Record<string, string> = {
   prepare_media: 'Preparing audio',
+  transcribe: 'Transcribing audio',
 };
 
 const PHASE_LABELS: Record<string, string> = {

@@ -30,6 +30,8 @@ export type ProcessingRun = Schemas['ProcessingRun'];
 export type ProcessingStep = Schemas['ProcessingStep'];
 export type RunStatus = Schemas['RunStatus'];
 export type MeetingMedia = Schemas['MeetingMedia'];
+export type TranscriptPage = Schemas['TranscriptPage'];
+export type TranscriptSpeaker = Schemas['TranscriptSpeaker'];
 
 /** A readable message from an API error body (problem+json) or anything thrown. */
 export function problemMessage(error: unknown, fallback = 'Something went wrong'): string {

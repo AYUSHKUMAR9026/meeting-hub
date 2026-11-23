@@ -125,7 +125,40 @@ test('sign up → verify → workspace → invite → accept → upload → live
     .poll(() => audio.evaluate((el: HTMLAudioElement) => el.currentTime), { timeout: 10_000 })
     .toBeGreaterThan(0.2);
 
-  // 9. Delete it: gone from the list right away (storage is purged by the worker's job).
+  // 9. The fake transcript labels both speakers and selecting a segment seeks the audio.
+  const transcript = ownerPage.getByTestId('transcript-panel');
+  const segments = transcript.getByRole('list', { name: 'Transcript segments' });
+  await expect(segments.getByText('Speaker A', { exact: true })).toBeVisible();
+  await expect(segments.getByText('Speaker B', { exact: true })).toBeVisible();
+  const cue = transcript.getByTestId('transcript-segment').nth(1);
+  const start = Number(await cue.getAttribute('data-start-ms')) / 1000;
+  expect(start).toBeGreaterThan(0);
+  await audio.evaluate((el: HTMLAudioElement) => el.pause());
+  await cue.click();
+  await expect
+    .poll(() => audio.evaluate((el: HTMLAudioElement) => el.currentTime))
+    .toBeCloseTo(start, 1);
+  await expect(cue).toHaveAttribute('aria-current', 'true');
+  const waveform = ownerPage.getByRole('img', { name: 'Audio waveform' });
+  await expect(waveform).toBeVisible();
+  await expect
+    .poll(() =>
+      waveform.evaluate((canvas: HTMLCanvasElement) =>
+        canvas
+          .getContext('2d')
+          ?.getImageData(0, 0, canvas.width, canvas.height)
+          .data.some((alpha, index) => index % 4 === 3 && alpha > 0),
+      ),
+    )
+    .toBe(true);
+  await transcript.getByRole('searchbox', { name: 'Search transcript' }).fill('agenda');
+  await transcript.getByRole('button', { name: 'Search', exact: true }).click();
+  await expect(transcript.getByTestId('transcript-segment')).toHaveCount(1);
+  await expect(transcript.getByTestId('transcript-segment')).toContainText('agenda');
+  await transcript.getByRole('button', { name: 'Clear', exact: true }).click();
+  await expect(transcript.getByTestId('transcript-segment')).toHaveCount(2);
+
+  // 10. Delete it: gone from the list right away (storage is purged by the worker's job).
   await ownerPage.getByRole('button', { name: 'Delete' }).click();
   await ownerPage.getByRole('button', { name: 'Delete meeting' }).click();
   await expect(ownerPage).toHaveURL(/\/meetings$/);

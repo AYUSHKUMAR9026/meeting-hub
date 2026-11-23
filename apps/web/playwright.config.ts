@@ -4,10 +4,14 @@ import { defineConfig, devices } from '@playwright/test';
  * End-to-end smoke tests against the real stack: web (:3000) → API (:4000) + worker → Postgres/Redis/Garage,
  * with email read from Mailpit and recordings uploaded from the browser straight to Garage.
  * Needs `pnpm infra:up && pnpm db:migrate` first.
- * Locally, already-running dev servers are reused; in CI both are started here.
+ * Owns the API and worker to guarantee the fake provider. Locally it can reuse the web server.
  */
 const isCI = Boolean(process.env.CI);
 const repoRoot = '../..';
+const transcriptionEnv = {
+  TRANSCRIPTION_PROVIDER: 'fake',
+  FEATURE_FLAGS_OVERRIDE: 'transcription.enabled=true',
+};
 
 export default defineConfig({
   testDir: './e2e',
@@ -27,15 +31,16 @@ export default defineConfig({
       command: 'pnpm --filter @meeting-hub/server exec tsx src/api.ts',
       cwd: repoRoot,
       // The smoke test uploads ~11 MiB; 5 MiB parts (the S3 minimum) make that a 3-part upload.
-      env: { UPLOAD_PART_SIZE_BYTES: String(5 * 1024 * 1024) },
+      env: { ...transcriptionEnv, UPLOAD_PART_SIZE_BYTES: String(5 * 1024 * 1024) },
       url: 'http://localhost:4000/health',
-      reuseExistingServer: !isCI,
+      reuseExistingServer: false,
       timeout: 120_000,
     },
     {
       // Processes uploads (outbox → prepare_media with ffmpeg); needs ffmpeg on PATH.
       command: 'pnpm --filter @meeting-hub/server exec tsx src/worker.ts',
       cwd: repoRoot,
+      env: transcriptionEnv,
       wait: { stdout: /processing worker started/ },
       timeout: 120_000,
     },

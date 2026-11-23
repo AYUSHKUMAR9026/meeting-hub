@@ -3,14 +3,15 @@
 import { DownloadIcon, FileAudioIcon } from 'lucide-react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { type FormEvent, useEffect, useState } from 'react';
+import { type FormEvent, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
 import { FormError, FormField } from '@/components/app/form-field';
 import { useWorkspace } from '@/components/app/workspace-context';
-import { AudioPlayer } from '@/components/meetings/audio-player';
+import { AudioPlayer, type AudioPlayerHandle } from '@/components/meetings/audio-player';
 import { MeetingStatusBadge } from '@/components/meetings/meeting-status-badge';
 import { ParticipantsPicker, type PickedPerson } from '@/components/meetings/participants-picker';
+import { TranscriptPanel } from '@/components/meetings/transcript-panel';
 import { ProcessingPanel } from '@/components/meetings/processing-panel';
 import { RecordingUploadCard } from '@/components/meetings/recording-upload-card';
 import { useMeetingPermissions } from '@/components/meetings/use-meeting-permissions';
@@ -62,6 +63,8 @@ function MeetingDetail({ meeting, onChanged }: { meeting: Meeting; onChanged: ()
   const workspace = useWorkspace();
   const router = useRouter();
   const perms = useMeetingPermissions(meeting);
+  const audio = useRef<AudioPlayerHandle>(null);
+  const [positionMs, setPositionMs] = useState(0);
   const [editing, setEditing] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -72,6 +75,14 @@ function MeetingDetail({ meeting, onChanged }: { meeting: Meeting; onChanged: ()
   const run = live?.data.run ?? null;
   // The stream knows first when the meeting moves on (processing → ready / failed).
   const status = live?.data.meetingStatus ?? meeting.status;
+  const transcriptionEnabled = workspace.features.includes('transcription.enabled');
+  const mediaStep = run?.steps.find((step) => step.name === 'prepare_media');
+  const transcriptStep = run?.steps.find((step) => step.name === 'transcribe');
+  const playable =
+    (status === 'ready' && run?.status === 'completed') ||
+    (transcriptStep &&
+      (mediaStep?.status === 'succeeded' || mediaStep?.status === 'skipped') &&
+      transcriptStep.status !== 'skipped');
   useEffect(() => {
     if (live && live.data.meetingStatus !== meeting.status) onChanged();
   }, [live, meeting.status, onChanged]);
@@ -234,12 +245,29 @@ function MeetingDetail({ meeting, onChanged }: { meeting: Meeting; onChanged: ()
           run={run}
           live={live?.live ?? false}
           canReprocess={perms.canReprocess}
+          canRetranscribe={transcriptionEnabled && Boolean(playable)}
           onReprocessed={() => void processing.refresh()}
         />
       )}
 
-      {status === 'ready' && run?.status === 'completed' && (
-        <AudioPlayer key={run.id} meetingId={meeting.id} />
+      {playable && (
+        <AudioPlayer
+          key={mediaStep?.status === 'skipped' ? meeting.id : run?.id}
+          meetingId={meeting.id}
+          playerRef={audio}
+          waveform={transcriptionEnabled}
+          onTime={setPositionMs}
+        />
+      )}
+      {transcriptionEnabled && recording?.status === 'uploaded' && (
+        <TranscriptPanel
+          meetingId={meeting.id}
+          revision={transcriptStep?.status === 'succeeded' ? (run?.id ?? '') : ''}
+          processing={run?.pipelineVersion === 2 && status === 'processing'}
+          failed={transcriptStep?.status === 'failed'}
+          positionMs={positionMs}
+          onSeek={(ms) => audio.current?.seek(ms)}
+        />
       )}
 
       {perms.canUpload && meeting.status === 'awaiting_upload' && (

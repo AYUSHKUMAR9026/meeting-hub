@@ -70,25 +70,27 @@ export function ProcessingPanel({
   run,
   live,
   canReprocess,
+  canRetranscribe,
   onReprocessed,
 }: {
   meetingId: string;
   run: ProcessingRun;
   live: boolean;
   canReprocess: boolean;
+  canRetranscribe: boolean;
   onReprocessed: () => void;
 }) {
   const active = isRunActive(run.status);
   const now = useNow(active);
   const [submitting, setSubmitting] = useState(false);
   const elapsed = formatElapsed(runElapsedMs(run, now));
-  const running = run.steps.find((s) => s.status === 'running');
+  const running = run.steps.find((s) => s.status === 'running' || s.status === 'waiting_external');
 
-  async function reprocess() {
+  async function reprocess(fromStep?: 'transcribe') {
     setSubmitting(true);
     const { error } = await api.POST('/v1/meetings/{id}/runs', {
       params: { path: { id: meetingId } },
-      body: {},
+      body: fromStep ? { fromStep } : {},
     });
     setSubmitting(false);
     if (error) {
@@ -118,6 +120,16 @@ export function ProcessingPanel({
           </span>
           {active && !live && (
             <span className="text-xs text-muted-foreground">(updating every few seconds)</span>
+          )}
+          {canReprocess && canRetranscribe && !active && (
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={submitting}
+              onClick={() => void reprocess('transcribe')}
+            >
+              Retry transcription
+            </Button>
           )}
           {canReprocess && !active && (
             <Button

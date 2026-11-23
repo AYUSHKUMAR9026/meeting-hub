@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { type RefObject, useEffect, useImperativeHandle, useRef, useState } from 'react';
 
 import { FormError } from '@/components/app/form-field';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,13 +8,36 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { api, type MeetingMedia, problemMessage } from '@/lib/api/client';
 import { formatDuration, refreshDelayMs } from '@/lib/processing';
 
-/**
- * Plays the meeting's normalized audio from a short-lived signed URL, fetching a fresh one before
- * it expires and swapping it in without losing the playback position. The waveform comes later.
- * Render it with `key={runId}` so a reprocess remounts it with the new audio.
- */
-export function AudioPlayer({ meetingId }: { meetingId: string }) {
+import { Waveform } from './waveform';
+
+export interface AudioPlayerHandle {
+  seek(positionMs: number): void;
+}
+
+/** Plays normalized audio and refreshes its signed URL without losing the playback position. */
+export function AudioPlayer({
+  meetingId,
+  playerRef,
+  waveform,
+  onTime,
+}: {
+  meetingId: string;
+  playerRef: RefObject<AudioPlayerHandle | null>;
+  waveform: boolean;
+  onTime: (ms: number) => void;
+}) {
   const audio = useRef<HTMLAudioElement>(null);
+  useImperativeHandle(
+    playerRef,
+    () => ({
+      seek(positionMs) {
+        if (!audio.current) return;
+        audio.current.currentTime = positionMs / 1000;
+        onTime(positionMs);
+      },
+    }),
+    [onTime],
+  );
   const [media, setMedia] = useState<MeetingMedia | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [elementDurationMs, setElementDurationMs] = useState<number | null>(null);
@@ -81,10 +104,11 @@ export function AudioPlayer({ meetingId }: { meetingId: string }) {
       <CardContent className="grid gap-2">
         {error && <FormError message={error} />}
         {!media && !error && <Skeleton className="h-10 w-full" />}
-        {/* Plain element for now; the waveform and transcript sync come in a later phase. */}
+        {waveform && media?.peaks && <Waveform url={media.peaks.url} />}
         <audio
           ref={audio}
           controls
+          onTimeUpdate={(e) => onTime(Math.round(e.currentTarget.currentTime * 1000))}
           preload="metadata"
           hidden={!media}
           className="w-full"
