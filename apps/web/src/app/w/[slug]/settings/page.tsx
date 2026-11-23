@@ -34,6 +34,9 @@ export default function GeneralSettingsPage() {
         settings: {
           timezone: formValue(form, 'timezone'),
           retentionDays: Number(form.get('retentionDays')),
+          ...(workspace.features.includes('sharing.enabled')
+            ? { sharingEnabled: form.has('sharingEnabled') }
+            : {}),
           ...(form.has('transcriptLanguage')
             ? { transcriptLanguage: formValue(form, 'transcriptLanguage').toLowerCase() || null }
             : {}),
@@ -106,6 +109,16 @@ export default function GeneralSettingsPage() {
                 placeholder="Auto-detect"
                 hint="Leave blank to auto-detect, or enter a language code such as en or en_us."
               />
+            )}
+            {workspace.features.includes('sharing.enabled') && (
+              <Label>
+                <input
+                  type="checkbox"
+                  name="sharingEnabled"
+                  defaultChecked={workspace.settings.sharingEnabled}
+                />{' '}
+                Allow public meeting share links
+              </Label>
             )}
             <div className="grid gap-1.5">
               <Label htmlFor="glossary">Glossary</Label>

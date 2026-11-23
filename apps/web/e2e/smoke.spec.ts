@@ -1,3 +1,5 @@
+import { readFile } from 'node:fs/promises';
+
 import { type Browser, expect, type Page, test } from '@playwright/test';
 
 import { WAV_SAMPLE_RATE, wavFixture } from './fixtures';
@@ -35,7 +37,7 @@ async function newPage(browser: Browser) {
   return (await browser.newContext()).newPage();
 }
 
-test('sign up → verify → workspace → invite → accept → upload → live processing → play → delete', async ({
+test('sign up → verify → workspace → invite → accept → upload → review → export → share → revoke → delete', async ({
   browser,
 }) => {
   // 1. Owner signs up and verifies their email via Mailpit.
@@ -174,7 +176,48 @@ test('sign up → verify → workspace → invite → accept → upload → live
   await transcript.getByRole('button', { name: 'Clear', exact: true }).click();
   await expect(transcript.getByTestId('transcript-segment')).toHaveCount(2);
 
-  // 10. Delete it: gone from the list right away (storage is purged by the worker's job).
+  // 10. Download the document and share it with a signed-out visitor.
+  const downloadEvent = ownerPage.waitForEvent('download');
+  await ownerPage.getByRole('button', { name: 'Export Markdown' }).click();
+  const download = await downloadEvent;
+  expect(download.suggestedFilename()).toMatch(/\.md$/);
+  await expect(readFile(await download.path(), 'utf8')).resolves.toContain('Review the agenda');
+  await ownerPage.getByRole('button', { name: 'Create share link' }).click();
+  const link = ownerPage.getByRole('textbox', { name: 'New share link' });
+  await expect(link).toBeVisible();
+  const publicPage = await newPage(browser);
+  const shareResponse = await publicPage.goto(await link.inputValue());
+  expect(shareResponse?.status()).toBe(200);
+  expect(shareResponse?.headers()['x-robots-tag']).toContain('noindex');
+  await expect(publicPage.getByRole('heading', { name: 'Review the agenda' })).toBeVisible();
+  await expect(publicPage.getByRole('heading', { name: 'Transcript', exact: true })).toHaveCount(0);
+  await ownerPage.getByRole('button', { name: 'Revoke share link' }).click();
+  await expect(ownerPage.getByText(/^Revoked/)).toBeVisible();
+  const revoked = await publicPage.reload();
+  expect(revoked?.status()).toBe(404);
+  await expect(publicPage.getByRole('heading', { name: 'Shared meeting not found' })).toBeVisible();
+  await publicPage.context().close();
+
+  // 11. Review across the workspace, then jump back to the dated evidence.
+  await ownerPage.getByRole('link', { name: 'Decisions', exact: true }).click();
+  const trackedDecision = ownerPage
+    .getByRole('listitem')
+    .filter({ has: ownerPage.getByRole('heading', { name: 'Review the agenda' }) });
+  await trackedDecision.getByRole('button', { name: 'Confirm', exact: true }).click();
+  await expect(trackedDecision.getByText('confirmed', { exact: true })).toBeVisible();
+  await ownerPage.getByRole('link', { name: 'Action items', exact: true }).click();
+  const trackedAction = ownerPage
+    .getByRole('listitem')
+    .filter({ has: ownerPage.getByRole('heading', { name: 'Share next steps' }) });
+  await trackedAction.getByRole('button', { name: 'Mark done' }).click();
+  await expect(trackedAction.getByText('done', { exact: true })).toBeVisible();
+  await trackedAction.getByRole('link', { name: 'Evidence at', exact: false }).click();
+  await expect(ownerPage.getByTestId('transcript-segment').first()).toBeFocused();
+  await expect
+    .poll(() => audio.evaluate((element: HTMLAudioElement) => element.currentTime))
+    .toBeCloseTo(citedStart, 1);
+
+  // 12. Delete it: gone from the list right away (storage is purged by the worker's job).
   await ownerPage.getByRole('button', { name: 'Delete' }).click();
   await ownerPage.getByRole('button', { name: 'Delete meeting' }).click();
   await expect(ownerPage).toHaveURL(/\/meetings$/);

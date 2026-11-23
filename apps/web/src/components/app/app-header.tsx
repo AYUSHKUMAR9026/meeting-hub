@@ -21,10 +21,12 @@ export function AppHeader({
   user,
   workspaces,
   current,
+  features,
 }: {
   user: User;
   workspaces: WorkspaceSummary[];
   current: WorkspaceSummary;
+  features: string[];
 }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -43,6 +45,19 @@ export function AppHeader({
     },
   ];
 
+  if (features.includes('review.enabled')) {
+    nav.splice(
+      2,
+      0,
+      { href: `${base}/decisions`, label: 'Decisions', isActive: (p) => p === `${base}/decisions` },
+      {
+        href: `${base}/action-items`,
+        label: 'Action items',
+        isActive: (p) => p === `${base}/action-items`,
+      },
+    );
+  }
+
   async function signOut() {
     await authClient.signOut();
     router.push('/sign-in');
@@ -51,7 +66,7 @@ export function AppHeader({
 
   return (
     <header className="border-b">
-      <div className="mx-auto flex h-14 max-w-5xl items-center gap-4 px-4">
+      <div className="mx-auto flex min-h-14 max-w-5xl flex-wrap items-center gap-2 px-4 py-2 sm:gap-4">
         <Link href={base} className="font-semibold tracking-tight">
           Meeting Hub
         </Link>
@@ -84,7 +99,7 @@ export function AppHeader({
           </DropdownMenuContent>
         </DropdownMenu>
 
-        <nav className="flex gap-1 text-sm">
+        <nav className="flex flex-wrap gap-1 text-sm">
           {nav.map((item) => {
             const active = item.isActive(pathname);
             return (

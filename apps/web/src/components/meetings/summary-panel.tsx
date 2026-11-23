@@ -4,6 +4,7 @@ import { type FormEvent, useState } from 'react';
 import { toast } from 'sonner';
 
 import { FormError, FormField, NativeSelect } from '@/components/app/form-field';
+import { copyDocumentText } from '@/components/meetings/review-actions';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -92,7 +93,10 @@ function ItemForm({
   }
 
   return (
-    <form className="grid gap-3 rounded-md border p-3" onSubmit={(event) => void submit(event)}>
+    <form
+      className="grid gap-3 rounded-md border p-3 print:hidden"
+      onSubmit={(event) => void submit(event)}
+    >
       <FormField
         id="title"
         label="Title"
@@ -166,6 +170,7 @@ export function SummaryPanel({
   active,
   failed,
   canEdit,
+  review,
   onCitation,
 }: {
   meetingId: string;
@@ -173,6 +178,7 @@ export function SummaryPanel({
   active: boolean;
   failed: boolean;
   canEdit: boolean;
+  review: boolean;
   onCitation: (citation: CitationTarget) => void;
 }) {
   const [selected, setSelected] = useState<string>();
@@ -183,9 +189,33 @@ export function SummaryPanel({
       params: { path: { id: meetingId }, query: { documentId: selected } },
     }),
   );
+  const [selectedDecisions, setSelectedDecisions] = useState<string[]>([]);
   const data = result.state.status === 'ok' ? result.state.data : undefined;
   const document = data?.document;
   const editable = Boolean(canEdit && !selected && document?.isCurrent);
+
+  const proposed = document?.decisions.filter((item) => item.status === 'proposed') ?? [];
+  const bulkIds = proposed
+    .filter((item) => selectedDecisions.includes(item.id))
+    .map((item) => item.id);
+
+  async function bulkReview(status: 'confirmed' | 'rejected') {
+    setBusy('bulk');
+    try {
+      const { response, error } = await api.POST('/v1/meetings/{id}/decisions/bulk-review', {
+        params: { path: { id: meetingId } },
+        body: { ids: bulkIds, status },
+      });
+      if (response.ok) {
+        setSelectedDecisions([]);
+        result.reload();
+      } else toast.error(problemMessage(error, 'Could not review the decisions.'));
+    } catch {
+      toast.error('Could not review the decisions.');
+    } finally {
+      setBusy(undefined);
+    }
+  }
 
   async function update(kind: Kind, item: Item, change: 'confirm' | 'reject' | 'delete') {
     const path = { id: meetingId, itemId: item.id };
@@ -215,7 +245,7 @@ export function SummaryPanel({
   }
 
   return (
-    <Card data-testid="summary-panel">
+    <Card data-testid="summary-panel" data-print-document={review ? '' : undefined}>
       <CardHeader>
         <CardTitle>Summary</CardTitle>
       </CardHeader>
@@ -238,7 +268,7 @@ export function SummaryPanel({
           <p className="text-sm text-muted-foreground">No summary yet.</p>
         )}
         {data && data.revisions.length > 1 && (
-          <div className="grid max-w-md gap-1.5">
+          <div className="grid max-w-md gap-1.5 print:hidden">
             <Label htmlFor="document-revision">Document version</Label>
             <NativeSelect
               id="document-revision"
@@ -246,6 +276,7 @@ export function SummaryPanel({
               onChange={(event) => {
                 setSelected(event.target.value || undefined);
                 setEditing(undefined);
+                setSelectedDecisions([]);
               }}
             >
               <option value="">Current summary</option>
@@ -268,6 +299,30 @@ export function SummaryPanel({
         )}
         {document && (
           <>
+            {selected && review && (
+              <p className="text-sm text-muted-foreground">Read-only revision</p>
+            )}
+            {review && (
+              <div className="flex flex-wrap gap-2 print:hidden">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() =>
+                    void copyDocumentText(
+                      [
+                        document.summary.paragraph,
+                        ...document.summary.bullets.map((bullet) => '• ' + bullet),
+                      ].join('\n'),
+                    )
+                  }
+                >
+                  Copy summary
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => window.print()}>
+                  Print document
+                </Button>
+              </div>
+            )}
             <p className="whitespace-pre-wrap text-sm">{document.summary.paragraph}</p>
             {document.summary.bullets.length > 0 && (
               <ul className="list-disc space-y-1 pl-5 text-sm">
@@ -296,11 +351,50 @@ export function SummaryPanel({
                 <div className="flex items-center justify-between gap-3">
                   <h3 className="font-semibold">{title}</h3>
                   {editable && (
-                    <Button size="sm" variant="outline" onClick={() => setEditing({ kind })}>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="print:hidden"
+                      onClick={() => setEditing({ kind })}
+                    >
                       {add}
                     </Button>
                   )}
                 </div>
+                {review && editable && kind === 'decision' && proposed.length > 0 && (
+                  <div className="flex flex-wrap items-center gap-2 print:hidden">
+                    <Label>
+                      <input
+                        type="checkbox"
+                        checked={bulkIds.length === Math.min(proposed.length, 100)}
+                        onChange={(event) =>
+                          setSelectedDecisions(
+                            event.target.checked
+                              ? proposed.slice(0, 100).map((item) => item.id)
+                              : [],
+                          )
+                        }
+                      />{' '}
+                      Select proposed decisions
+                    </Label>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={Boolean(busy) || bulkIds.length === 0}
+                      onClick={() => void bulkReview('confirmed')}
+                    >
+                      Confirm selected
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={Boolean(busy) || bulkIds.length === 0}
+                      onClick={() => void bulkReview('rejected')}
+                    >
+                      Reject selected
+                    </Button>
+                  </div>
+                )}
                 {items.length === 0 && (
                   <p className="text-sm text-muted-foreground">No {title.toLowerCase()}.</p>
                 )}
@@ -320,10 +414,32 @@ export function SummaryPanel({
                 {items.map((item) => (
                   <article
                     key={item.id}
-                    className="grid gap-2 rounded-md border p-3"
+                    className={
+                      'grid gap-2 rounded-md border p-3' +
+                      (review && item.editedByUser ? ' border-l-4 border-l-primary' : '')
+                    }
                     data-testid={kind === 'decision' ? 'decision' : 'action-item'}
                   >
                     <div className="flex flex-wrap items-center gap-2">
+                      {review && editable && kind === 'decision' && item.status === 'proposed' && (
+                        <input
+                          type="checkbox"
+                          className="print:hidden"
+                          aria-label={'Select ' + item.title}
+                          checked={selectedDecisions.includes(item.id)}
+                          disabled={
+                            Boolean(busy) ||
+                            (!selectedDecisions.includes(item.id) && bulkIds.length >= 100)
+                          }
+                          onChange={(event) =>
+                            setSelectedDecisions((ids) =>
+                              event.target.checked
+                                ? [...ids, item.id]
+                                : ids.filter((id) => id !== item.id),
+                            )
+                          }
+                        />
+                      )}
                       <h4 className="text-sm font-semibold">{item.title}</h4>
                       <Badge variant="outline">{item.status}</Badge>
                       <Badge variant="secondary">
@@ -359,6 +475,16 @@ export function SummaryPanel({
                         </Button>
                       ))}
                     </div>
+                    {review && (
+                      <Button
+                        size="xs"
+                        variant="ghost"
+                        className="justify-self-start print:hidden"
+                        onClick={() => void copyDocumentText(item.title + '\n' + item.description)}
+                      >
+                        Copy item
+                      </Button>
+                    )}
                     {editable &&
                       (editing?.item?.id === item.id ? (
                         <ItemForm
@@ -374,7 +500,7 @@ export function SummaryPanel({
                           }}
                         />
                       ) : (
-                        <div className="flex flex-wrap gap-1">
+                        <div className="flex flex-wrap gap-1 print:hidden">
                           <Button
                             size="xs"
                             variant="ghost"

@@ -11,12 +11,14 @@ const repoRoot = '../..';
 const transcriptionEnv = {
   TRANSCRIPTION_PROVIDER: 'fake',
   LLM_PROVIDER: 'fake',
-  FEATURE_FLAGS_OVERRIDE: 'transcription.enabled=true,analysis.enabled=true',
+  PUBLIC_WEB_URL: process.env.E2E_BASE_URL ?? 'http://localhost:3000',
+  FEATURE_FLAGS_OVERRIDE:
+    'transcription.enabled=true,analysis.enabled=true,exports.enabled=true,sharing.enabled=true,review.enabled=true',
 };
 
 export default defineConfig({
   testDir: './e2e',
-  timeout: 90_000,
+  timeout: 180_000,
   expect: { timeout: 15_000 },
   fullyParallel: false,
   forbidOnly: isCI,

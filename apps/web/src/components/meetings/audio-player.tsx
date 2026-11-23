@@ -20,19 +20,23 @@ export function AudioPlayer({
   playerRef,
   waveform,
   onTime,
+  initialPositionMs,
 }: {
   meetingId: string;
   playerRef: RefObject<AudioPlayerHandle | null>;
   waveform: boolean;
   onTime: (ms: number) => void;
+  initialPositionMs?: number;
 }) {
   const audio = useRef<HTMLAudioElement>(null);
+  const pendingSeek = useRef(initialPositionMs);
   useImperativeHandle(
     playerRef,
     () => ({
       seek(positionMs) {
-        if (!audio.current) return;
-        audio.current.currentTime = positionMs / 1000;
+        const element = audio.current;
+        if (element && element.readyState > 0) element.currentTime = positionMs / 1000;
+        else pendingSeek.current = positionMs;
         onTime(positionMs);
       },
     }),
@@ -116,6 +120,12 @@ export function AudioPlayer({
           onLoadedMetadata={(e) => {
             const seconds = e.currentTarget.duration;
             if (Number.isFinite(seconds)) setElementDurationMs(Math.round(seconds * 1000));
+            if (pendingSeek.current !== undefined) {
+              const position = pendingSeek.current;
+              pendingSeek.current = undefined;
+              e.currentTarget.currentTime = position / 1000;
+              onTime(position);
+            }
           }}
         >
           Your browser can’t play this audio.

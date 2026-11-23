@@ -2,8 +2,8 @@
 
 import { DownloadIcon, FileAudioIcon } from 'lucide-react';
 import Link from 'next/link';
-import { useParams, useRouter } from 'next/navigation';
-import { type FormEvent, useEffect, useRef, useState } from 'react';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
+import { type FormEvent, Suspense, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
 import { FormError, FormField } from '@/components/app/form-field';
@@ -11,6 +11,7 @@ import { useWorkspace } from '@/components/app/workspace-context';
 import { AudioPlayer, type AudioPlayerHandle } from '@/components/meetings/audio-player';
 import { MeetingStatusBadge } from '@/components/meetings/meeting-status-badge';
 import { ParticipantsPicker, type PickedPerson } from '@/components/meetings/participants-picker';
+import { MeetingReviewActions } from '@/components/meetings/review-actions';
 import { SummaryPanel, type CitationTarget } from '@/components/meetings/summary-panel';
 import { TranscriptPanel } from '@/components/meetings/transcript-panel';
 import { ProcessingPanel } from '@/components/meetings/processing-panel';
@@ -57,7 +58,11 @@ export default function MeetingPage() {
       <FormError message={problemMessage(meeting.state.error, 'Could not load the meeting.')} />
     );
   }
-  return <MeetingDetail meeting={meeting.state.data} onChanged={meeting.reload} />;
+  return (
+    <Suspense fallback={<Skeleton className="h-32 w-full" />}>
+      <MeetingDetail meeting={meeting.state.data} onChanged={meeting.reload} />
+    </Suspense>
+  );
 }
 
 function MeetingDetail({ meeting, onChanged }: { meeting: Meeting; onChanged: () => void }) {
@@ -65,9 +70,29 @@ function MeetingDetail({ meeting, onChanged }: { meeting: Meeting; onChanged: ()
   const router = useRouter();
   const perms = useMeetingPermissions(meeting);
   const audio = useRef<AudioPlayerHandle>(null);
-  const [positionMs, setPositionMs] = useState(0);
-  const [tab, setTab] = useState<'summary' | 'transcript'>('summary');
-  const [citation, setCitation] = useState<CitationTarget>();
+  const search = useSearchParams();
+  const [linkedCitation] = useState<CitationTarget | undefined>(() => {
+    if (!workspace.features.includes('review.enabled')) return;
+    const transcriptId = search.get('transcript');
+    const segmentId = search.get('segment');
+    const startMs = Number(search.get('t'));
+    const uuid = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
+    if (
+      transcriptId &&
+      segmentId &&
+      uuid.test(transcriptId) &&
+      uuid.test(segmentId) &&
+      Number.isSafeInteger(startMs) &&
+      startMs >= 0
+    ) {
+      return { transcriptId, segmentId, startMs, idx: 0 };
+    }
+  });
+  const [positionMs, setPositionMs] = useState(linkedCitation?.startMs ?? 0);
+  const [tab, setTab] = useState<'summary' | 'transcript'>(
+    linkedCitation ? 'transcript' : 'summary',
+  );
+  const [citation, setCitation] = useState<CitationTarget | undefined>(linkedCitation);
   const [editing, setEditing] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -80,6 +105,7 @@ function MeetingDetail({ meeting, onChanged }: { meeting: Meeting; onChanged: ()
   const status = live?.data.meetingStatus ?? meeting.status;
   const transcriptionEnabled = workspace.features.includes('transcription.enabled');
   const analysisEnabled = workspace.features.includes('analysis.enabled');
+  const reviewEnabled = workspace.features.includes('review.enabled');
   const mediaStep = run?.steps.find((step) => step.name === 'prepare_media');
   const transcriptStep = run?.steps.find((step) => step.name === 'transcribe');
   const analysisStep = run?.steps.find((step) => step.name === 'analyze');
@@ -129,7 +155,7 @@ function MeetingDetail({ meeting, onChanged }: { meeting: Meeting; onChanged: ()
   }
 
   return (
-    <div className="grid gap-6">
+    <div className="grid gap-6" data-meeting-detail>
       <div className="grid gap-2">
         <Link
           href={`/w/${workspace.slug}/meetings`}
@@ -269,6 +295,14 @@ function MeetingDetail({ meeting, onChanged }: { meeting: Meeting; onChanged: ()
           playerRef={audio}
           waveform={transcriptionEnabled}
           onTime={setPositionMs}
+          initialPositionMs={linkedCitation?.startMs}
+        />
+      )}
+      {recording?.status === 'uploaded' && (
+        <MeetingReviewActions
+          meetingId={meeting.id}
+          canEdit={perms.canEdit}
+          revision={run?.id + ':' + status}
         />
       )}
       {analysisEnabled && recording?.status === 'uploaded' && (
@@ -299,6 +333,7 @@ function MeetingDetail({ meeting, onChanged }: { meeting: Meeting; onChanged: ()
           meetingId={meeting.id}
           revision={analysisStep?.status === 'succeeded' ? (run?.id ?? '') : ''}
           canEdit={perms.canEdit}
+          review={reviewEnabled}
           active={run?.pipelineVersion === 3 && status === 'processing'}
           failed={analysisStep?.status === 'failed'}
           onCitation={(target) => {

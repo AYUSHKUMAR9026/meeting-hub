@@ -21,6 +21,27 @@ const nextConfig: NextConfig = {
   // Workspace packages ship TypeScript source.
   transpilePackages: ['@meeting-hub/contracts'],
   reactStrictMode: true,
+  logging: {
+    incomingRequests: {
+      ignore: [
+        /^\/share(?:\/|$)/,
+        /^\/v1\/public\/shares(?:\/|$)/,
+        /^\/v1\/workspaces\/[^/]+\/(?:decisions|action-items)(?:\?|$)/,
+      ],
+    },
+  },
+  headers() {
+    return Promise.resolve([
+      {
+        source: '/share/:path*',
+        headers: [
+          { key: 'Cache-Control', value: 'private, no-store' },
+          { key: 'X-Robots-Tag', value: 'noindex, nofollow' },
+          { key: 'Referrer-Policy', value: 'no-referrer' },
+        ],
+      },
+    ]);
+  },
   rewrites() {
     return Promise.resolve([
       { source: '/api/auth/:path*', destination: `${apiUrl}/api/auth/:path*` },

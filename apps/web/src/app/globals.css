@@ -116,6 +116,24 @@
   --sidebar-ring: oklch(0.556 0 0);
 }
 
+@media print {
+  body:has([data-print-document]) > div > header,
+  [data-meeting-detail]:has([data-print-document]) > :not([data-print-document]) {
+    display: none !important;
+  }
+
+  [data-print-document] {
+    border: 0 !important;
+    box-shadow: none !important;
+    color: #000 !important;
+    background: #fff !important;
+  }
+
+  [data-print-document] article {
+    break-inside: avoid;
+  }
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
