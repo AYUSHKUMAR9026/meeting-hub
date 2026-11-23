@@ -50,9 +50,18 @@ export class DocumentService {
     documentId?: string,
   ): Promise<MeetingDocumentResponse> {
     authorize(actor, 'meeting.read');
+    return this.readScoped(actor.workspaceId, meetingId, documentId);
+  }
+
+  /** For a trusted caller that already authorized the workspace and meeting. */
+  async readScoped(
+    workspaceId: string,
+    meetingId: string,
+    documentId?: string,
+  ): Promise<MeetingDocumentResponse> {
     const db = this.db;
     const scope = and(
-      eq(meetingDocuments.workspaceId, actor.workspaceId),
+      eq(meetingDocuments.workspaceId, workspaceId),
       eq(meetingDocuments.meetingId, meetingId),
       eq(meetingDocuments.status, 'completed'),
     );
@@ -103,7 +112,7 @@ export class DocumentService {
         .from(decisions)
         .where(
           and(
-            eq(decisions.workspaceId, actor.workspaceId),
+            eq(decisions.workspaceId, workspaceId),
             eq(decisions.documentId, document.id),
             isNull(decisions.deletedAt),
           ),
@@ -133,7 +142,7 @@ export class DocumentService {
         )
         .where(
           and(
-            eq(actionItems.workspaceId, actor.workspaceId),
+            eq(actionItems.workspaceId, workspaceId),
             eq(actionItems.documentId, document.id),
             isNull(actionItems.deletedAt),
           ),
@@ -155,9 +164,7 @@ export class DocumentService {
             eq(transcriptSegments.workspaceId, evidence.workspaceId),
           ),
         )
-        .where(
-          and(eq(evidence.workspaceId, actor.workspaceId), eq(evidence.documentId, document.id)),
-        )
+        .where(and(eq(evidence.workspaceId, workspaceId), eq(evidence.documentId, document.id)))
         .orderBy(asc(transcriptSegments.idx)),
     ]);
     const byItem = new Map<string, Omit<(typeof links)[number], 'itemId'>[]>();
@@ -199,6 +206,70 @@ export class DocumentService {
       },
       revisions: history,
     };
+  }
+
+  async bulkReview(
+    actor: WorkspaceActor,
+    meetingId: string,
+    ids: string[],
+    status: 'confirmed' | 'rejected',
+    origin: RequestOrigin,
+  ) {
+    const requested = [...new Set(ids)];
+    const workspaceId = actor.workspaceId;
+    await this.db.transaction(async (tx) => {
+      const [meeting] = await tx
+        .select({ createdBy: meetings.createdBy })
+        .from(meetings)
+        .where(
+          and(
+            eq(meetings.id, meetingId),
+            eq(meetings.workspaceId, workspaceId),
+            isNull(meetings.deletedAt),
+          ),
+        );
+      if (!meeting) throw new NotFoundError('Meeting not found');
+      assertCanModifyMeeting(actor, 'meeting.update', meeting);
+      const [document] = await tx
+        .select({ id: meetingDocuments.id })
+        .from(meetingDocuments)
+        .where(
+          and(
+            eq(meetingDocuments.workspaceId, workspaceId),
+            eq(meetingDocuments.meetingId, meetingId),
+            eq(meetingDocuments.isCurrent, true),
+          ),
+        )
+        .for('update');
+      if (!document)
+        throw new ConflictError('ANALYSIS_DOCUMENT_MISSING', 'Create a meeting summary first.');
+      const changed = await tx
+        .update(decisions)
+        .set({ status, editedByUser: true })
+        .where(
+          and(
+            eq(decisions.workspaceId, workspaceId),
+            eq(decisions.documentId, document.id),
+            eq(decisions.status, 'proposed'),
+            isNull(decisions.deletedAt),
+            inArray(decisions.id, requested),
+          ),
+        )
+        .returning({ id: decisions.id });
+      if (changed.length !== requested.length)
+        throw new ConflictError(
+          'REVIEW_SELECTION_CHANGED',
+          'Some selected decisions are no longer proposed. Reload and try again.',
+        );
+    });
+    await this.audit.record({
+      action: 'analysis.items_reviewed',
+      workspaceId,
+      actorUserId: actor.userId,
+      target: { type: 'meeting', id: meetingId },
+      metadata: { decisionIds: requested, status },
+      origin,
+    });
   }
 
   async mutate(

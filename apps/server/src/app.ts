@@ -14,6 +14,7 @@ import { registerAccessControl } from './http/access';
 import { registerErrorHandling } from './http/error-handler';
 import { registerRateLimiting } from './http/rate-limit';
 import { genReqId, REQUEST_ID_HEADER } from './http/request-id';
+import { isPublicSharePath, skipRequestLog } from './http/request-privacy';
 import { analysisRoutes } from './http/routes/analysis';
 import { auditRoutes } from './http/routes/audit';
 import { authRoutes } from './http/routes/auth';
@@ -21,6 +22,7 @@ import { meetingRoutes } from './http/routes/meetings';
 import { meRoutes } from './http/routes/me';
 import { peopleRoutes } from './http/routes/people';
 import { processingRoutes } from './http/routes/processing';
+import { reviewRoutes } from './http/routes/review';
 import { systemRoutes } from './http/routes/system';
 import { transcriptionRoutes } from './http/routes/transcription';
 import { workspaceRoutes } from './http/routes/workspaces';
@@ -37,7 +39,10 @@ export async function buildApp(deps: ApiDeps): Promise<FastifyInstance> {
     loggerInstance: deps.logger as FastifyBaseLogger,
     genReqId,
     requestIdHeader: false,
-    logController: new LogController({ requestIdLogLabel: 'request_id' }),
+    logController: new LogController({
+      requestIdLogLabel: 'request_id',
+      disableRequestLogging: (req) => skipRequestLog(req.url),
+    }),
     return503OnClosing: true,
     // The API sits behind the web app's same-origin proxy (ADR 0002). Next.js forwards the
     // X-Forwarded-For it received (e.g. from a load balancer) without adding to it, so trusting
@@ -53,6 +58,12 @@ export async function buildApp(deps: ApiDeps): Promise<FastifyInstance> {
 
   app.addHook('onRequest', async (req, reply) => {
     reply.header(REQUEST_ID_HEADER, req.id);
+    if (isPublicSharePath(req.url)) {
+      reply
+        .header('Cache-Control', 'no-store')
+        .header('X-Robots-Tag', 'noindex, nofollow')
+        .header('Referrer-Policy', 'no-referrer');
+    }
   });
 
   registerErrorHandling(app, { exposeInternals: isDev });
@@ -81,6 +92,9 @@ export async function buildApp(deps: ApiDeps): Promise<FastifyInstance> {
         description: 'Meeting Hub platform API. Errors use application/problem+json (RFC 9457).',
       },
       tags: [
+        { name: 'exports', description: 'On-demand document and transcript attachments' },
+        { name: 'sharing', description: 'Revocable links and public document projections' },
+        { name: 'review', description: 'Workspace trackers and bulk decision review' },
         {
           name: 'analysis',
           description: 'Meeting summaries, decisions and action items with evidence',
@@ -118,6 +132,7 @@ export async function buildApp(deps: ApiDeps): Promise<FastifyInstance> {
   await app.register(processingRoutes, { deps });
   await app.register(transcriptionRoutes, { deps });
   await app.register(analysisRoutes, { deps });
+  await app.register(reviewRoutes, { deps });
 
   if (config.NODE_ENV !== 'production') {
     app.get('/openapi.json', { schema: { hide: true } }, () => app.swagger());

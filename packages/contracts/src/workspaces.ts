@@ -41,6 +41,7 @@ export const workspaceSettingsSchema = z
   .object({
     timezone: timezoneSchema,
     retentionDays: z.int().min(1).max(3650),
+    sharingEnabled: z.boolean().optional(),
     glossary: z.array(z.string().trim().min(1).max(100)).max(500),
     transcriptLanguage: z
       .string()

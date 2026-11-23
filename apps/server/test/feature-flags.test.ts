@@ -118,10 +118,13 @@ describe('FeatureFlagService', () => {
       'auth.google_signin',
       'db.only',
       'env.only',
+      'exports.enabled',
       'meetings.upload',
       'people.directory',
       'pipeline.media',
       'platform.heartbeat',
+      'review.enabled',
+      'sharing.enabled',
       'transcription.enabled',
       'workspaces.invitations',
     ]);
@@ -131,6 +134,9 @@ describe('FeatureFlagService', () => {
   it('lists only client-visible flags for the UI', () => {
     expect(clientVisibleFlags()).toEqual([
       'meetings.upload',
+      'exports.enabled',
+      'sharing.enabled',
+      'review.enabled',
       'analysis.enabled',
       'transcription.enabled',
       'pipeline.media',

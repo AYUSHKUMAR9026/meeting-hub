@@ -17,6 +17,9 @@ import {
   FakeLlmProvider,
   type LlmProvider,
 } from './modules/analysis';
+import { ExportService } from './modules/exports';
+import { ShareService } from './modules/sharing';
+import { TrackerService } from './modules/tracking';
 import { AuditService } from './modules/audit';
 import { type Auth, createAuth } from './modules/auth';
 import { ObjectStorage } from './modules/media';
@@ -58,6 +61,9 @@ export interface ApiDeps {
   processing: Processing;
   transcription: TranscriptionService;
   documents: DocumentService;
+  exports: ExportService;
+  shares: ShareService;
+  tracker: TrackerService;
   /** Fans Redis "run changed" messages out to SSE streams. */
   processingEvents: ProcessingEventHub;
 }
@@ -185,6 +191,7 @@ export function createApiDeps(
       downloadUrlTtlSeconds: config.DOWNLOAD_URL_TTL_SECONDS,
     },
   });
+  const documents = new DocumentService(db.db, audit);
   return {
     config,
     logger,
@@ -205,7 +212,24 @@ export function createApiDeps(
     stepQueue,
     processing,
     transcription: new TranscriptionService(db.db, audit),
-    documents: new DocumentService(db.db, audit),
+    documents,
+    exports: new ExportService({
+      db: db.db,
+      documents,
+      meetings,
+      audit,
+      maxBytes: config.EXPORT_MAX_BYTES,
+    }),
+    shares: new ShareService({
+      db: db.db,
+      documents,
+      audit,
+      flags,
+      publicWebUrl: config.PUBLIC_WEB_URL ?? config.WEB_ORIGIN,
+      maxDays: config.SHARE_MAX_DAYS,
+      maxBytes: config.EXPORT_MAX_BYTES,
+    }),
+    tracker: new TrackerService(db.db),
     processingEvents: new ProcessingEventHub(config.REDIS_URL, logger),
   };
 }

@@ -106,6 +106,15 @@ export const configSchema = z
       .max(12 * 3600)
       .default(15 * 60),
     OUTBOX_POLL_INTERVAL_MS: positiveInt.min(50).default(1_000),
+    PUBLIC_WEB_URL: z
+      .url({ protocol: /^https?$/ })
+      .refine((url) => new URL(url).origin === url.replace(/\/$/, ''), 'Expected an HTTP(S) origin')
+      .optional(),
+    EXPORT_MAX_BYTES: positiveInt
+      .min(1024)
+      .max(25 * MiB)
+      .default(8 * MiB),
+    SHARE_MAX_DAYS: positiveInt.max(90).default(90),
     LLM_PROVIDER: z.enum(['anthropic', 'fake']).default('fake'),
     ANTHROPIC_API_KEY: z.string().trim().min(1).optional(),
     LLM_MODEL: z.string().trim().min(1).max(200).default('claude-sonnet-4-6'),

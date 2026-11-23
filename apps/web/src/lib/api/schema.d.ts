@@ -4105,6 +4105,876 @@ export interface paths {
         };
         trace?: never;
     };
+    "/v1/meetings/{id}/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Download the meeting document */
+        get: {
+            parameters: {
+                query: {
+                    format: "md" | "docx" | "pdf";
+                    include?: "transcript";
+                };
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/markdown": string;
+                        "application/vnd.openxmlformats-officedocument.wordprocessingml.document": string;
+                        "application/pdf": string;
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                413: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                504: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/meetings/{id}/transcript/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Download the speaker-labelled transcript */
+        get: {
+            parameters: {
+                query: {
+                    format: "txt" | "srt";
+                };
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": string;
+                        "application/x-subrip": string;
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                413: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                504: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/meetings/{id}/share-links": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List share link metadata */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ShareList"];
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /** Create a share link and show its URL once */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CreateShareInput"];
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["CreatedShare"];
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/meetings/{id}/share-links/{shareId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Revoke a public share link */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                    shareId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description No content */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/public/shares/{token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read the public projection for a valid share link */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    token: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PublicShare"];
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                413: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/workspaces/{wid}/decisions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List workspace decisions from current documents */
+        get: {
+            parameters: {
+                query?: {
+                    meetingId?: string;
+                    q?: string;
+                    cursor?: number;
+                    limit?: number;
+                    status?: "proposed" | "confirmed" | "rejected";
+                    sort?: "newest" | "oldest" | "title";
+                };
+                header?: never;
+                path: {
+                    wid: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["TrackedDecisionPage"];
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/workspaces/{wid}/action-items": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List workspace action items from current documents */
+        get: {
+            parameters: {
+                query?: {
+                    meetingId?: string;
+                    q?: string;
+                    cursor?: number;
+                    limit?: number;
+                    status?: "open" | "done" | "rejected";
+                    sort?: "newest" | "oldest" | "title" | "due";
+                    ownerPersonId?: string;
+                    mine?: "true" | "false";
+                    dueFrom?: string;
+                    dueTo?: string;
+                };
+                header?: never;
+                path: {
+                    wid: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["TrackedActionPage"];
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/meetings/{id}/decisions/bulk-review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Confirm or reject selected proposed decisions atomically */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["BulkDecisionsInput"];
+                };
+            };
+            responses: {
+                /** @description No content */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -4509,6 +5379,130 @@ export interface components {
              */
             expiresAt: string;
         };
+        CreateShareInput: {
+            /** @enum {string} */
+            scope: "document" | "document_and_transcript";
+            expiresInDays: number;
+        };
+        ShareLinkInput: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            scope: "document" | "document_and_transcript";
+            /** Format: date-time */
+            expiresAt: string;
+            revokedAt: string | null;
+            /** Format: date-time */
+            createdAt: string;
+            lastAccessedAt: string | null;
+            accessCount: number;
+        };
+        ShareListInput: {
+            links: components["schemas"]["ShareLinkInput"][];
+        };
+        CreatedShareInput: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            scope: "document" | "document_and_transcript";
+            /** Format: date-time */
+            expiresAt: string;
+            revokedAt: string | null;
+            /** Format: date-time */
+            createdAt: string;
+            lastAccessedAt: string | null;
+            accessCount: number;
+            /** Format: uri */
+            url: string;
+        };
+        PublicShareInput: {
+            title: string;
+            /** Format: date-time */
+            occurredAt: string;
+            summary: {
+                paragraph: string;
+                bullets: string[];
+            };
+            decisions: {
+                title: string;
+                description: string;
+                rationale: string | null;
+                /** @enum {string} */
+                status: "proposed" | "confirmed";
+                timestampsMs: number[];
+            }[];
+            actionItems: {
+                title: string;
+                description: string;
+                owner: string | null;
+                dueDate: string | null;
+                /** @enum {string} */
+                status: "open" | "done";
+                timestampsMs: number[];
+            }[];
+            transcript: {
+                startMs: number;
+                endMs: number;
+                speaker: string;
+                text: string;
+            }[] | null;
+        };
+        BulkDecisionsInput: {
+            ids: string[];
+            /** @enum {string} */
+            status: "confirmed" | "rejected";
+        };
+        TrackedDecisionPageInput: {
+            items: {
+                /** Format: uuid */
+                id: string;
+                /** Format: uuid */
+                meetingId: string;
+                meetingTitle: string;
+                /** Format: date-time */
+                meetingOccurredAt: string;
+                createdBy: string | null;
+                /** Format: uuid */
+                transcriptId: string;
+                title: string;
+                description: string;
+                citation: {
+                    /** Format: uuid */
+                    segmentId: string;
+                    startMs: number;
+                } | null;
+                /** @enum {string} */
+                status: "proposed" | "confirmed" | "rejected";
+            }[];
+            nextCursor: number | null;
+        };
+        TrackedActionPageInput: {
+            items: {
+                /** Format: uuid */
+                id: string;
+                /** Format: uuid */
+                meetingId: string;
+                meetingTitle: string;
+                /** Format: date-time */
+                meetingOccurredAt: string;
+                createdBy: string | null;
+                /** Format: uuid */
+                transcriptId: string;
+                title: string;
+                description: string;
+                citation: {
+                    /** Format: uuid */
+                    segmentId: string;
+                    startMs: number;
+                } | null;
+                /** @enum {string} */
+                status: "open" | "done" | "rejected";
+                ownerPersonId: string | null;
+                ownerName: string | null;
+                dueDate: string | null;
+            }[];
+            nextCursor: number | null;
+        };
         HealthResponseInput: {
             /** @constant */
             status: "ok";
@@ -4598,6 +5592,7 @@ export interface components {
             /** @description IANA time zone */
             timezone: string;
             retentionDays: number;
+            sharingEnabled?: boolean;
             glossary: string[];
             transcriptLanguage?: string | null;
         };
@@ -4629,6 +5624,7 @@ export interface components {
                 /** @description IANA time zone */
                 timezone?: string;
                 retentionDays?: number;
+                sharingEnabled?: boolean;
                 glossary?: string[];
                 transcriptLanguage?: string | null;
             };
@@ -5089,6 +6085,130 @@ export interface components {
              */
             expiresAt: string;
         };
+        CreateShare: {
+            /** @enum {string} */
+            scope: "document" | "document_and_transcript";
+            expiresInDays: number;
+        };
+        ShareLink: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            scope: "document" | "document_and_transcript";
+            /** Format: date-time */
+            expiresAt: string;
+            revokedAt: string | null;
+            /** Format: date-time */
+            createdAt: string;
+            lastAccessedAt: string | null;
+            accessCount: number;
+        };
+        ShareList: {
+            links: components["schemas"]["ShareLink"][];
+        };
+        CreatedShare: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            scope: "document" | "document_and_transcript";
+            /** Format: date-time */
+            expiresAt: string;
+            revokedAt: string | null;
+            /** Format: date-time */
+            createdAt: string;
+            lastAccessedAt: string | null;
+            accessCount: number;
+            /** Format: uri */
+            url: string;
+        };
+        PublicShare: {
+            title: string;
+            /** Format: date-time */
+            occurredAt: string;
+            summary: {
+                paragraph: string;
+                bullets: string[];
+            };
+            decisions: {
+                title: string;
+                description: string;
+                rationale: string | null;
+                /** @enum {string} */
+                status: "proposed" | "confirmed";
+                timestampsMs: number[];
+            }[];
+            actionItems: {
+                title: string;
+                description: string;
+                owner: string | null;
+                dueDate: string | null;
+                /** @enum {string} */
+                status: "open" | "done";
+                timestampsMs: number[];
+            }[];
+            transcript: {
+                startMs: number;
+                endMs: number;
+                speaker: string;
+                text: string;
+            }[] | null;
+        };
+        BulkDecisions: {
+            ids: string[];
+            /** @enum {string} */
+            status: "confirmed" | "rejected";
+        };
+        TrackedDecisionPage: {
+            items: {
+                /** Format: uuid */
+                id: string;
+                /** Format: uuid */
+                meetingId: string;
+                meetingTitle: string;
+                /** Format: date-time */
+                meetingOccurredAt: string;
+                createdBy: string | null;
+                /** Format: uuid */
+                transcriptId: string;
+                title: string;
+                description: string;
+                citation: {
+                    /** Format: uuid */
+                    segmentId: string;
+                    startMs: number;
+                } | null;
+                /** @enum {string} */
+                status: "proposed" | "confirmed" | "rejected";
+            }[];
+            nextCursor: number | null;
+        };
+        TrackedActionPage: {
+            items: {
+                /** Format: uuid */
+                id: string;
+                /** Format: uuid */
+                meetingId: string;
+                meetingTitle: string;
+                /** Format: date-time */
+                meetingOccurredAt: string;
+                createdBy: string | null;
+                /** Format: uuid */
+                transcriptId: string;
+                title: string;
+                description: string;
+                citation: {
+                    /** Format: uuid */
+                    segmentId: string;
+                    startMs: number;
+                } | null;
+                /** @enum {string} */
+                status: "open" | "done" | "rejected";
+                ownerPersonId: string | null;
+                ownerName: string | null;
+                dueDate: string | null;
+            }[];
+            nextCursor: number | null;
+        };
         HealthResponse: {
             /** @constant */
             status: "ok";
@@ -5178,6 +6298,7 @@ export interface components {
             /** @description IANA time zone */
             timezone: string;
             retentionDays: number;
+            sharingEnabled?: boolean;
             glossary: string[];
             transcriptLanguage?: string | null;
         };
@@ -5209,6 +6330,7 @@ export interface components {
                 /** @description IANA time zone */
                 timezone?: string;
                 retentionDays?: number;
+                sharingEnabled?: boolean;
                 glossary?: string[];
                 transcriptLanguage?: string | null;
             };

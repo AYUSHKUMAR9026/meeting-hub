@@ -8,6 +8,7 @@ import type { Redis } from '../lib/redis';
  * `config: { rateLimit: rateLimits.<name> }`; nothing else is limited.
  */
 export const rateLimits = {
+  publicShare: { max: 30, timeWindow: '1 minute' },
   signIn: { max: 10, timeWindow: '1 minute' },
   signUp: { max: 5, timeWindow: '10 minutes' },
   passwordReset: { max: 5, timeWindow: '15 minutes' },

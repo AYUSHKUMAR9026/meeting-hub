@@ -36,6 +36,11 @@ export const auditActions = [
   'analysis.item_added',
   'analysis.item_updated',
   'analysis.item_deleted',
+  'analysis.items_reviewed',
+  'export.downloaded',
+  'share.created',
+  'share.revoked',
+  'share.accessed',
 ] as const;
 export type AuditAction = (typeof auditActions)[number];
 

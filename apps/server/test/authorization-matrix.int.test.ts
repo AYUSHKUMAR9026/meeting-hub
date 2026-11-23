@@ -31,6 +31,8 @@ import {
 } from '@meeting-hub/db';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
+import { reviewFixture } from './support/review-fixture';
+
 import type { RouteAccess } from '../src/http/access';
 import { type Action, roleCan, type WorkspaceRole, workspaceRoles } from '../src/modules/auth';
 import {
@@ -282,6 +284,92 @@ const invitationForCaller = ({ caller }: CaseContext) =>
 // --- the route table ------------------------------------------------------------------------------
 
 const ROUTES: Record<string, RouteSpec> = {
+  'GET /v1/meetings/:id/export': {
+    access: 'meeting.read',
+    success: 200,
+    request: async (ctx) => ({
+      url:
+        '/v1/meetings/' +
+        (await reviewFixture(t, ctx.ws.id, ctx.caller?.userId ?? ctx.ws.owner.userId)).meetingId +
+        '/export?format=md',
+    }),
+  },
+  'GET /v1/meetings/:id/transcript/export': {
+    access: 'meeting.read',
+    success: 200,
+    request: async (ctx) => ({
+      url:
+        '/v1/meetings/' +
+        (await reviewFixture(t, ctx.ws.id, ctx.caller?.userId ?? ctx.ws.owner.userId)).meetingId +
+        '/transcript/export?format=txt',
+    }),
+  },
+  'GET /v1/meetings/:id/share-links': {
+    access: 'meeting.update',
+    success: 200,
+    request: async (ctx) => ({
+      url: '/v1/meetings/' + (await insertMeeting(ctx)) + '/share-links',
+    }),
+  },
+  'POST /v1/meetings/:id/share-links': {
+    access: 'meeting.update',
+    success: 201,
+    request: async (ctx) => ({
+      url:
+        '/v1/meetings/' +
+        (await reviewFixture(t, ctx.ws.id, ctx.caller?.userId ?? ctx.ws.owner.userId)).meetingId +
+        '/share-links',
+      payload: { scope: 'document', expiresInDays: 1 },
+    }),
+  },
+  'DELETE /v1/meetings/:id/share-links/:shareId': {
+    access: 'meeting.update',
+    success: 204,
+    request: async (ctx) => {
+      const { meetingId } = await reviewFixture(
+        t,
+        ctx.ws.id,
+        ctx.caller?.userId ?? ctx.ws.owner.userId,
+      );
+      const share = await t.deps.shares.create(
+        { userId: ctx.ws.owner.userId, workspaceId: ctx.ws.id, role: 'owner' },
+        meetingId,
+        { scope: 'document', expiresInDays: 1 },
+        {},
+      );
+      return { url: '/v1/meetings/' + meetingId + '/share-links/' + share.id };
+    },
+  },
+  'GET /v1/public/shares/:token': {
+    access: 'public',
+    success: 404,
+    request: () => ({ url: '/v1/public/shares/invalid-token' }),
+  },
+  'GET /v1/workspaces/:wid/decisions': {
+    access: 'workspace.read',
+    success: 200,
+    request: ({ ws }) => ({ url: '/v1/workspaces/' + ws.id + '/decisions' }),
+  },
+  'GET /v1/workspaces/:wid/action-items': {
+    access: 'workspace.read',
+    success: 200,
+    request: ({ ws }) => ({ url: '/v1/workspaces/' + ws.id + '/action-items' }),
+  },
+  'POST /v1/meetings/:id/decisions/bulk-review': {
+    access: 'meeting.update',
+    success: 204,
+    request: async (ctx) => {
+      const { meetingId, decisionId } = await reviewFixture(
+        t,
+        ctx.ws.id,
+        ctx.caller?.userId ?? ctx.ws.owner.userId,
+      );
+      return {
+        url: '/v1/meetings/' + meetingId + '/decisions/bulk-review',
+        payload: { ids: [decisionId], status: 'confirmed' },
+      };
+    },
+  },
   'GET /v1/system/flags': {
     access: 'public',
     success: 200,
@@ -647,7 +735,7 @@ const declaredKind = (access: RouteAccess | undefined) =>
 // The catalog is only known once the app is built, so build it before collecting tests.
 const t: TestApp = await createTestApp({
   FEATURE_FLAGS_OVERRIDE:
-    'workspaces.invitations=true,people.directory=true,meetings.upload=true,pipeline.media=true,transcription.enabled=true,analysis.enabled=true',
+    'workspaces.invitations=true,people.directory=true,meetings.upload=true,pipeline.media=true,transcription.enabled=true,analysis.enabled=true,exports.enabled=true,sharing.enabled=true,review.enabled=true',
 });
 const catalog = t.app.routeCatalog.filter((r) => r.url.startsWith('/v1/'));
 

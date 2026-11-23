@@ -27,6 +27,7 @@ export interface WorkspaceSettings {
   retentionDays: number;
   glossary: string[];
   transcriptLanguage: string | null;
+  sharingEnabled: boolean;
 }
 
 export interface MemberView {
@@ -53,6 +54,7 @@ export const DEFAULT_SETTINGS: WorkspaceSettings = {
   retentionDays: 30,
   glossary: [],
   transcriptLanguage: null,
+  sharingEnabled: true,
 };
 
 /** Better Auth stores roles as text (comma-separated when multiple). We only ever assign one. */
@@ -115,6 +117,7 @@ export class WorkspaceRepository {
         retentionDays: workspaceSettings.retentionDays,
         glossary: workspaceSettings.glossary,
         transcriptLanguage: workspaceSettings.transcriptLanguage,
+        sharingEnabled: workspaceSettings.sharingEnabled,
       })
       .from(workspaceSettings)
       .where(eq(workspaceSettings.workspaceId, workspaceId));

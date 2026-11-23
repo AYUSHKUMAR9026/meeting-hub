@@ -6,6 +6,7 @@ import {
 } from 'fastify-type-provider-zod';
 
 import { isAppError } from '../lib/errors';
+import { privateRequestPath, skipRequestLog } from './request-privacy';
 
 export const PROBLEM_CONTENT_TYPE = 'application/problem+json';
 
@@ -22,6 +23,7 @@ const STATUS_TITLES: Record<number, string> = {
   429: 'Too Many Requests',
   500: 'Internal Server Error',
   503: 'Service Unavailable',
+  504: 'Gateway Timeout',
 };
 
 /** Stable codes for framework-level 4xx errors (Fastify's own FST_* codes are not a contract). */
@@ -57,7 +59,7 @@ function problem(
     title: titleFor(status),
     status,
     code,
-    instance: req.url,
+    instance: privateRequestPath(req.url),
     requestId: req.id,
     ...extra,
   };
@@ -109,9 +111,10 @@ export function toProblem(err: unknown, req: FastifyRequest, opts: ProblemOption
 
 export function registerErrorHandling(app: FastifyInstance, opts: ProblemOptions): void {
   app.setErrorHandler((err, req, reply) => {
-    const body = toProblem(err, req, opts);
+    const privatePath = skipRequestLog(req.url);
+    const body = toProblem(err, req, privatePath ? { exposeInternals: false } : opts);
     if (body.status >= 500) {
-      req.log.error({ err, code: body.code }, 'request failed');
+      req.log.error({ ...(privatePath ? {} : { err }), code: body.code }, 'request failed');
     } else {
       req.log.info({ code: body.code, status: body.status }, 'request rejected');
     }
@@ -120,7 +123,7 @@ export function registerErrorHandling(app: FastifyInstance, opts: ProblemOptions
 
   app.setNotFoundHandler((req, reply) => {
     const body = problem(req, 404, 'NOT_FOUND', {
-      detail: `Route ${req.method} ${req.url} not found`,
+      detail: `Route ${req.method} ${privateRequestPath(req.url)} not found`,
     });
     return reply.status(404).type(PROBLEM_CONTENT_TYPE).send(body);
   });

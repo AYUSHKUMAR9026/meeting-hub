@@ -45,6 +45,21 @@ export const flagDefinitions = {
     developmentDefault: true,
     clientVisible: true,
   },
+  'exports.enabled': {
+    description: 'Download meeting documents and transcripts.',
+    defaultEnabled: false,
+    clientVisible: true,
+  },
+  'sharing.enabled': {
+    description: 'Create and use public meeting share links.',
+    defaultEnabled: false,
+    clientVisible: true,
+  },
+  'review.enabled': {
+    description: 'Track meeting decisions and actions and enable review controls.',
+    defaultEnabled: false,
+    clientVisible: true,
+  },
   'analysis.enabled': {
     description: 'Generate a cited meeting summary, decisions and action items.',
     defaultEnabled: false,
