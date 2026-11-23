@@ -99,6 +99,9 @@ export const decisions = pgTable(
   },
   (t) => [
     unique('decisions_scope_key').on(t.id, t.documentId, t.workspaceId),
+    index('decisions_workspace_status_idx')
+      .on(t.workspaceId, t.status)
+      .where(sql`${t.deletedAt} IS NULL`),
     unique('decisions_order_key').on(t.documentId, t.idx),
     foreignKey({
       name: 'decisions_document_fk',
@@ -127,6 +130,12 @@ export const actionItems = pgTable(
   },
   (t) => [
     unique('action_items_scope_key').on(t.id, t.documentId, t.workspaceId),
+    index('action_items_workspace_due_idx')
+      .on(t.workspaceId, t.status, t.dueDate)
+      .where(sql`${t.deletedAt} IS NULL`),
+    index('action_items_workspace_owner_idx')
+      .on(t.workspaceId, t.ownerPersonId)
+      .where(sql`${t.deletedAt} IS NULL`),
     unique('action_items_order_key').on(t.documentId, t.idx),
     foreignKey({
       name: 'action_items_document_fk',

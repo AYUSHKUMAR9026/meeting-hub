@@ -43,6 +43,13 @@
       "when": 1795418902312,
       "tag": "0005_meeting_analysis",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1795424501108,
+      "tag": "0006_sharing_and_review",
+      "breakpoints": true
     }
   ]
 }

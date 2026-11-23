@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm';
 import {
+  boolean,
   check,
   index,
   integer,
@@ -23,6 +24,7 @@ export const workspaceSettings = pgTable(
       .references(() => organization.id, { onDelete: 'cascade' }),
     timezone: text('timezone').notNull().default('UTC'),
     retentionDays: integer('retention_days').notNull().default(30),
+    sharingEnabled: boolean('sharing_enabled').notNull().default(true),
     transcriptLanguage: text('transcript_language'),
     glossary: text('glossary')
       .array()
