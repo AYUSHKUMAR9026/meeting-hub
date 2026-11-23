@@ -3,11 +3,12 @@
 AI meeting-intelligence platform: upload recordings, get transcripts with speakers, and a persistent,
 evidence-linked ledger of decisions and action items across meetings.
 
-> **Status: Phase 6 — cited meeting documents.** Meeting recordings go straight from the
+> **Status: Phase 7 — document review, export and sharing.** Meeting recordings go straight from the
 > browser to object storage. The worker normalizes and validates audio with ffmpeg (Phase 4).
 > When transcription is enabled, the worker then produces speaker-labelled, searchable segments
 > and the meeting page syncs them with audio playback and a waveform (ADR 0005). With analysis
-> enabled, the Summary tab adds decisions and action items with citations to those segments (ADR 0006).
+> enabled, the Summary tab adds decisions and action items with citations to those segments (ADR 0006). Workspaces can enable document exports, public share
+> links, and decision and action item trackers (ADR 0007).
 
 ## Prerequisites
 
@@ -92,6 +93,20 @@ docs/adr/              Architecture decision records
 The browser only talks to `:3000`: Next.js proxies `/api/auth/*` (Better Auth) and `/v1/*` to the API, so
 session cookies are first-party. See [ADR 0002](docs/adr/0002-auth-and-workspaces.md).
 
+## Document review and sharing
+
+Enable `exports.enabled=true,sharing.enabled=true,review.enabled=true` alongside the
+transcription and analysis flags. In a meeting, download the current document as Markdown,
+Word, or PDF, optionally with the cited transcript revision. TXT and SRT exports use the current
+transcript. The Summary tab supports bulk decision review, clipboard copying, printing, and
+read-only earlier versions. Workspace navigation opens the Decisions and Action items trackers.
+
+Each public link has an expiration and a document or transcript scope. Copy the full URL
+when creating a link. Revoke it in the meeting, or pause all sharing in workspace settings.
+Set `PUBLIC_WEB_URL` to the public web origin when it differs from `WEB_ORIGIN`.
+`EXPORT_MAX_BYTES` defaults to 8 MiB and `SHARE_MAX_DAYS` defaults to 90.
+[ADR 0007](docs/adr/0007-document-review-export-and-sharing.md)
+
 ## Feature flags
 
 | Flag                     | Default (dev / other) | What it gates                                                                  |
@@ -99,6 +114,10 @@ session cookies are first-party. See [ADR 0002](docs/adr/0002-auth-and-workspace
 | `workspaces.invitations` | on / off              | Inviting people and accepting invitations                                      |
 | `people.directory`       | on / off              | People directory API and settings page                                         |
 | `meetings.upload`        | on / off              | Recording upload endpoints and uploader UI                                     |
+| `exports.enabled`        | off / off             | Markdown, Word, PDF, TXT, and SRT downloads                                    |
+| `sharing.enabled`        | off / off             | Manage and open public meeting links                                           |
+| `review.enabled`         | off / off             | Workspace trackers, bulk review, copy and print                                |
+| `analysis.enabled`       | off / off             | Cited meeting summaries, decisions, and action items                           |
 | `transcription.enabled`  | off / off             | Speaker-labelled transcripts, waveform UI, and transcription-only reprocessing |
 | `pipeline.media`         | on / off              | Processing runs on upload (backlog kept while off) and reprocess               |
 | `auth.google_signin`     | off / off             | "Continue with Google" (also needs `GOOGLE_CLIENT_*`)                          |

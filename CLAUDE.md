@@ -192,7 +192,16 @@ resource)` and Better Auth's access-control roles are both derived from it. Add 
 - Store validated checkpoints and usage in Postgres. Publish decisions, action items and evidence with the current pointer in one transaction.
 - Preserve earlier document revisions and their human edits. Fake providers are used by CI.
 
+## Document review, exports and sharing (ADR 0007)
+
+- Never log exported content, tracker search terms, raw share tokens, or URLs containing them.
+  Public views are read-only projections with no-store and no-index headers and uniform missing-link errors.
+- Share links cascade with meeting purge. Workspace sharing settings are checked at creation and public access.
+- Exports of a document and transcript use the transcript revision cited by that document.
+- Track current documents only. Reuse the meeting role rules and content-free audit for review edits.
+  Keep all Phase 7 flags disabled by default.
+
 ## Out of scope until their phase
 
-Embeddings, cross-meeting search, 2FA/SSO, Postgres RLS (hardening),
+Embeddings, semantic search, Q&A, Google Meet integration, 2FA/SSO, Postgres RLS (hardening),
 production email provider, and deployment. Do not create `packages/ai` or `evals/` until those phases start.
