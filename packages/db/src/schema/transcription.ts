@@ -35,6 +35,7 @@ export const transcripts = pgTable(
   },
   (t) => [
     unique('transcripts_id_workspace_key').on(t.id, t.workspaceId),
+    unique('transcripts_meeting_scope_key').on(t.id, t.meetingId, t.workspaceId),
     unique('transcripts_run_key').on(t.processingRunId),
     uniqueIndex('transcripts_current_key')
       .on(t.meetingId)
@@ -99,6 +100,7 @@ export const transcriptSegments = pgTable(
     confidence: real('confidence'),
   },
   (t) => [
+    unique('transcript_segments_scope_key').on(t.id, t.transcriptId, t.workspaceId),
     unique('transcript_segments_order_key').on(t.transcriptId, t.idx),
     index('transcript_segments_text_trgm_idx').using('gin', t.text.op('gin_trgm_ops')),
     foreignKey({

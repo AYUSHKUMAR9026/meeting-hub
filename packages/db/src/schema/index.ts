@@ -1,3 +1,4 @@
+export * from './analysis';
 export * from './auth';
 export * from './meetings';
 export * from './platform';
