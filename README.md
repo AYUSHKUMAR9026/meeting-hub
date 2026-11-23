@@ -3,10 +3,11 @@
 AI meeting-intelligence platform: upload recordings, get transcripts with speakers, and a persistent,
 evidence-linked ledger of decisions and action items across meetings.
 
-> **Status: Phase 5 — transcription and speaker labels.** Meeting recordings go straight from the
+> **Status: Phase 6 — cited meeting documents.** Meeting recordings go straight from the
 > browser to object storage. The worker normalizes and validates audio with ffmpeg (Phase 4).
 > When transcription is enabled, the worker then produces speaker-labelled, searchable segments
-> and the meeting page syncs them with audio playback and a waveform (ADR 0005).
+> and the meeting page syncs them with audio playback and a waveform (ADR 0005). With analysis
+> enabled, the Summary tab adds decisions and action items with citations to those segments (ADR 0006).
 
 ## Prerequisites
 
@@ -167,6 +168,15 @@ Upload a recording, wait for **Ready**, and open the meeting's **Transcript** pa
 to seek the audio. Owners and admins can use **Manage speakers** to rename a label or link a directory
 entry, and **Retry transcription** to rerun the step using the existing normalized audio. The previous
 transcript stays available until the new one is ready.
+
+## Meeting analysis
+
+Enable `analysis.enabled=true` alongside `transcription.enabled=true` in `FEATURE_FLAGS_OVERRIDE`.
+The worker generates a summary, decisions and action items with transcript citations. The Summary
+view includes version history, retained edits, and citation links that seek the meeting audio.
+Use the default `LLM_PROVIDER=fake` for local fixtures. Set `LLM_PROVIDER=anthropic` and
+`ANTHROPIC_API_KEY` for real analysis. `LLM_MODEL` selects the model, and `ANALYSIS_MAX_INPUT_TOKENS`
+limits the aggregate input budget, including retry and reduction requests. [ADR 0006](docs/adr/0006-cited-meeting-documents.md)
 
 ## Docker images
 

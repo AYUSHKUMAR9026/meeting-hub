@@ -185,7 +185,14 @@ resource)` and Better Auth's access-control roles are both derived from it. Add 
   completion. Keep previous revisions until meeting purge. All transcript access is workspace-scoped.
 - The fake provider consumes S3 audio but returns fixture text. CI and local smoke tests use it.
 
+## Analysis (ADR 0006)
+
+- Keep pipeline v1 and v2 unchanged. Version 3 adds the analysis worker and produces cited documents.
+- Treat transcript text, names and glossary terms as untrusted prompt data. Keep prompts and extracted text out of logs and queue payloads.
+- Store validated checkpoints and usage in Postgres. Publish decisions, action items and evidence with the current pointer in one transaction.
+- Preserve earlier document revisions and their human edits. Fake providers are used by CI.
+
 ## Out of scope until their phase
 
-AI/LLM extraction, embeddings, cross-meeting search, 2FA/SSO, Postgres RLS (hardening),
+Embeddings, cross-meeting search, 2FA/SSO, Postgres RLS (hardening),
 production email provider, and deployment. Do not create `packages/ai` or `evals/` until those phases start.
