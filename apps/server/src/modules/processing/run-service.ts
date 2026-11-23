@@ -134,15 +134,25 @@ export class RunService implements ProcessingCanceller {
 
   async getProcessing(actor: WorkspaceActor, meetingId: string): Promise<ProcessingView> {
     authorize(actor, 'meeting.read');
-    const meeting = await this.deps.repo.findVisibleMeeting(actor.workspaceId, meetingId);
-    if (!meeting) throw meetingNotFound();
-    const latest = await this.deps.repo.latestRun(actor.workspaceId, meetingId);
-    return {
-      meetingStatus: meeting.status,
-      run: latest
-        ? this.toView(latest.run, latest.steps, roleCan(actor.role, 'processing.view_error_detail'))
-        : null,
-    };
+    // A worker commits meeting, run and step status together. Read them from the same snapshot.
+    return this.deps.db.transaction(
+      async (tx) => {
+        const meeting = await this.deps.repo.findVisibleMeeting(actor.workspaceId, meetingId, tx);
+        if (!meeting) throw meetingNotFound();
+        const latest = await this.deps.repo.latestRun(actor.workspaceId, meetingId, tx);
+        return {
+          meetingStatus: meeting.status,
+          run: latest
+            ? this.toView(
+                latest.run,
+                latest.steps,
+                roleCan(actor.role, 'processing.view_error_detail'),
+              )
+            : null,
+        };
+      },
+      { isolationLevel: 'repeatable read', accessMode: 'read only' },
+    );
   }
 
   /** Starts a new run on the meeting's original recording (owners/admins). 409 if one is active. */

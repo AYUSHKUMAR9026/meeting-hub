@@ -138,8 +138,9 @@ export class ProcessingRepository {
   async latestRun(
     workspaceId: string,
     meetingId: string,
+    db: Executor = this.db,
   ): Promise<{ run: RunRecord; steps: StepRecord[] } | null> {
-    const [run] = await this.db
+    const [run] = await db
       .select()
       .from(processingRuns)
       .where(
@@ -147,7 +148,7 @@ export class ProcessingRepository {
       )
       .orderBy(desc(processingRuns.createdAt), desc(processingRuns.id))
       .limit(1);
-    return run ? { run, steps: await this.stepsOf(run.id) } : null;
+    return run ? { run, steps: await this.stepsOf(run.id, db) } : null;
   }
 
   /** Active and its meeting not deleted: the condition for any step to keep working. */
@@ -166,8 +167,8 @@ export class ProcessingRepository {
     return Boolean(row);
   }
 
-  async findVisibleMeeting(workspaceId: string, meetingId: string) {
-    const [row] = await this.db
+  async findVisibleMeeting(workspaceId: string, meetingId: string, db: Executor = this.db) {
+    const [row] = await db
       .select({ id: meetings.id, status: meetings.status, durationMs: meetings.durationMs })
       .from(meetings)
       .where(
