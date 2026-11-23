@@ -23,6 +23,7 @@ export const workspaceSettings = pgTable(
       .references(() => organization.id, { onDelete: 'cascade' }),
     timezone: text('timezone').notNull().default('UTC'),
     retentionDays: integer('retention_days').notNull().default(30),
+    transcriptLanguage: text('transcript_language'),
     glossary: text('glossary')
       .array()
       .notNull()

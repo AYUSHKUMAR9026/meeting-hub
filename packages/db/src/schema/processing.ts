@@ -85,6 +85,7 @@ export const processingRuns = pgTable(
   (t) => [
     // Target of processing_steps' composite foreign key.
     unique('processing_runs_id_workspace_id_key').on(t.id, t.workspaceId),
+    unique('processing_runs_transcript_scope_key').on(t.id, t.meetingId, t.workspaceId),
     foreignKey({
       name: 'processing_runs_meeting_fk',
       columns: [t.meetingId, t.workspaceId],
