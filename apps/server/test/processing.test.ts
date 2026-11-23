@@ -33,8 +33,11 @@ const step = (overrides: Partial<StepDefinition> = {}): StepDefinition => ({
 
 describe('step registry', () => {
   it('accepts the steps every pipeline version uses', () => {
-    const registry = createStepRegistry([step()]);
-    expect([...registry.keys()]).toEqual(['prepare_media']);
+    const registry = createStepRegistry([
+      step(),
+      step({ name: 'transcribe', queue: 'transcription' }),
+    ]);
+    expect([...registry.keys()]).toEqual(['prepare_media', 'transcribe']);
   });
 
   it('rejects duplicate steps, bad settings and pipelines with unknown steps', () => {
@@ -48,6 +51,8 @@ describe('step registry', () => {
   it('pipeline v1 is exactly prepare_media', () => {
     expect(PIPELINES[1]).toEqual(['prepare_media']);
     expect(nextStep(1, 'prepare_media')).toBeNull();
+    expect(nextStep(2, 'prepare_media')).toBe('transcribe');
+    expect(nextStep(2, 'transcribe')).toBeNull();
     expect(() => nextStep(1, 'transcribe')).toThrow();
     expect(() => nextStep(99, 'prepare_media')).toThrow(/unknown pipeline/);
   });

@@ -121,13 +121,18 @@ describe('FeatureFlagService', () => {
       'people.directory',
       'pipeline.media',
       'platform.heartbeat',
+      'transcription.enabled',
       'workspaces.invitations',
     ]);
     expect((await flags.evaluateAll({ workspaceId: WS })).map((f) => f.key)).toContain('ws.only');
   });
 
   it('lists only client-visible flags for the UI', () => {
-    expect(clientVisibleFlags()).toEqual(['meetings.upload', 'pipeline.media']);
+    expect(clientVisibleFlags()).toEqual([
+      'meetings.upload',
+      'transcription.enabled',
+      'pipeline.media',
+    ]);
   });
 
   it('isEnabled returns the boolean for typed flag keys', async () => {
@@ -144,6 +149,7 @@ describe('FeatureFlagService', () => {
     expect(await dev.isEnabled('workspaces.invitations')).toBe(true);
     expect(await dev.isEnabled('people.directory')).toBe(true);
     expect(await dev.isEnabled('auth.google_signin')).toBe(false);
+    expect(await dev.isEnabled('transcription.enabled')).toBe(false);
     expect(await prod.isEnabled('workspaces.invitations')).toBe(false);
     expect(await prod.isEnabled('people.directory')).toBe(false);
   });

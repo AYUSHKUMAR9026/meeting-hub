@@ -3105,6 +3105,311 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/meetings/{id}/transcript": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read the current transcript and its speakers */
+        get: {
+            parameters: {
+                query?: {
+                    cursor?: string;
+                };
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["TranscriptPage"];
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/meetings/{id}/transcript/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Search segments without putting meeting text in the URL */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["TranscriptSearchInput"];
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["TranscriptPage"];
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/meetings/{id}/transcript/speakers/{speakerId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Rename a transcript speaker or link a workspace person */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                    speakerId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["PatchTranscriptSpeakerInput"];
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["TranscriptSpeaker"];
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -3335,7 +3640,7 @@ export interface components {
         /** @enum {string} */
         StepStatusInput: "pending" | "running" | "waiting_external" | "succeeded" | "failed" | "skipped";
         /** @enum {string} */
-        StepNameInput: "prepare_media";
+        StepNameInput: "prepare_media" | "transcribe";
         ProcessingStepInput: {
             name: string;
             status: components["schemas"]["StepStatusInput"];
@@ -3436,6 +3741,44 @@ export interface components {
         FlagsResponseInput: {
             flags: components["schemas"]["EvaluatedFlagInput"][];
         };
+        TranscriptSearchInput: {
+            cursor?: string;
+            q: string;
+        };
+        TranscriptSpeakerInput: {
+            /** Format: uuid */
+            id: string;
+            label: string;
+            displayName: string | null;
+            personId: string | null;
+            personName: string | null;
+        };
+        TranscriptSegmentInput: {
+            /** Format: uuid */
+            id: string;
+            idx: number;
+            startMs: number;
+            endMs: number;
+            /** Format: uuid */
+            speakerId: string;
+            text: string;
+            confidence: number | null;
+        };
+        TranscriptPageInput: {
+            transcript: {
+                /** Format: uuid */
+                id: string;
+                language: string | null;
+                durationMs: number;
+            } | null;
+            speakers: components["schemas"]["TranscriptSpeakerInput"][];
+            segments: components["schemas"]["TranscriptSegmentInput"][];
+            nextCursor: string | null;
+        };
+        PatchTranscriptSpeakerInput: {
+            displayName?: string | null;
+            personId?: string | null;
+        };
         /** @enum {string} */
         WorkspaceRoleInput: "owner" | "admin" | "member" | "viewer";
         WorkspaceSummaryInput: {
@@ -3455,6 +3798,7 @@ export interface components {
             timezone: string;
             retentionDays: number;
             glossary: string[];
+            transcriptLanguage?: string | null;
         };
         WorkspaceInput: {
             /** Format: uuid */
@@ -3485,6 +3829,7 @@ export interface components {
                 timezone?: string;
                 retentionDays?: number;
                 glossary?: string[];
+                transcriptLanguage?: string | null;
             };
         };
         MemberInput: {
@@ -3769,7 +4114,7 @@ export interface components {
         /** @enum {string} */
         StepStatus: "pending" | "running" | "waiting_external" | "succeeded" | "failed" | "skipped";
         /** @enum {string} */
-        StepName: "prepare_media";
+        StepName: "prepare_media" | "transcribe";
         ProcessingStep: {
             name: string;
             status: components["schemas"]["StepStatus"];
@@ -3870,6 +4215,44 @@ export interface components {
         FlagsResponse: {
             flags: components["schemas"]["EvaluatedFlag"][];
         };
+        TranscriptSearch: {
+            cursor?: string;
+            q: string;
+        };
+        TranscriptSpeaker: {
+            /** Format: uuid */
+            id: string;
+            label: string;
+            displayName: string | null;
+            personId: string | null;
+            personName: string | null;
+        };
+        TranscriptSegment: {
+            /** Format: uuid */
+            id: string;
+            idx: number;
+            startMs: number;
+            endMs: number;
+            /** Format: uuid */
+            speakerId: string;
+            text: string;
+            confidence: number | null;
+        };
+        TranscriptPage: {
+            transcript: {
+                /** Format: uuid */
+                id: string;
+                language: string | null;
+                durationMs: number;
+            } | null;
+            speakers: components["schemas"]["TranscriptSpeaker"][];
+            segments: components["schemas"]["TranscriptSegment"][];
+            nextCursor: string | null;
+        };
+        PatchTranscriptSpeaker: {
+            displayName?: string | null;
+            personId?: string | null;
+        };
         /** @enum {string} */
         WorkspaceRole: "owner" | "admin" | "member" | "viewer";
         WorkspaceSummary: {
@@ -3889,6 +4272,7 @@ export interface components {
             timezone: string;
             retentionDays: number;
             glossary: string[];
+            transcriptLanguage?: string | null;
         };
         Workspace: {
             /** Format: uuid */
@@ -3919,6 +4303,7 @@ export interface components {
                 timezone?: string;
                 retentionDays?: number;
                 glossary?: string[];
+                transcriptLanguage?: string | null;
             };
         };
         Member: {

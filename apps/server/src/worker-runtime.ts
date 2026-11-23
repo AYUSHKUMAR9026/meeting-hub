@@ -21,6 +21,7 @@ import {
   OutboxDispatcher,
 } from './modules/platform';
 import { type Processing, TIMEOUT_GRACE_MS } from './modules/processing';
+import type { TranscriptionProvider } from './modules/transcription';
 
 export interface WorkerRuntimeOptions {
   /** BullMQ key prefix (tests use a unique one). */
@@ -29,6 +30,7 @@ export interface WorkerRuntimeOptions {
   loops?: boolean;
   workerSettings?: Partial<StalledJobSettings>;
   driver?: { cancelPollMs?: number };
+  provider?: TranscriptionProvider;
 }
 
 export interface WorkerRuntime {
@@ -67,8 +69,11 @@ export async function startWorkerRuntime(
   });
   const processing = buildProcessing(
     config,
-    { db, redis, storage, audit, logger, stepQueue },
-    options.driver ? { driver: options.driver } : {},
+    { db, redis, storage, audit, logger, stepQueue, flags },
+    {
+      ...(options.driver ? { driver: options.driver } : {}),
+      ...(options.provider ? { provider: options.provider } : {}),
+    },
   );
   const meetings = createMeetingMaintenance({
     db: db.db,
@@ -89,7 +94,11 @@ export async function startWorkerRuntime(
 
   // A killed worker never ran its `finally`: remove its job directories (dead pid on this host),
   // and any older than the longest step can run.
-  const longestStep = Math.max(...[...processing.registry.values()].map((s) => s.timeoutMs));
+  const longestStep = Math.max(
+    ...[...processing.registry.values()]
+      .filter((s) => s.queue === QUEUE_NAMES.media)
+      .map((s) => s.timeoutMs),
+  );
   const removed = await sweepStaleJobDirs(config.MEDIA_TMP_DIR, longestStep + TIMEOUT_GRACE_MS);
   if (removed) logger.warn({ removed }, 'removed stale media job directories');
 
@@ -99,7 +108,10 @@ export async function startWorkerRuntime(
     logger,
     driver: processing.driver,
     registry: processing.registry,
-    concurrency: { [QUEUE_NAMES.media]: config.MEDIA_CONCURRENCY },
+    concurrency: {
+      [QUEUE_NAMES.media]: config.MEDIA_CONCURRENCY,
+      [QUEUE_NAMES.transcription]: config.WORKER_CONCURRENCY,
+    },
     ...(options.workerSettings ? { workerSettings: options.workerSettings } : {}),
   });
 

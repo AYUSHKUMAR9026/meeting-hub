@@ -94,6 +94,7 @@ export class MeetingMaintenance {
     const deletedObjects = await storage.deletePrefix(
       meetingPrefix(meeting.workspaceId, meeting.id),
     );
+    // Transcript revisions, speakers and segments cascade with the meeting's database row.
     const purged = await repo.purge(meeting.id);
     if (purged) {
       await audit.record({

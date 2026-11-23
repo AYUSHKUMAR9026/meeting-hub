@@ -23,6 +23,21 @@ describe('log redaction', () => {
     });
   });
 
+  it('redacts transcript search, nested segments, provider utterances and credentials', () => {
+    const out = capture({
+      req: { body: { q: 'private phrase' } },
+      result: { segments: [{ text: 'private text' }] },
+      provider: { utterances: [{ text: 'provider text' }] },
+      ASSEMBLYAI_API_KEY: 'provider key',
+    });
+    expect(out).toMatchObject({
+      req: { body: { q: '[REDACTED]' } },
+      result: { segments: '[REDACTED]' },
+      provider: { utterances: '[REDACTED]' },
+      ASSEMBLYAI_API_KEY: '[REDACTED]',
+    });
+  });
+
   it('redacts transcript/text/content at any depth up to 4 levels', () => {
     const out = capture({
       transcript: 'top secret',

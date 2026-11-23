@@ -5,7 +5,7 @@ import type { Logger } from '../../lib/logger';
 import type { AuditService } from '../audit';
 import { MediaToolkit, type ObjectStorage } from '../media';
 import { type DriverOptions, PipelineDriver, type StepQueue } from './driver';
-import { createStepRegistry, type StepRegistry } from './pipeline';
+import { createStepRegistry, type StepDefinition, type StepRegistry } from './pipeline';
 import type { ProgressPublisher } from './progress';
 import { ProcessingRepository } from './repository';
 import { RunService } from './run-service';
@@ -75,6 +75,8 @@ export interface ProcessingDeps {
     maxInputBytes: number;
   };
   mediaUrlTtlSeconds: number;
+  transcriptionStep: StepDefinition;
+  transcriptionEnabled: (workspaceId: string) => Promise<boolean>;
   driver?: DriverOptions;
 }
 
@@ -99,6 +101,7 @@ export function createProcessing(deps: ProcessingDeps): Processing {
       maxInputBytes: deps.media.maxInputBytes,
       queue: deps.mediaQueue,
     }),
+    deps.transcriptionStep,
   ]);
   const shared = {
     repo,
@@ -116,6 +119,7 @@ export function createProcessing(deps: ProcessingDeps): Processing {
       db: deps.db,
       storage: deps.storage,
       mediaUrlTtlSeconds: deps.mediaUrlTtlSeconds,
+      transcriptionEnabled: deps.transcriptionEnabled,
     }),
     driver: new PipelineDriver(shared, deps.driver),
     sweeper: new ProcessingSweeper(shared),

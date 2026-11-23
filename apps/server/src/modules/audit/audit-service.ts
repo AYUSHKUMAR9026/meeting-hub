@@ -32,6 +32,7 @@ export const auditActions = [
   'processing.run_failed',
   'processing.run_cancelled',
   'processing.reprocess_requested',
+  'transcript.speaker_updated',
 ] as const;
 export type AuditAction = (typeof auditActions)[number];
 

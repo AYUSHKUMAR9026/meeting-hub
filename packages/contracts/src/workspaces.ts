@@ -42,6 +42,12 @@ export const workspaceSettingsSchema = z
     timezone: timezoneSchema,
     retentionDays: z.int().min(1).max(3650),
     glossary: z.array(z.string().trim().min(1).max(100)).max(500),
+    transcriptLanguage: z
+      .string()
+      .trim()
+      .regex(/^[a-z]{2,3}(?:_[a-z]{2,4})?$/)
+      .nullable()
+      .optional(),
   })
   .meta({ id: 'WorkspaceSettings' });
 export type WorkspaceSettings = z.infer<typeof workspaceSettingsSchema>;

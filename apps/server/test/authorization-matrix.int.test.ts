@@ -12,7 +12,19 @@
  */
 import { randomUUID } from 'node:crypto';
 
-import { invitation, meetings, member, people, recordings, user } from '@meeting-hub/db';
+import {
+  and,
+  eq,
+  invitation,
+  meetings,
+  member,
+  people,
+  processingRuns,
+  recordings,
+  transcripts,
+  transcriptSpeakers,
+  user,
+} from '@meeting-hub/db';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import type { RouteAccess } from '../src/http/access';
@@ -169,6 +181,44 @@ async function insertProcessedMeeting(ctx: CaseContext): Promise<string> {
     status: 'uploaded',
   });
   return meetingId;
+}
+
+async function insertCurrentSpeaker(ctx: CaseContext) {
+  const meetingId = await insertRecordedMeeting(ctx);
+  const db = t.deps.db.db;
+  const [original] = await db
+    .select({ id: recordings.id })
+    .from(recordings)
+    .where(and(eq(recordings.meetingId, meetingId), eq(recordings.kind, 'original')));
+  const [run] = await db
+    .insert(processingRuns)
+    .values({
+      workspaceId: ctx.ws.id,
+      meetingId,
+      recordingId: original!.id,
+      trigger: 'upload',
+      pipelineVersion: 2,
+      status: 'completed',
+    })
+    .returning();
+  const [transcript] = await db
+    .insert(transcripts)
+    .values({
+      workspaceId: ctx.ws.id,
+      meetingId,
+      processingRunId: run!.id,
+      provider: 'fake',
+      providerJobId: 'fixture',
+      durationMs: 1000,
+      status: 'completed',
+      isCurrent: true,
+    })
+    .returning();
+  const [speaker] = await db
+    .insert(transcriptSpeakers)
+    .values({ workspaceId: ctx.ws.id, transcriptId: transcript!.id, label: 'Speaker A' })
+    .returning();
+  return { meetingId, speakerId: speaker!.id };
 }
 
 /** An invitation to `host` addressed to the caller (or to nobody in particular when signed out). */
@@ -392,6 +442,30 @@ const ROUTES: Record<string, RouteSpec> = {
       payload: {},
     }),
   },
+  'GET /v1/meetings/:id/transcript': {
+    access: 'meeting.read',
+    success: 200,
+    request: async (ctx) => ({ url: `/v1/meetings/${await insertMeeting(ctx)}/transcript` }),
+  },
+  'POST /v1/meetings/:id/transcript/search': {
+    access: 'meeting.read',
+    success: 200,
+    request: async (ctx) => ({
+      url: `/v1/meetings/${await insertMeeting(ctx)}/transcript/search`,
+      payload: { q: 'agenda' },
+    }),
+  },
+  'PATCH /v1/meetings/:id/transcript/speakers/:speakerId': {
+    access: 'transcript.speaker.update',
+    success: 200,
+    request: async (ctx) => {
+      const { meetingId, speakerId } = await insertCurrentSpeaker(ctx);
+      return {
+        url: `/v1/meetings/${meetingId}/transcript/speakers/${speakerId}`,
+        payload: { displayName: 'Renamed' },
+      };
+    },
+  },
   'GET /v1/meetings/:id/media': {
     access: 'meeting.read',
     success: 200,
@@ -441,7 +515,10 @@ const declaredKind = (access: RouteAccess | undefined) =>
   access?.kind === 'workspace' ? access.action : access?.kind;
 
 // The catalog is only known once the app is built, so build it before collecting tests.
-const t: TestApp = await createTestApp();
+const t: TestApp = await createTestApp({
+  FEATURE_FLAGS_OVERRIDE:
+    'workspaces.invitations=true,people.directory=true,meetings.upload=true,pipeline.media=true,transcription.enabled=true',
+});
 const catalog = t.app.routeCatalog.filter((r) => r.url.startsWith('/v1/'));
 
 beforeAll(async () => {

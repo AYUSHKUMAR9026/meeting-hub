@@ -26,6 +26,7 @@ export interface WorkspaceSettings {
   timezone: string;
   retentionDays: number;
   glossary: string[];
+  transcriptLanguage: string | null;
 }
 
 export interface MemberView {
@@ -51,6 +52,7 @@ export const DEFAULT_SETTINGS: WorkspaceSettings = {
   timezone: 'UTC',
   retentionDays: 30,
   glossary: [],
+  transcriptLanguage: null,
 };
 
 /** Better Auth stores roles as text (comma-separated when multiple). We only ever assign one. */
@@ -112,6 +114,7 @@ export class WorkspaceRepository {
         timezone: workspaceSettings.timezone,
         retentionDays: workspaceSettings.retentionDays,
         glossary: workspaceSettings.glossary,
+        transcriptLanguage: workspaceSettings.transcriptLanguage,
       })
       .from(workspaceSettings)
       .where(eq(workspaceSettings.workspaceId, workspaceId));

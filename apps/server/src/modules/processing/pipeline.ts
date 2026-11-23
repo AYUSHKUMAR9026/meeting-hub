@@ -9,13 +9,14 @@ import type { ProcessingTx } from './repository';
  */
 export const PIPELINES = {
   1: ['prepare_media'],
+  2: ['prepare_media', 'transcribe'],
 } as const satisfies Record<number, readonly string[]>;
 
 export type PipelineVersion = keyof typeof PIPELINES;
-export const CURRENT_PIPELINE_VERSION: PipelineVersion = 1;
+export const CURRENT_PIPELINE_VERSION: PipelineVersion = 2;
 
 export type StepName = (typeof PIPELINES)[PipelineVersion][number];
-export const STEP_NAMES = [...new Set(Object.values(PIPELINES).flat())] as StepName[];
+export const STEP_NAMES = [...PIPELINES[CURRENT_PIPELINE_VERSION]];
 
 /** The run a step works on (ids only; steps load what they need). */
 export interface RunRef {
@@ -31,6 +32,7 @@ export interface StepContext {
   run: RunRef;
   /** 1 for the first attempt. */
   attempt: number;
+  startedAt: Date;
   /** Aborted when the run is cancelled (or the meeting deleted) or the step times out. */
   signal: AbortSignal;
   /** Bound to run_id and step. */
@@ -48,6 +50,8 @@ export interface StepOutcome {
   discard(): Promise<void>;
   /** Small, content-free facts stored in processing_steps.metadata. */
   metadata?: Record<string, unknown>;
+  /** Persist the provider receipt and release the worker until the next poll. */
+  wait?: { delayMs: number; deadlineAt: Date };
 }
 
 /** One entry of the step registry. Everything the driver and sweeper need to run the step. */
@@ -62,6 +66,8 @@ export interface StepDefinition {
   backoffMs: number;
   /** Hard limit for one attempt. */
   timeoutMs: number;
+  /** Preserve the first start time across polls and retry attempts. */
+  external?: boolean;
   /** Share of the run's progress bar. */
   weight: number;
   /** Check-before-do: true when this run's output for the step already exists. */

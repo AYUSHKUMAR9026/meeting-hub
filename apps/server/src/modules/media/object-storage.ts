@@ -176,6 +176,15 @@ export class ObjectStorage {
     }
   }
 
+  async streamObject(key: string, signal?: AbortSignal): Promise<Readable> {
+    const res = await this.s3.send(
+      new GetObjectCommand({ Bucket: this.bucket, Key: key }),
+      signal ? { abortSignal: signal } : {},
+    );
+    if (!(res.Body instanceof Readable)) throw new Error('S3 returned no readable body');
+    return res.Body;
+  }
+
   /**
    * Streams an object to a local file, computing its SHA-256 on the way. Fails with
    * `ObjectTooLargeError` as soon as more than `maxBytes` arrive (the file is left for the caller's
@@ -186,11 +195,7 @@ export class ObjectStorage {
     path: string,
     options: { maxBytes: number; signal?: AbortSignal; onBytes?: (total: number) => void },
   ): Promise<{ sizeBytes: number; sha256: string }> {
-    const res = await this.s3.send(
-      new GetObjectCommand({ Bucket: this.bucket, Key: key }),
-      options.signal ? { abortSignal: options.signal } : {},
-    );
-    if (!(res.Body instanceof Readable)) throw new Error('S3 returned no readable body');
+    const body = await this.streamObject(key, options.signal);
     const hash = createHash('sha256');
     let total = 0;
     const meter = new Transform({
@@ -206,7 +211,7 @@ export class ObjectStorage {
       },
     });
     await pipeline(
-      res.Body,
+      body,
       meter,
       createWriteStream(path),
       options.signal ? { signal: options.signal } : {},

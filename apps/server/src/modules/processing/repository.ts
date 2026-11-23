@@ -19,6 +19,7 @@ import {
   type RunStatus,
   type RunTrigger,
   sql,
+  transcripts,
 } from '@meeting-hub/db';
 
 import { type Database, type Transaction, violatedConstraint } from '../../lib/db';
@@ -267,15 +268,17 @@ export class ProcessingRepository {
     step: string,
     runStatus: RunStatus,
     now: Date,
+    startedAt = now,
+    polling = false,
   ): Promise<number> {
     const [row] = await tx
       .update(processingSteps)
       .set({
         status: 'running',
-        attempts: sql`${processingSteps.attempts} + 1`,
-        startedAt: now,
+        attempts: sql`${processingSteps.attempts} + ${polling ? 0 : 1}`,
+        startedAt,
         finishedAt: null,
-        metadata: sql`${processingSteps.metadata} || '{"progress": 0}'::jsonb`,
+        ...(!polling && { metadata: sql`${processingSteps.metadata} || '{"progress": 0}'::jsonb` }),
         updatedAt: now,
       })
       .where(and(eq(processingSteps.runId, run.id), eq(processingSteps.name, step)))
@@ -290,6 +293,21 @@ export class ProcessingRepository {
       })
       .where(eq(processingRuns.id, run.id));
     return row!.attempts;
+  }
+
+  async markStepWaiting(tx: Transaction, runId: string, step: string, deadlineAt: Date, now: Date) {
+    await tx
+      .update(processingSteps)
+      .set({
+        status: 'waiting_external',
+        errorCode: null,
+        errorMessage: null,
+        errorDetail: null,
+        metadata: sql`${processingSteps.metadata} || ${JSON.stringify({ deadlineAt: deadlineAt.getTime(), progress: 0.5, phase: 'waiting for transcription' })}::jsonb`,
+        updatedAt: now,
+      })
+      .where(and(eq(processingSteps.runId, runId), eq(processingSteps.name, step)));
+    await touchRun(tx, runId, now);
   }
 
   async markStepSucceeded(
@@ -368,6 +386,18 @@ export class ProcessingRepository {
         updatedAt: now,
       })
       .where(eq(processingRuns.id, run.id));
+    if (step === 'transcribe') {
+      await tx
+        .update(transcripts)
+        .set({ status: 'failed' })
+        .where(
+          and(
+            eq(transcripts.processingRunId, run.id),
+            eq(transcripts.workspaceId, run.workspaceId),
+            eq(transcripts.status, 'pending'),
+          ),
+        );
+    }
     await setMeetingStatus(tx, run.meetingId, 'failed', now);
   }
 
@@ -436,6 +466,16 @@ export class ProcessingRepository {
         .set({ status: 'cancelled', finishedAt: now, updatedAt: now })
         .where(eq(processingRuns.id, run.id))
         .returning();
+      await tx
+        .update(transcripts)
+        .set({ status: 'failed' })
+        .where(
+          and(
+            eq(transcripts.processingRunId, run.id),
+            eq(transcripts.workspaceId, run.workspaceId),
+            eq(transcripts.status, 'pending'),
+          ),
+        );
       return cancelled!;
     });
   }

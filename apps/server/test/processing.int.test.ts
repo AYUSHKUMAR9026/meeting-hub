@@ -13,24 +13,33 @@ import type { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import type { TranscriptPage } from '@meeting-hub/contracts';
 import { PutObjectCommand } from '@aws-sdk/client-s3';
 import {
   and,
   auditLogs,
   domainEvents,
   eq,
+  featureFlags,
   meetings,
+  people,
   processingRuns,
   processingSteps,
   recordings,
   sql,
+  transcriptSegments,
+  transcriptSpeakers,
+  transcripts,
 } from '@meeting-hub/db';
 import pino from 'pino';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
+import { createQueue } from '../src/jobs/queues';
+import { PermanentError, RetryableError } from '../src/lib/errors';
 import { createStepQueue } from '../src/jobs/step-queue';
 import { listJobDirs, meetingPrefix, MAX_PEAK_POINTS } from '../src/modules/media';
-import { getStep } from '../src/modules/processing';
+import { getStep, stepJobId } from '../src/modules/processing';
+import { FakeProvider, RetryableProviderJobError } from '../src/modules/transcription';
 import { startWorkerRuntime, type WorkerRuntime } from '../src/worker-runtime';
 import {
   addMember,
@@ -66,6 +75,7 @@ const TOO_LONG_SECONDS = 3 * 3600 + 5;
 
 let t: TestApp;
 let worker: WorkerRuntime;
+const transcriptionProvider = new FakeProvider();
 let fixtures: Record<FixtureName, Fixture>;
 let fixturesDir: string;
 let mediaTmp: string;
@@ -116,6 +126,7 @@ beforeAll(async () => {
   worker = await startWorkerRuntime(testConfig(workerEnv), pino({ level: 'warn' }), {
     queuePrefix: PREFIX,
     driver: { cancelPollMs: 200 },
+    provider: transcriptionProvider,
   });
 
   owner = await createUser(t, 'proc-owner');
@@ -564,6 +575,241 @@ describe('cancellation', () => {
     ).map((a) => a.action);
     expect(actions).toEqual(expect.arrayContaining(['processing.run_cancelled', 'meeting.purged']));
   });
+});
+
+describe('transcription pipeline', () => {
+  let workspaceId: string;
+
+  beforeAll(async () => {
+    workspaceId = (await createWorkspace(t, owner, 'Transcription')).id;
+    await enablePipeline(t, workspaceId);
+    await db()
+      .insert(featureFlags)
+      .values({ key: 'transcription.enabled', workspaceId, enabled: true });
+    await addMember(t, workspaceId, owner, viewer, 'viewer');
+  });
+
+  const transcriptRoute = (meetingId: string) => `/v1/meetings/${meetingId}/transcript`;
+  const read = async (meetingId: string, reader = owner) => {
+    const response = await call(t, reader, { method: 'GET', url: transcriptRoute(meetingId) });
+    expect(response.statusCode, response.body).toBe(200);
+    return response.json<TranscriptPage>();
+  };
+
+  it('retries a provider outage, serves speaker-labelled segments, and purges them with the meeting', async () => {
+    const poll = vi
+      .spyOn(transcriptionProvider, 'getResult')
+      .mockRejectedValueOnce(
+        new RetryableError('TRANSCRIPTION_PROVIDER_UNAVAILABLE', 'Transcription unavailable.'),
+      )
+      .mockRejectedValueOnce(new RetryableProviderJobError());
+    const submit = vi.spyOn(transcriptionProvider, 'submit');
+    try {
+      await call(t, owner, {
+        method: 'PATCH',
+        url: `/v1/workspaces/${workspaceId}`,
+        payload: { settings: { transcriptLanguage: 'fr', glossary: ['Meeting Hub'] } },
+      });
+      const meetingId = await uploadFixture(t, owner, workspaceId, fixtures.audioWav);
+      const done = await waitForProcessing(t, owner, meetingId, finished);
+      expect(done).toMatchObject({ meetingStatus: 'ready', run: { status: 'completed' } });
+      expect(done.run!.steps[1]).toMatchObject({
+        name: 'transcribe',
+        status: 'succeeded',
+        attempts: 3,
+      });
+      expect(submit).toHaveBeenCalledTimes(2);
+      const jobIds = poll.mock.calls.map(([jobId]) => jobId);
+      expect(jobIds[0]).toBe(jobIds[1]);
+      expect(jobIds[2]).not.toBe(jobIds[1]);
+      expect(submit.mock.calls[0]?.[1]).toMatchObject({
+        language: 'fr',
+        glossary: ['Meeting Hub'],
+      });
+      const page = await read(meetingId, viewer);
+      expect(page.transcript?.language).toBe('fr');
+      expect(page.speakers.map((speaker) => speaker.label)).toEqual(['Speaker A', 'Speaker B']);
+      expect(page.segments).toHaveLength(2);
+
+      const search = await call(t, viewer, {
+        method: 'POST',
+        url: transcriptRoute(meetingId) + '/search',
+        payload: { q: 'agenda' },
+      });
+      expect(search.json<TranscriptPage>().segments).toHaveLength(1);
+      await db()
+        .insert(transcriptSegments)
+        .values(
+          Array.from({ length: 99 }, (_, i) => ({
+            transcriptId: page.transcript!.id,
+            workspaceId,
+            idx: i + 2,
+            speakerId: page.speakers[0]!.id,
+            startMs: 0,
+            endMs: 1,
+            text: 'Pagination fixture',
+          })),
+        );
+      const first = await read(meetingId);
+      expect(first.segments).toHaveLength(100);
+      const next = await call(t, viewer, {
+        method: 'GET',
+        url: transcriptRoute(meetingId) + '?cursor=' + first.nextCursor,
+      });
+      expect(next.json<TranscriptPage>()).toMatchObject({
+        segments: [{ idx: 100 }],
+        nextCursor: null,
+      });
+      const forbidden = await call(t, outsider, { method: 'GET', url: transcriptRoute(meetingId) });
+      expect(forbidden.statusCode).toBe(404);
+      const personPatchUrl = `${transcriptRoute(meetingId)}/speakers/${page.speakers[0]!.id}`;
+      const foreignWorkspace = (await createWorkspace(t, outsider, 'Foreign people')).id;
+      const [foreign] = await db()
+        .insert(people)
+        .values({ workspaceId: foreignWorkspace, displayName: 'Foreign' })
+        .returning();
+      expect(
+        (
+          await call(t, owner, {
+            method: 'PATCH',
+            url: personPatchUrl,
+            payload: { personId: foreign!.id },
+          })
+        ).statusCode,
+      ).toBe(404);
+      const [person] = await db()
+        .insert(people)
+        .values({ workspaceId, displayName: 'Pat Example' })
+        .returning();
+      const renamed = await call(t, owner, {
+        method: 'PATCH',
+        url: personPatchUrl,
+        payload: { displayName: 'Pat', personId: person!.id },
+      });
+      expect(renamed.json()).toMatchObject({
+        displayName: 'Pat',
+        personId: person!.id,
+        personName: 'Pat Example',
+      });
+      await db().delete(people).where(eq(people.id, person!.id));
+      expect((await read(meetingId)).speakers[0]?.personId).toBeNull();
+      expect(JSON.stringify(t.logLines)).not.toContain('Welcome to the meeting.');
+
+      expect(
+        (await call(t, owner, { method: 'DELETE', url: `/v1/meetings/${meetingId}` })).statusCode,
+      ).toBe(202);
+      const transcriptId = page.transcript!.id;
+      await vi.waitFor(
+        async () => {
+          expect(
+            await db().select().from(transcripts).where(eq(transcripts.id, transcriptId)),
+          ).toEqual([]);
+          expect(
+            await db()
+              .select()
+              .from(transcriptSpeakers)
+              .where(eq(transcriptSpeakers.transcriptId, transcriptId)),
+          ).toEqual([]);
+          expect(
+            await db()
+              .select()
+              .from(transcriptSegments)
+              .where(eq(transcriptSegments.transcriptId, transcriptId)),
+          ).toEqual([]);
+        },
+        { timeout: 30_000 },
+      );
+    } finally {
+      poll.mockRestore();
+      submit.mockRestore();
+    }
+  }, 120_000);
+
+  it('keeps the previous transcript during reprocessing and recovers a lost delayed poll', async () => {
+    const meetingId = await uploadFixture(t, owner, workspaceId, fixtures.audioWav);
+    expect((await waitForProcessing(t, owner, meetingId, finished)).meetingStatus).toBe('ready');
+    const original = (await read(meetingId)).transcript!;
+    const providerResult = transcriptionProvider.getResult.bind(transcriptionProvider);
+    let release = false;
+    const poll = vi
+      .spyOn(transcriptionProvider, 'getResult')
+      .mockImplementation(async (jobId, signal) =>
+        release ? providerResult(jobId, signal) : { status: 'pending' },
+      );
+    const queue = createQueue('transcription', workerEnv.REDIS_URL!, PREFIX);
+    try {
+      const res = await call(t, owner, {
+        method: 'POST',
+        url: `/v1/meetings/${meetingId}/runs`,
+        payload: { fromStep: 'transcribe' },
+      });
+      expect(res.statusCode, res.body).toBe(202);
+      const runId = res.json<{ run: { id: string } }>().run.id;
+      await waitForProcessing(
+        t,
+        owner,
+        meetingId,
+        (current) => current.run?.steps[1]?.status === 'waiting_external',
+      );
+      expect((await read(meetingId)).transcript?.id).toBe(original.id);
+      await queue.pause();
+      await vi.waitFor(
+        async () => {
+          const job = await queue.getJob(stepJobId(runId, 'transcribe'));
+          expect(await job?.getState()).toBe('delayed');
+          await job!.remove();
+        },
+        { timeout: 5_000, interval: 20 },
+      );
+      release = true;
+      expect((await worker.processing.sweeper.sweep()).enqueued).toBeGreaterThanOrEqual(1);
+      await queue.resume();
+      const done = await waitForProcessing(
+        t,
+        owner,
+        meetingId,
+        (body) => body.run?.id === runId && finished(body),
+      );
+      expect(done.run?.steps[0]).toMatchObject({ name: 'prepare_media', status: 'skipped' });
+      expect(done.run?.steps[1]).toMatchObject({ status: 'succeeded', attempts: 1 });
+      expect((await read(meetingId)).transcript?.id).not.toBe(original.id);
+      const rows = await db()
+        .select()
+        .from(transcripts)
+        .where(eq(transcripts.meetingId, meetingId));
+      expect(rows).toHaveLength(2);
+      expect(rows.filter((row) => row.isCurrent)).toHaveLength(1);
+    } finally {
+      poll.mockRestore();
+      await queue.resume();
+      await queue.close();
+    }
+  }, 120_000);
+
+  it('marks transcription as failed on a permanent error while leaving the audio playable', async () => {
+    const poll = vi
+      .spyOn(transcriptionProvider, 'getResult')
+      .mockRejectedValueOnce(
+        new PermanentError(
+          'TRANSCRIPTION_AUDIO_REJECTED',
+          'The provider could not transcribe this recording.',
+        ),
+      );
+    try {
+      const meetingId = await uploadFixture(t, owner, workspaceId, fixtures.audioWav);
+      const done = await waitForProcessing(t, owner, meetingId, finished);
+      expect(done.run).toMatchObject({
+        status: 'failed',
+        errorCode: 'TRANSCRIPTION_AUDIO_REJECTED',
+      });
+      expect(done.run?.steps[1]).toMatchObject({ status: 'failed', attempts: 1 });
+      expect((await read(meetingId)).transcript).toBeNull();
+      const media = await call(t, owner, { method: 'GET', url: `/v1/meetings/${meetingId}/media` });
+      expect(media.statusCode).toBe(200);
+    } finally {
+      poll.mockRestore();
+    }
+  }, 120_000);
 });
 
 describe('pipeline.media flag', () => {

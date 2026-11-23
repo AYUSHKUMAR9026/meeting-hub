@@ -106,6 +106,9 @@ export const configSchema = z
       .max(12 * 3600)
       .default(15 * 60),
     OUTBOX_POLL_INTERVAL_MS: positiveInt.min(50).default(1_000),
+    TRANSCRIPTION_PROVIDER: z.enum(['assemblyai', 'fake']).default('fake'),
+    ASSEMBLYAI_API_KEY: z.string().trim().min(1).optional(),
+    TRANSCRIPTION_MAX_DURATION_SECONDS: positiveInt.max(36_000).default(10_800),
     PROCESSING_SWEEP_INTERVAL_MS: positiveInt.min(1_000).default(60_000),
     SSE_HEARTBEAT_MS: positiveInt.min(100).default(15_000),
 
@@ -127,6 +130,13 @@ export const configSchema = z
     TRUST_PROXY_HOPS: z.coerce.number().int().min(0).max(10).default(1),
   })
   .superRefine((c, ctx) => {
+    if (c.TRANSCRIPTION_PROVIDER === 'assemblyai' && !c.ASSEMBLYAI_API_KEY) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['ASSEMBLYAI_API_KEY'],
+        message: 'required for the AssemblyAI provider',
+      });
+    }
     if (Boolean(c.GOOGLE_CLIENT_ID) !== Boolean(c.GOOGLE_CLIENT_SECRET)) {
       ctx.addIssue({
         code: 'custom',

@@ -17,6 +17,13 @@ import { createMeetingServices, type MeetingService, type UploadService } from '
 import { createPeopleService, type PeopleService } from './modules/people';
 import { createProcessing, type Processing, RedisProgressPublisher } from './modules/processing';
 import { createFeatureFlagService, type FeatureFlagService } from './modules/platform';
+import {
+  AssemblyAIProvider,
+  FakeProvider,
+  transcribeStep,
+  TranscriptionService,
+  type TranscriptionProvider,
+} from './modules/transcription';
 import { createWorkspaceService, type WorkspaceService } from './modules/workspaces';
 
 /** Everything the API needs, created once at startup and injected (keeps tests swappable). */
@@ -42,6 +49,7 @@ export interface ApiDeps {
   /** Producer for processing step jobs (reprocess). */
   stepQueue: BullStepQueue;
   processing: Processing;
+  transcription: TranscriptionService;
   /** Fans Redis "run changed" messages out to SSE streams. */
   processingEvents: ProcessingEventHub;
 }
@@ -62,8 +70,9 @@ export function buildProcessing(
     audit: AuditService;
     logger: Logger;
     stepQueue: BullStepQueue;
+    flags: FeatureFlagService;
   },
-  options: { driver?: { cancelPollMs?: number } } = {},
+  options: { driver?: { cancelPollMs?: number }; provider?: TranscriptionProvider } = {},
 ): Processing {
   return createProcessing({
     db: infra.db.db,
@@ -82,6 +91,19 @@ export function buildProcessing(
       maxInputBytes: config.MAX_UPLOAD_BYTES,
     },
     mediaUrlTtlSeconds: config.MEDIA_URL_TTL_SECONDS,
+    transcriptionEnabled: (workspaceId) =>
+      infra.flags.isEnabled('transcription.enabled', { workspaceId }),
+    transcriptionStep: transcribeStep({
+      db: infra.db.db,
+      storage: infra.storage,
+      queue: QUEUE_NAMES.transcription,
+      provider:
+        options.provider ??
+        (config.TRANSCRIPTION_PROVIDER === 'assemblyai'
+          ? new AssemblyAIProvider(config.ASSEMBLYAI_API_KEY!)
+          : new FakeProvider()),
+      maxDurationSeconds: config.TRANSCRIPTION_MAX_DURATION_SECONDS,
+    }),
     ...(options.driver ? { driver: options.driver } : {}),
   });
 }
@@ -116,7 +138,15 @@ export function createApiDeps(
   const auth = createAuth({ config, db: db.db, redis, mailer, audit, logger });
   const people = createPeopleService({ db: db.db, audit });
   const workspaces = createWorkspaceService({ db: db.db, auth, people, audit, flags });
-  const processing = buildProcessing(config, { db, redis, storage, audit, logger, stepQueue });
+  const processing = buildProcessing(config, {
+    db,
+    redis,
+    storage,
+    audit,
+    logger,
+    stepQueue,
+    flags,
+  });
   const { meetings, uploads } = createMeetingServices({
     db: db.db,
     storage,
@@ -151,6 +181,7 @@ export function createApiDeps(
     uploads,
     stepQueue,
     processing,
+    transcription: new TranscriptionService(db.db, audit),
     processingEvents: new ProcessingEventHub(config.REDIS_URL, logger),
   };
 }

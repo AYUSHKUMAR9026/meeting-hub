@@ -41,7 +41,8 @@ export type StepJobResult =
   /** Failed for good; the run is failed. */
   | 'failed'
   /** A retryable error; the queue should retry the job (with backoff). */
-  | 'retry';
+  | 'retry'
+  | { delayMs: number };
 
 export interface DriverOptions {
   /** How often a running step checks whether its run was cancelled. */
@@ -94,7 +95,7 @@ export class PipelineDriver {
       return 'failed';
     }
 
-    const { run, attempt } = claim;
+    const { run, attempt, startedAt } = claim;
     await this.publish(run);
     const runRef = toRunRef(run);
     let outcome: StepOutcome;
@@ -104,7 +105,7 @@ export class PipelineDriver {
     } else {
       logger.info({ attempt }, 'step started');
       try {
-        outcome = await this.execute(def, runRef, attempt, logger);
+        outcome = await this.execute(def, runRef, attempt, startedAt, logger);
       } catch (err) {
         return this.handleFailure(run, def, attempt, err, logger);
       }
@@ -117,6 +118,10 @@ export class PipelineDriver {
         .discard()
         .catch((err: unknown) => logger.error({ err }, 'could not discard step output'));
       return 'skipped';
+    }
+    if (committed.kind === 'waiting') {
+      await this.publish(run);
+      return { delayMs: committed.delayMs };
     }
     logger.info({ next: committed.next }, 'step succeeded');
     await this.publish(run);
@@ -135,7 +140,7 @@ export class PipelineDriver {
       | { kind: 'inactive' }
       | { kind: 'done'; run: RunRecord }
       | { kind: 'exhausted'; run: RunRecord; failure: StepFailure }
-      | { kind: 'claimed'; run: RunRecord; attempt: number };
+      | { kind: 'claimed'; run: RunRecord; attempt: number; startedAt: Date };
     const { repo } = this.deps;
     return repo.withActiveRun(job.runId, async (run, tx): Promise<Claim> => {
       if (!run) return { kind: 'inactive' };
@@ -143,7 +148,7 @@ export class PipelineDriver {
       if (!step || step.status === 'failed') return { kind: 'inactive' };
       if (step.status === 'succeeded' || step.status === 'skipped') return { kind: 'done', run };
       const now = this.now();
-      if (step.attempts >= def.maxAttempts) {
+      if (step.status !== 'waiting_external' && step.attempts >= def.maxAttempts) {
         const failure = exhausted(
           {
             code: step.errorCode ?? STEP_ERRORS.unexpected,
@@ -156,8 +161,17 @@ export class PipelineDriver {
         await repo.failStep(tx, run, def.name, failure, now);
         return { kind: 'exhausted', run, failure };
       }
-      const attempt = await repo.markStepRunning(tx, run, def.name, def.runStatus, now);
-      return { kind: 'claimed', run, attempt };
+      const startedAt = def.external ? (step.startedAt ?? now) : now;
+      const attempt = await repo.markStepRunning(
+        tx,
+        run,
+        def.name,
+        def.runStatus,
+        now,
+        startedAt,
+        step.status === 'waiting_external',
+      );
+      return { kind: 'claimed', run, attempt, startedAt };
     });
   }
 
@@ -165,6 +179,7 @@ export class PipelineDriver {
     def: StepDefinition,
     run: ReturnType<typeof toRunRef>,
     attempt: number,
+    startedAt: Date,
     logger: Logger,
   ): Promise<StepOutcome> {
     const { repo } = this.deps;
@@ -188,6 +203,7 @@ export class PipelineDriver {
       return await def.execute({
         run,
         attempt,
+        startedAt,
         signal: controller.signal,
         logger,
         progress: (fraction, phase) => {
@@ -223,7 +239,10 @@ export class PipelineDriver {
 
   private commit(run: RunRecord, def: StepDefinition, outcome: StepOutcome) {
     type Committed =
-      { kind: 'inactive' } | { kind: 'completed'; next: null } | { kind: 'next'; next: string };
+      | { kind: 'inactive' }
+      | { kind: 'completed'; next: null }
+      | { kind: 'next'; next: string }
+      | { kind: 'waiting'; delayMs: number };
     const { repo } = this.deps;
     return repo.withActiveRun(run.id, async (locked, tx): Promise<Committed> => {
       if (!locked) return { kind: 'inactive' };
@@ -231,6 +250,10 @@ export class PipelineDriver {
       if (step?.status !== 'running') return { kind: 'inactive' };
       const now = this.now();
       await outcome.commit(new ProcessingTx(tx, now));
+      if (outcome.wait) {
+        await repo.markStepWaiting(tx, run.id, def.name, outcome.wait.deadlineAt, now);
+        return { kind: 'waiting', delayMs: outcome.wait.delayMs };
+      }
       await repo.markStepSucceeded(tx, run.id, def.name, outcome.metadata ?? {}, now);
       const next = nextStep(locked.pipelineVersion, def.name);
       if (!next) {

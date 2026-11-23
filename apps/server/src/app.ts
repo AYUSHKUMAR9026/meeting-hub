@@ -21,6 +21,7 @@ import { meRoutes } from './http/routes/me';
 import { peopleRoutes } from './http/routes/people';
 import { processingRoutes } from './http/routes/processing';
 import { systemRoutes } from './http/routes/system';
+import { transcriptionRoutes } from './http/routes/transcription';
 import { workspaceRoutes } from './http/routes/workspaces';
 
 /** Builds the Fastify app without listening. Used by api.ts, tests and the OpenAPI export. */
@@ -79,6 +80,7 @@ export async function buildApp(deps: ApiDeps): Promise<FastifyInstance> {
         description: 'Meeting Hub platform API. Errors use application/problem+json (RFC 9457).',
       },
       tags: [
+        { name: 'transcription', description: 'Speaker-labelled meeting transcripts' },
         { name: 'system', description: 'Health, readiness and platform introspection' },
         { name: 'auth', description: 'The signed-in user (sign-in itself lives at /api/auth/*)' },
         { name: 'workspaces', description: 'Workspaces and their settings' },
@@ -109,6 +111,7 @@ export async function buildApp(deps: ApiDeps): Promise<FastifyInstance> {
   await app.register(auditRoutes, { deps });
   await app.register(meetingRoutes, { deps });
   await app.register(processingRoutes, { deps });
+  await app.register(transcriptionRoutes, { deps });
 
   if (config.NODE_ENV !== 'production') {
     app.get('/openapi.json', { schema: { hide: true } }, () => app.swagger());

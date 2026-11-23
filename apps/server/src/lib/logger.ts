@@ -5,7 +5,16 @@ import type { Config } from './config';
 export type { Logger };
 
 /** Field names whose values must never reach logs (meeting content is sensitive). */
-const SENSITIVE_FIELDS = ['transcript', 'text', 'content'];
+const SENSITIVE_FIELDS = [
+  'transcript',
+  'transcriptText',
+  'utterances',
+  'segments',
+  'text',
+  'content',
+  'keyterms_prompt',
+  'glossary',
+];
 
 /** pino redaction has no recursive wildcard, so cover the field at several depths. */
 function atDepths(field: string, maxDepth = 4): string[] {
@@ -20,7 +29,9 @@ export const redactPaths = [
   'req.headers["x-api-key"]',
   'res.headers["set-cookie"]',
   'headers.authorization',
+  'ASSEMBLYAI_API_KEY',
   'headers.cookie',
+  'req.body.q',
   ...SENSITIVE_FIELDS.flatMap((f) => atDepths(f)),
 ];
 

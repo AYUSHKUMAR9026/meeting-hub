@@ -39,12 +39,16 @@ export class ProcessingSweeper {
     const result: SweepResult = { enqueued: 0, timedOut: 0 };
     for (const { run, steps } of await repo.listActiveRuns(this.deps.batchSize ?? 500)) {
       const step = steps.find((s) => s.status !== 'succeeded' && s.status !== 'skipped');
-      if (!step || (step.status !== 'pending' && step.status !== 'running')) continue;
+      if (!step || !['pending', 'running', 'waiting_external'].includes(step.status)) continue;
       const log = logger.child({ run_id: run.id, step: step.name });
       try {
         const def = getStep(registry, step.name);
         const runningFor = step.startedAt ? now.getTime() - step.startedAt.getTime() : 0;
-        if (step.status === 'running' && runningFor > def.timeoutMs + TIMEOUT_GRACE_MS) {
+        const deadline = step.metadata.deadlineAt;
+        if (
+          (typeof deadline === 'number' && now.getTime() >= deadline) ||
+          (step.status === 'running' && runningFor > def.timeoutMs + TIMEOUT_GRACE_MS)
+        ) {
           if (await this.failTimedOut(run.id, step.name, now)) {
             result.timedOut += 1;
             log.warn({ runningForMs: runningFor }, 'step exceeded its timeout; run failed');
@@ -67,7 +71,17 @@ export class ProcessingSweeper {
     const failed = await repo.withActiveRun(runId, async (run, tx) => {
       if (!run) return null;
       const current = await repo.findStep(tx, runId, step);
-      if (current?.status !== 'running') return null;
+      if (!current) return null;
+      const deadline = current.metadata.deadlineAt;
+      const externalExpired =
+        ['pending', 'running', 'waiting_external'].includes(current.status) &&
+        typeof deadline === 'number' &&
+        now.getTime() >= deadline;
+      const startedAt = current.startedAt?.getTime() ?? now.getTime();
+      const attemptExpired =
+        current.status === 'running' &&
+        now.getTime() - startedAt > getStep(this.deps.registry, step).timeoutMs + TIMEOUT_GRACE_MS;
+      if (!externalExpired && !attemptExpired) return null;
       await repo.failStep(
         tx,
         run,

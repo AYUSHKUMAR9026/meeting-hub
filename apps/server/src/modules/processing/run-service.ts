@@ -113,6 +113,7 @@ export class RunService implements ProcessingCanceller {
       audit: AuditService;
       logger: Logger;
       mediaUrlTtlSeconds: number;
+      transcriptionEnabled: (workspaceId: string) => Promise<boolean>;
       enqueueTimeoutMs?: number;
       now?: () => Date;
     },
@@ -150,6 +151,20 @@ export class RunService implements ProcessingCanceller {
     if (original?.status !== 'uploaded') {
       throw new ConflictError('RECORDING_NOT_UPLOADED', 'This meeting has no uploaded recording');
     }
+    const pipelineVersion = await this.pipelineVersion(actor.workspaceId);
+    if (fromStep === 'transcribe') {
+      if (pipelineVersion === 1)
+        throw new ConflictError(
+          'TRANSCRIPTION_DISABLED',
+          'Transcription is not enabled for this workspace.',
+        );
+      const normalized = await repo.findRecording(actor.workspaceId, meetingId, 'normalized');
+      if (normalized?.status !== 'uploaded' || !normalized.durationMs)
+        throw new ConflictError(
+          'TRANSCRIPTION_AUDIO_MISSING',
+          'Process the recording before rerunning transcription.',
+        );
+    }
     const created = await this.deps.db.transaction((tx) =>
       repo.createRun(
         tx,
@@ -158,7 +173,7 @@ export class RunService implements ProcessingCanceller {
           meetingId,
           recordingId: original.id,
           trigger: 'reprocess',
-          pipelineVersion: CURRENT_PIPELINE_VERSION,
+          pipelineVersion,
           requestedBy: actor.userId,
           fromStep,
         },
@@ -215,6 +230,10 @@ export class RunService implements ProcessingCanceller {
       peaks: peaksUrl ? { url: peaksUrl } : null,
       expiresAt: new Date(this.now().getTime() + mediaUrlTtlSeconds * 1000),
     };
+  }
+
+  private async pipelineVersion(workspaceId: string) {
+    return (await this.deps.transcriptionEnabled(workspaceId)) ? CURRENT_PIPELINE_VERSION : 1;
   }
 
   // --- cancellation ---------------------------------------------------------------------------------
@@ -288,7 +307,7 @@ export class RunService implements ProcessingCanceller {
         meetingId,
         recordingId,
         trigger: 'upload',
-        pipelineVersion: CURRENT_PIPELINE_VERSION,
+        pipelineVersion: await this.pipelineVersion(workspaceId),
         requestedBy: null,
       },
       this.now(),

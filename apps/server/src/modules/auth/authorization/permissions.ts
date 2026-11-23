@@ -44,6 +44,7 @@ export const permissionMatrix = {
   'recording.download': MANAGERS,
   // Processing runs (ADR 0004): anyone who can read a meeting sees its progress and plays its audio.
   'processing.reprocess': MANAGERS,
+  'transcript.speaker.update': MANAGERS,
   'processing.view_error_detail': MANAGERS,
 } as const satisfies Record<string, readonly WorkspaceRole[]>;
 

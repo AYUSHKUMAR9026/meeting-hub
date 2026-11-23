@@ -45,6 +45,11 @@ export const flagDefinitions = {
     developmentDefault: true,
     clientVisible: true,
   },
+  'transcription.enabled': {
+    description: 'Transcribe normalized recordings with speaker labels.',
+    defaultEnabled: false,
+    clientVisible: true,
+  },
   'pipeline.media': {
     description:
       'Start a processing run when a recording finishes uploading (prepare_media), and allow reprocessing.',

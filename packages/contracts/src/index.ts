@@ -5,4 +5,5 @@ export * from './people';
 export * from './problem';
 export * from './processing';
 export * from './system';
+export * from './transcription';
 export * from './workspaces';
