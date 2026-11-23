@@ -71,6 +71,7 @@ export function ProcessingPanel({
   live,
   canReprocess,
   canRetranscribe,
+  canAnalyze,
   onReprocessed,
 }: {
   meetingId: string;
@@ -78,6 +79,7 @@ export function ProcessingPanel({
   live: boolean;
   canReprocess: boolean;
   canRetranscribe: boolean;
+  canAnalyze: boolean;
   onReprocessed: () => void;
 }) {
   const active = isRunActive(run.status);
@@ -86,7 +88,7 @@ export function ProcessingPanel({
   const elapsed = formatElapsed(runElapsedMs(run, now));
   const running = run.steps.find((s) => s.status === 'running' || s.status === 'waiting_external');
 
-  async function reprocess(fromStep?: 'transcribe') {
+  async function reprocess(fromStep?: 'transcribe' | 'analyze') {
     setSubmitting(true);
     const { error } = await api.POST('/v1/meetings/{id}/runs', {
       params: { path: { id: meetingId } },
@@ -102,13 +104,15 @@ export function ProcessingPanel({
   }
 
   const title =
-    run.status === 'completed'
-      ? 'Processed'
-      : run.status === 'failed'
-        ? 'Processing failed'
-        : run.status === 'cancelled'
-          ? 'Processing cancelled'
-          : 'Processing';
+    run.status === 'partially_ready'
+      ? 'Summary failed'
+      : run.status === 'completed'
+        ? 'Processed'
+        : run.status === 'failed'
+          ? 'Processing failed'
+          : run.status === 'cancelled'
+            ? 'Processing cancelled'
+            : 'Processing';
 
   return (
     <Card data-testid="processing-panel" data-run-status={run.status}>
@@ -120,6 +124,16 @@ export function ProcessingPanel({
           </span>
           {active && !live && (
             <span className="text-xs text-muted-foreground">(updating every few seconds)</span>
+          )}
+          {canReprocess && canAnalyze && !active && (
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={submitting}
+              onClick={() => void reprocess('analyze')}
+            >
+              {run.status === 'partially_ready' ? 'Retry summary' : 'Regenerate summary'}
+            </Button>
           )}
           {canReprocess && canRetranscribe && !active && (
             <Button
@@ -173,7 +187,7 @@ export function ProcessingPanel({
             </li>
           ))}
         </ol>
-        {run.status === 'failed' && (
+        {(run.status === 'failed' || run.status === 'partially_ready') && (
           <Alert variant="destructive" data-testid="processing-error">
             <AlertTitle>{run.errorMessage ?? 'Processing failed.'}</AlertTitle>
             <AlertDescription>

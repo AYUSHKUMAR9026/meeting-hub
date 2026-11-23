@@ -30,6 +30,10 @@ export type ProcessingRun = Schemas['ProcessingRun'];
 export type ProcessingStep = Schemas['ProcessingStep'];
 export type RunStatus = Schemas['RunStatus'];
 export type MeetingMedia = Schemas['MeetingMedia'];
+export type MeetingDocument = Schemas['MeetingDocument'];
+export type DocumentCitation = Schemas['DocumentCitation'];
+export type MeetingDecision = Schemas['MeetingDecision'];
+export type MeetingActionItem = Schemas['MeetingActionItem'];
 export type TranscriptPage = Schemas['TranscriptPage'];
 export type TranscriptSpeaker = Schemas['TranscriptSpeaker'];
 

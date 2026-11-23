@@ -10,7 +10,8 @@ const isCI = Boolean(process.env.CI);
 const repoRoot = '../..';
 const transcriptionEnv = {
   TRANSCRIPTION_PROVIDER: 'fake',
-  FEATURE_FLAGS_OVERRIDE: 'transcription.enabled=true',
+  LLM_PROVIDER: 'fake',
+  FEATURE_FLAGS_OVERRIDE: 'transcription.enabled=true,analysis.enabled=true',
 };
 
 export default defineConfig({

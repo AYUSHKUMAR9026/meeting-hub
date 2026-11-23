@@ -126,6 +126,22 @@ test('sign up → verify → workspace → invite → accept → upload → live
     .toBeGreaterThan(0.2);
 
   // 9. The fake transcript labels both speakers and selecting a segment seeks the audio.
+  const summary = ownerPage.getByTestId('summary-panel');
+  await expect(summary.getByTestId('decision').getByRole('heading')).toHaveText(
+    'Review the agenda',
+  );
+  const action = summary.getByTestId('action-item');
+  await expect(action.getByRole('heading')).toHaveText('Share next steps');
+  await audio.evaluate((element: HTMLAudioElement) => element.pause());
+  await action.getByRole('button', { name: /Open evidence at/ }).click();
+  const cited = ownerPage.getByTestId('transcript-segment').first();
+  await expect(cited).toBeFocused();
+  const citedStart = Number(await cited.getAttribute('data-start-ms')) / 1000;
+  expect(citedStart).toBeGreaterThan(0);
+  await expect
+    .poll(() => audio.evaluate((element: HTMLAudioElement) => element.currentTime))
+    .toBeCloseTo(citedStart, 1);
+  await ownerPage.getByRole('button', { name: 'Transcript', exact: true }).click();
   const transcript = ownerPage.getByTestId('transcript-panel');
   const segments = transcript.getByRole('list', { name: 'Transcript segments' });
   await expect(segments.getByText('Speaker A', { exact: true })).toBeVisible();

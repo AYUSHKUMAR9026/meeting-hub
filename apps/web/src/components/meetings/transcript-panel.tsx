@@ -1,6 +1,6 @@
 'use client';
 
-import { type FormEvent, useState } from 'react';
+import { type FormEvent, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 
 import { FormError, FormField } from '@/components/app/form-field';
@@ -15,6 +15,7 @@ import { formValue } from '@/lib/form';
 import { formatDuration } from '@/lib/processing';
 
 import { ParticipantsPicker, type PickedPerson } from './participants-picker';
+import type { CitationTarget } from './summary-panel';
 
 const speakerColors = [
   'text-blue-700 dark:text-blue-300',
@@ -87,11 +88,19 @@ function SpeakerEditor({
   );
 }
 
-function getPage(meetingId: string, q: string, cursor?: string) {
+function getPage(meetingId: string, q: string, cursor?: string, citation?: CitationTarget) {
   const path = { id: meetingId };
+  const selection = citation
+    ? { transcriptId: citation.transcriptId, segmentId: cursor ? undefined : citation.segmentId }
+    : {};
   return q
-    ? api.POST('/v1/meetings/{id}/transcript/search', { params: { path }, body: { q, cursor } })
-    : api.GET('/v1/meetings/{id}/transcript', { params: { path, query: { cursor } } });
+    ? api.POST('/v1/meetings/{id}/transcript/search', {
+        params: { path },
+        body: { q, cursor, ...selection },
+      })
+    : api.GET('/v1/meetings/{id}/transcript', {
+        params: { path, query: { cursor, ...selection } },
+      });
 }
 
 function TranscriptResults({
@@ -101,6 +110,7 @@ function TranscriptResults({
   positionMs,
   onSeek,
   reload,
+  citation,
 }: {
   page: TranscriptPage;
   meetingId: string;
@@ -108,6 +118,7 @@ function TranscriptResults({
   positionMs: number;
   onSeek: (positionMs: number) => void;
   reload: () => void;
+  citation?: CitationTarget | undefined;
 }) {
   const can = useCan();
   const [speakers, setSpeakers] = useState(page.speakers);
@@ -122,11 +133,18 @@ function TranscriptResults({
     ]),
   );
 
+  useEffect(() => {
+    if (!citation) return;
+    const target = document.getElementById('transcript-' + citation.segmentId);
+    target?.scrollIntoView({ block: 'nearest' });
+    target?.focus({ preventScroll: true });
+  }, [citation]);
+
   async function loadMore() {
     if (!cursor) return;
     setLoadingMore(true);
     try {
-      const { data, error, response } = await getPage(meetingId, query, cursor);
+      const { data, error, response } = await getPage(meetingId, query, cursor, citation);
       if (response.status === 409) reload();
       else if (data) {
         setSegments((previous) => [...previous, ...data.segments]);
@@ -141,7 +159,7 @@ function TranscriptResults({
 
   return (
     <>
-      {can('transcript.speaker.update') && speakers.length > 0 && (
+      {!citation && can('transcript.speaker.update') && speakers.length > 0 && (
         <details className="grid gap-2">
           <summary className="cursor-pointer text-sm font-medium">Manage speakers</summary>
           <div className="my-2 flex flex-wrap gap-2">
@@ -187,6 +205,7 @@ function TranscriptResults({
                   type="button"
                   onClick={() => onSeek(segment.startMs)}
                   aria-current={active ? 'true' : undefined}
+                  id={'transcript-' + segment.id}
                   data-testid="transcript-segment"
                   data-start-ms={segment.startMs}
                   className={`grid w-full gap-1 px-3 py-2 text-left hover:bg-muted/80 ${active ? 'bg-muted ring-1 ring-inset ring-primary/40' : ''}`}
@@ -225,6 +244,7 @@ function TranscriptResults({
 
 type TranscriptPanelProps = {
   meetingId: string;
+  citation?: CitationTarget | undefined;
   revision: string;
   processing: boolean;
   failed: boolean;
@@ -240,9 +260,11 @@ function TranscriptPageResults({
   failed,
   positionMs,
   onSeek,
+  citation,
 }: TranscriptPanelProps & { query: string }) {
-  const result = useApiQuery(JSON.stringify([meetingId, query, revision]), () =>
-    getPage(meetingId, query),
+  const result = useApiQuery(
+    JSON.stringify([meetingId, query, revision, citation?.segmentId]),
+    () => getPage(meetingId, query, undefined, citation),
   );
   if (result.state.status === 'loading')
     return <Skeleton className="h-16 w-full" aria-label="Loading transcript" />;
@@ -257,7 +279,8 @@ function TranscriptPageResults({
     );
   return (
     <TranscriptResults
-      key={page.transcript.id}
+      key={page.transcript.id + ':' + (citation?.segmentId ?? '')}
+      citation={citation}
       page={page}
       meetingId={meetingId}
       query={query}
@@ -275,6 +298,7 @@ export function TranscriptPanel({
   failed,
   positionMs,
   onSeek,
+  citation,
 }: TranscriptPanelProps) {
   const [input, setInput] = useState('');
   const [query, setQuery] = useState('');
@@ -295,41 +319,44 @@ export function TranscriptPanel({
             The latest transcription failed. See processing details.
           </p>
         )}
-        <form
-          className="flex gap-2"
-          onSubmit={(event) => {
-            event.preventDefault();
-            setQuery(input.trim());
-          }}
-        >
-          <Input
-            type="search"
-            aria-label="Search transcript"
-            maxLength={200}
-            value={input}
-            onChange={(event) => setInput(event.target.value)}
-            placeholder="Search transcript"
-          />
-          <Button type="submit" variant="outline">
-            Search
-          </Button>
-          {query && (
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={() => {
-                setInput('');
-                setQuery('');
-              }}
-            >
-              Clear
+        {!citation && (
+          <form
+            className="flex gap-2"
+            onSubmit={(event) => {
+              event.preventDefault();
+              setQuery(input.trim());
+            }}
+          >
+            <Input
+              type="search"
+              aria-label="Search transcript"
+              maxLength={200}
+              value={input}
+              onChange={(event) => setInput(event.target.value)}
+              placeholder="Search transcript"
+            />
+            <Button type="submit" variant="outline">
+              Search
             </Button>
-          )}
-        </form>
+            {query && (
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => {
+                  setInput('');
+                  setQuery('');
+                }}
+              >
+                Clear
+              </Button>
+            )}
+          </form>
+        )}
         <TranscriptPageResults
-          key={query}
+          key={citation?.segmentId ?? query}
+          citation={citation}
           meetingId={meetingId}
-          query={query}
+          query={citation ? '' : query}
           revision={revision}
           processing={processing}
           failed={failed}
