@@ -3116,6 +3116,8 @@ export interface paths {
         get: {
             parameters: {
                 query?: {
+                    transcriptId?: string;
+                    segmentId?: string;
                     cursor?: string;
                 };
                 header?: never;
@@ -3410,10 +3412,805 @@ export interface paths {
         };
         trace?: never;
     };
+    "/v1/meetings/{id}/document": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get the current meeting document or a retained revision */
+        get: {
+            parameters: {
+                query?: {
+                    documentId?: string;
+                };
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["MeetingDocumentResponse"];
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/meetings/{id}/decisions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add a cited decision */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["AddMeetingDecisionInput"];
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["DocumentItemMutation"];
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/meetings/{id}/decisions/{itemId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete a decision */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                    itemId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description No content */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        /** Edit a decision or change its status */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                    itemId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["PatchMeetingDecisionInput"];
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["DocumentItemMutation"];
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/v1/meetings/{id}/action-items": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add a cited action item */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["AddMeetingActionItemInput"];
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["DocumentItemMutation"];
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/meetings/{id}/action-items/{itemId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete an action item */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                    itemId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description No content */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        /** Edit an action item or change its status */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                    itemId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["PatchMeetingActionItemInput"];
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["DocumentItemMutation"];
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        MeetingSummaryInput: {
+            paragraph: string;
+            bullets: string[];
+        };
+        DocumentCitationInput: {
+            /** Format: uuid */
+            segmentId: string;
+            idx: number;
+            startMs: number;
+        };
+        MeetingDecisionInput: {
+            /** Format: uuid */
+            id: string;
+            idx: number;
+            title: string;
+            description: string;
+            editedByUser: boolean;
+            /** @enum {string} */
+            source: "ai" | "manual";
+            citations: components["schemas"]["DocumentCitationInput"][];
+            rationale: string | null;
+            /** @enum {string} */
+            status: "proposed" | "confirmed" | "rejected";
+        };
+        MeetingActionItemInput: {
+            /** Format: uuid */
+            id: string;
+            idx: number;
+            title: string;
+            description: string;
+            editedByUser: boolean;
+            /** @enum {string} */
+            source: "ai" | "manual";
+            citations: components["schemas"]["DocumentCitationInput"][];
+            ownerSpeakerId: string | null;
+            ownerPersonId: string | null;
+            dueDate: string | null;
+            ownerName: string | null;
+            /** @enum {string} */
+            status: "open" | "done" | "rejected";
+        };
+        MeetingDocumentInput: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            transcriptId: string;
+            /** Format: uuid */
+            processingRunId: string;
+            model: string;
+            promptVersion: string;
+            inputTokens: number;
+            outputTokens: number;
+            /** Format: date-time */
+            createdAt: string;
+            isCurrent: boolean;
+            summary: components["schemas"]["MeetingSummaryInput"];
+            decisions: components["schemas"]["MeetingDecisionInput"][];
+            actionItems: components["schemas"]["MeetingActionItemInput"][];
+        };
+        MeetingDocumentResponseInput: {
+            document: components["schemas"]["MeetingDocumentInput"] | null;
+            revisions: {
+                /** Format: uuid */
+                id: string;
+                /** Format: date-time */
+                createdAt: string;
+                isCurrent: boolean;
+                hasHumanEdits: boolean;
+            }[];
+        };
+        DocumentItemMutationInput: {
+            /** Format: uuid */
+            id: string;
+        };
+        AddMeetingDecisionInput: {
+            title: string;
+            description: string;
+            rationale?: string | null;
+            segmentIds: string[];
+        };
+        AddMeetingActionItemInput: {
+            title: string;
+            description: string;
+            dueDate?: string | null;
+            segmentIds: string[];
+        };
+        PatchMeetingDecisionInput: {
+            title?: string;
+            description?: string;
+            /** @enum {string} */
+            status?: "proposed" | "confirmed" | "rejected";
+            rationale?: string | null;
+            segmentIds?: string[];
+        };
+        PatchMeetingActionItemInput: {
+            title?: string;
+            description?: string;
+            /** @enum {string} */
+            status?: "open" | "done" | "rejected";
+            dueDate?: string | null;
+            segmentIds?: string[];
+        };
         AuditLogEntryInput: {
             /** Format: uuid */
             id: string;
@@ -3640,7 +4437,7 @@ export interface components {
         /** @enum {string} */
         StepStatusInput: "pending" | "running" | "waiting_external" | "succeeded" | "failed" | "skipped";
         /** @enum {string} */
-        StepNameInput: "prepare_media" | "transcribe";
+        StepNameInput: "prepare_media" | "transcribe" | "analyze";
         ProcessingStepInput: {
             name: string;
             status: components["schemas"]["StepStatusInput"];
@@ -3742,6 +4539,10 @@ export interface components {
             flags: components["schemas"]["EvaluatedFlagInput"][];
         };
         TranscriptSearchInput: {
+            /** Format: uuid */
+            transcriptId?: string;
+            /** Format: uuid */
+            segmentId?: string;
             cursor?: string;
             q: string;
         };
@@ -3887,6 +4688,108 @@ export interface components {
         };
         AcceptInvitationResponseInput: {
             workspace: components["schemas"]["WorkspaceSummaryInput"];
+        };
+        MeetingSummary: {
+            paragraph: string;
+            bullets: string[];
+        };
+        DocumentCitation: {
+            /** Format: uuid */
+            segmentId: string;
+            idx: number;
+            startMs: number;
+        };
+        MeetingDecision: {
+            /** Format: uuid */
+            id: string;
+            idx: number;
+            title: string;
+            description: string;
+            editedByUser: boolean;
+            /** @enum {string} */
+            source: "ai" | "manual";
+            citations: components["schemas"]["DocumentCitation"][];
+            rationale: string | null;
+            /** @enum {string} */
+            status: "proposed" | "confirmed" | "rejected";
+        };
+        MeetingActionItem: {
+            /** Format: uuid */
+            id: string;
+            idx: number;
+            title: string;
+            description: string;
+            editedByUser: boolean;
+            /** @enum {string} */
+            source: "ai" | "manual";
+            citations: components["schemas"]["DocumentCitation"][];
+            ownerSpeakerId: string | null;
+            ownerPersonId: string | null;
+            dueDate: string | null;
+            ownerName: string | null;
+            /** @enum {string} */
+            status: "open" | "done" | "rejected";
+        };
+        MeetingDocument: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            transcriptId: string;
+            /** Format: uuid */
+            processingRunId: string;
+            model: string;
+            promptVersion: string;
+            inputTokens: number;
+            outputTokens: number;
+            /** Format: date-time */
+            createdAt: string;
+            isCurrent: boolean;
+            summary: components["schemas"]["MeetingSummary"];
+            decisions: components["schemas"]["MeetingDecision"][];
+            actionItems: components["schemas"]["MeetingActionItem"][];
+        };
+        MeetingDocumentResponse: {
+            document: components["schemas"]["MeetingDocument"] | null;
+            revisions: {
+                /** Format: uuid */
+                id: string;
+                /** Format: date-time */
+                createdAt: string;
+                isCurrent: boolean;
+                hasHumanEdits: boolean;
+            }[];
+        };
+        DocumentItemMutation: {
+            /** Format: uuid */
+            id: string;
+        };
+        AddMeetingDecision: {
+            title: string;
+            description: string;
+            rationale?: string | null;
+            segmentIds: string[];
+        };
+        AddMeetingActionItem: {
+            title: string;
+            description: string;
+            dueDate?: string | null;
+            segmentIds: string[];
+        };
+        PatchMeetingDecision: {
+            title?: string;
+            description?: string;
+            /** @enum {string} */
+            status?: "proposed" | "confirmed" | "rejected";
+            rationale?: string | null;
+            segmentIds?: string[];
+        };
+        PatchMeetingActionItem: {
+            title?: string;
+            description?: string;
+            /** @enum {string} */
+            status?: "open" | "done" | "rejected";
+            dueDate?: string | null;
+            segmentIds?: string[];
         };
         AuditLogEntry: {
             /** Format: uuid */
@@ -4114,7 +5017,7 @@ export interface components {
         /** @enum {string} */
         StepStatus: "pending" | "running" | "waiting_external" | "succeeded" | "failed" | "skipped";
         /** @enum {string} */
-        StepName: "prepare_media" | "transcribe";
+        StepName: "prepare_media" | "transcribe" | "analyze";
         ProcessingStep: {
             name: string;
             status: components["schemas"]["StepStatus"];
@@ -4216,6 +5119,10 @@ export interface components {
             flags: components["schemas"]["EvaluatedFlag"][];
         };
         TranscriptSearch: {
+            /** Format: uuid */
+            transcriptId?: string;
+            /** Format: uuid */
+            segmentId?: string;
             cursor?: string;
             q: string;
         };

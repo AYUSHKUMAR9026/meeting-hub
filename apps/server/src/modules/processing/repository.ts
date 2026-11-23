@@ -8,6 +8,7 @@ import {
   inArray,
   isNull,
   meetings,
+  meetingDocuments,
   type MeetingStatus,
   type NewRecording,
   processingRuns,
@@ -295,6 +296,21 @@ export class ProcessingRepository {
     return row!.attempts;
   }
 
+  async setStepDeadline(runId: string, step: string, deadline: Date): Promise<void> {
+    await this.db
+      .update(processingSteps)
+      .set({
+        metadata: sql`${processingSteps.metadata} || ${JSON.stringify({ deadlineAt: deadline.getTime() })}::jsonb`,
+      })
+      .where(
+        and(
+          eq(processingSteps.runId, runId),
+          eq(processingSteps.name, step),
+          eq(processingSteps.status, 'running'),
+        ),
+      );
+  }
+
   async markStepWaiting(tx: Transaction, runId: string, step: string, deadlineAt: Date, now: Date) {
     await tx
       .update(processingSteps)
@@ -378,7 +394,7 @@ export class ProcessingRepository {
     await tx
       .update(processingRuns)
       .set({
-        status: 'failed',
+        status: step === 'analyze' ? 'partially_ready' : 'failed',
         currentStep: step,
         errorCode: failure.code,
         errorMessage: failure.message,
@@ -398,7 +414,26 @@ export class ProcessingRepository {
           ),
         );
     }
-    await setMeetingStatus(tx, run.meetingId, 'failed', now);
+    if (step === 'analyze') await this.failDocument(tx, run);
+    await setMeetingStatus(
+      tx,
+      run.meetingId,
+      step === 'analyze' ? 'partially_ready' : 'failed',
+      now,
+    );
+  }
+
+  private async failDocument(tx: Transaction, run: RunRecord) {
+    await tx
+      .update(meetingDocuments)
+      .set({ status: 'failed', checkpoints: [] })
+      .where(
+        and(
+          eq(meetingDocuments.processingRunId, run.id),
+          eq(meetingDocuments.workspaceId, run.workspaceId),
+          eq(meetingDocuments.status, 'pending'),
+        ),
+      );
   }
 
   /** Points the run at its next step (still active). */
@@ -476,6 +511,7 @@ export class ProcessingRepository {
             eq(transcripts.status, 'pending'),
           ),
         );
+      await this.failDocument(tx, run);
       return cancelled!;
     });
   }

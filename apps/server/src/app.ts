@@ -14,6 +14,7 @@ import { registerAccessControl } from './http/access';
 import { registerErrorHandling } from './http/error-handler';
 import { registerRateLimiting } from './http/rate-limit';
 import { genReqId, REQUEST_ID_HEADER } from './http/request-id';
+import { analysisRoutes } from './http/routes/analysis';
 import { auditRoutes } from './http/routes/audit';
 import { authRoutes } from './http/routes/auth';
 import { meetingRoutes } from './http/routes/meetings';
@@ -80,6 +81,10 @@ export async function buildApp(deps: ApiDeps): Promise<FastifyInstance> {
         description: 'Meeting Hub platform API. Errors use application/problem+json (RFC 9457).',
       },
       tags: [
+        {
+          name: 'analysis',
+          description: 'Meeting summaries, decisions and action items with evidence',
+        },
         { name: 'transcription', description: 'Speaker-labelled meeting transcripts' },
         { name: 'system', description: 'Health, readiness and platform introspection' },
         { name: 'auth', description: 'The signed-in user (sign-in itself lives at /api/auth/*)' },
@@ -112,6 +117,7 @@ export async function buildApp(deps: ApiDeps): Promise<FastifyInstance> {
   await app.register(meetingRoutes, { deps });
   await app.register(processingRoutes, { deps });
   await app.register(transcriptionRoutes, { deps });
+  await app.register(analysisRoutes, { deps });
 
   if (config.NODE_ENV !== 'production') {
     app.get('/openapi.json', { schema: { hide: true } }, () => app.swagger());

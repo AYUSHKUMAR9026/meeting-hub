@@ -10,10 +10,11 @@ import type { ProcessingTx } from './repository';
 export const PIPELINES = {
   1: ['prepare_media'],
   2: ['prepare_media', 'transcribe'],
+  3: ['prepare_media', 'transcribe', 'analyze'],
 } as const satisfies Record<number, readonly string[]>;
 
 export type PipelineVersion = keyof typeof PIPELINES;
-export const CURRENT_PIPELINE_VERSION: PipelineVersion = 2;
+export const CURRENT_PIPELINE_VERSION: PipelineVersion = 3;
 
 export type StepName = (typeof PIPELINES)[PipelineVersion][number];
 export const STEP_NAMES = [...PIPELINES[CURRENT_PIPELINE_VERSION]];
@@ -33,6 +34,7 @@ export interface StepContext {
   /** 1 for the first attempt. */
   attempt: number;
   startedAt: Date;
+  setDeadline(deadline: Date): Promise<void>;
   /** Aborted when the run is cancelled (or the meeting deleted) or the step times out. */
   signal: AbortSignal;
   /** Bound to run_id and step. */

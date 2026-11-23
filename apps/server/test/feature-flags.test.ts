@@ -114,6 +114,7 @@ describe('FeatureFlagService', () => {
     const flags = new FeatureFlagService({ store, ttlMs: 1000, overrides: { 'env.only': false } });
 
     expect((await flags.evaluateAll()).map((f) => f.key)).toEqual([
+      'analysis.enabled',
       'auth.google_signin',
       'db.only',
       'env.only',
@@ -130,6 +131,7 @@ describe('FeatureFlagService', () => {
   it('lists only client-visible flags for the UI', () => {
     expect(clientVisibleFlags()).toEqual([
       'meetings.upload',
+      'analysis.enabled',
       'transcription.enabled',
       'pipeline.media',
     ]);

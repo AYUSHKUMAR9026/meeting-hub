@@ -76,6 +76,8 @@ export interface ProcessingDeps {
   };
   mediaUrlTtlSeconds: number;
   transcriptionStep: StepDefinition;
+  analysisStep: StepDefinition;
+  analysisEnabled: (workspaceId: string) => Promise<boolean>;
   transcriptionEnabled: (workspaceId: string) => Promise<boolean>;
   driver?: DriverOptions;
 }
@@ -102,6 +104,7 @@ export function createProcessing(deps: ProcessingDeps): Processing {
       queue: deps.mediaQueue,
     }),
     deps.transcriptionStep,
+    deps.analysisStep,
   ]);
   const shared = {
     repo,
@@ -120,6 +123,7 @@ export function createProcessing(deps: ProcessingDeps): Processing {
       storage: deps.storage,
       mediaUrlTtlSeconds: deps.mediaUrlTtlSeconds,
       transcriptionEnabled: deps.transcriptionEnabled,
+      analysisEnabled: deps.analysisEnabled,
     }),
     driver: new PipelineDriver(shared, deps.driver),
     sweeper: new ProcessingSweeper(shared),

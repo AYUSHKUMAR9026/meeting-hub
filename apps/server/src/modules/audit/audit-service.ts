@@ -33,6 +33,9 @@ export const auditActions = [
   'processing.run_cancelled',
   'processing.reprocess_requested',
   'transcript.speaker_updated',
+  'analysis.item_added',
+  'analysis.item_updated',
+  'analysis.item_deleted',
 ] as const;
 export type AuditAction = (typeof auditActions)[number];
 

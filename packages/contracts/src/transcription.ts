@@ -1,6 +1,8 @@
 import { z } from 'zod';
 
 export const transcriptQuerySchema = z.object({
+  transcriptId: z.uuid().optional(),
+  segmentId: z.uuid().optional(),
   cursor: z
     .string()
     .regex(/^[0-9a-f-]{36}\.[0-9]{1,9}$/i)

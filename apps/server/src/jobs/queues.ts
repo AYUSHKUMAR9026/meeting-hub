@@ -7,6 +7,7 @@ export const QUEUE_NAMES = {
   /** Processing step prepare_media (ADR 0004). */
   media: 'media',
   transcription: 'transcription',
+  analysis: 'analysis',
 } as const;
 
 export type QueueName = (typeof QUEUE_NAMES)[keyof typeof QUEUE_NAMES];

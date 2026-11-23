@@ -21,6 +21,7 @@ import {
   OutboxDispatcher,
 } from './modules/platform';
 import { type Processing, TIMEOUT_GRACE_MS } from './modules/processing';
+import type { LlmProvider } from './modules/analysis';
 import type { TranscriptionProvider } from './modules/transcription';
 
 export interface WorkerRuntimeOptions {
@@ -31,6 +32,7 @@ export interface WorkerRuntimeOptions {
   workerSettings?: Partial<StalledJobSettings>;
   driver?: { cancelPollMs?: number };
   provider?: TranscriptionProvider;
+  llm?: LlmProvider;
 }
 
 export interface WorkerRuntime {
@@ -73,6 +75,7 @@ export async function startWorkerRuntime(
     {
       ...(options.driver ? { driver: options.driver } : {}),
       ...(options.provider ? { provider: options.provider } : {}),
+      ...(options.llm ? { llm: options.llm } : {}),
     },
   );
   const meetings = createMeetingMaintenance({
@@ -111,6 +114,7 @@ export async function startWorkerRuntime(
     concurrency: {
       [QUEUE_NAMES.media]: config.MEDIA_CONCURRENCY,
       [QUEUE_NAMES.transcription]: config.WORKER_CONCURRENCY,
+      [QUEUE_NAMES.analysis]: Math.min(config.WORKER_CONCURRENCY, 2),
     },
     ...(options.workerSettings ? { workerSettings: options.workerSettings } : {}),
   });

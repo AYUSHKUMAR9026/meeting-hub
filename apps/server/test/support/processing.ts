@@ -91,7 +91,7 @@ export async function waitForProcessing(
 }
 
 export const finished = (body: ProcessingBody) =>
-  ['completed', 'failed', 'cancelled'].includes(body.run?.status ?? '');
+  ['completed', 'partially_ready', 'failed', 'cancelled'].includes(body.run?.status ?? '');
 
 /** A worker in a child process that a test can kill without letting it clean up. */
 export async function spawnWorkerProcess(

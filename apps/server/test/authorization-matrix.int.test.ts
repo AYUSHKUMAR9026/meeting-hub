@@ -13,7 +13,11 @@
 import { randomUUID } from 'node:crypto';
 
 import {
+  actionItems,
   and,
+  decisions,
+  meetingDocuments,
+  transcriptSegments,
   eq,
   invitation,
   meetings,
@@ -219,6 +223,56 @@ async function insertCurrentSpeaker(ctx: CaseContext) {
     .values({ workspaceId: ctx.ws.id, transcriptId: transcript!.id, label: 'Speaker A' })
     .returning();
   return { meetingId, speakerId: speaker!.id };
+}
+
+async function insertDocumentFixture(ctx: CaseContext) {
+  const { meetingId, speakerId } = await insertCurrentSpeaker(ctx);
+  const db = t.deps.db.db;
+  const [transcript] = await db
+    .select()
+    .from(transcripts)
+    .where(eq(transcripts.meetingId, meetingId));
+  const { id: transcriptId, processingRunId } = transcript!;
+  const workspaceId = ctx.ws.id;
+  const [segment] = await db
+    .insert(transcriptSegments)
+    .values({
+      transcriptId,
+      workspaceId,
+      speakerId,
+      idx: 0,
+      startMs: 0,
+      endMs: 1000,
+      text: 'Fixture evidence',
+    })
+    .returning();
+  const [document] = await db
+    .insert(meetingDocuments)
+    .values({
+      transcriptId,
+      workspaceId,
+      meetingId,
+      processingRunId,
+      status: 'completed',
+      isCurrent: true,
+      model: 'fake',
+      promptVersion: 'matrix',
+      summary: { paragraph: 'Fixture', bullets: [] },
+    })
+    .returning();
+  const item = {
+    documentId: document!.id,
+    transcriptId,
+    workspaceId,
+    idx: 0,
+    title: 'Fixture',
+    description: 'Fixture',
+  };
+  const [[decision], [action]] = await Promise.all([
+    db.insert(decisions).values(item).returning(),
+    db.insert(actionItems).values(item).returning(),
+  ]);
+  return { meetingId, segmentId: segment!.id, decisionId: decision!.id, actionId: action!.id };
 }
 
 /** An invitation to `host` addressed to the caller (or to nobody in particular when signed out). */
@@ -466,6 +520,82 @@ const ROUTES: Record<string, RouteSpec> = {
       };
     },
   },
+  'GET /v1/meetings/:id/document': {
+    access: 'meeting.read',
+    success: 200,
+    request: async (ctx) => {
+      const fixture = await insertDocumentFixture(ctx);
+      return { url: `/v1/meetings/${fixture.meetingId}/document` };
+    },
+  },
+  'POST /v1/meetings/:id/decisions': {
+    access: 'meeting.update',
+    success: 201,
+    request: async (ctx) => {
+      const fixture = await insertDocumentFixture(ctx);
+      return {
+        url: `/v1/meetings/${fixture.meetingId}/decisions`,
+        payload: {
+          title: 'Manual decision',
+          description: 'Cited text',
+          segmentIds: [fixture.segmentId],
+        },
+      };
+    },
+  },
+  'POST /v1/meetings/:id/action-items': {
+    access: 'meeting.update',
+    success: 201,
+    request: async (ctx) => {
+      const fixture = await insertDocumentFixture(ctx);
+      return {
+        url: `/v1/meetings/${fixture.meetingId}/action-items`,
+        payload: {
+          title: 'Manual action',
+          description: 'Cited text',
+          segmentIds: [fixture.segmentId],
+        },
+      };
+    },
+  },
+  'PATCH /v1/meetings/:id/decisions/:itemId': {
+    access: 'meeting.update',
+    success: 200,
+    request: async (ctx) => {
+      const fixture = await insertDocumentFixture(ctx);
+      return {
+        url: `/v1/meetings/${fixture.meetingId}/decisions/${fixture.decisionId}`,
+        payload: { status: 'confirmed' },
+      };
+    },
+  },
+  'PATCH /v1/meetings/:id/action-items/:itemId': {
+    access: 'meeting.update',
+    success: 200,
+    request: async (ctx) => {
+      const fixture = await insertDocumentFixture(ctx);
+      return {
+        url: `/v1/meetings/${fixture.meetingId}/action-items/${fixture.actionId}`,
+        payload: { status: 'done' },
+      };
+    },
+  },
+  'DELETE /v1/meetings/:id/decisions/:itemId': {
+    access: 'meeting.update',
+    success: 204,
+    request: async (ctx) => {
+      const fixture = await insertDocumentFixture(ctx);
+      return { url: `/v1/meetings/${fixture.meetingId}/decisions/${fixture.decisionId}` };
+    },
+  },
+  'DELETE /v1/meetings/:id/action-items/:itemId': {
+    access: 'meeting.update',
+    success: 204,
+    request: async (ctx) => {
+      const fixture = await insertDocumentFixture(ctx);
+      return { url: `/v1/meetings/${fixture.meetingId}/action-items/${fixture.actionId}` };
+    },
+  },
   'GET /v1/meetings/:id/media': {
     access: 'meeting.read',
     success: 200,
@@ -517,7 +647,7 @@ const declaredKind = (access: RouteAccess | undefined) =>
 // The catalog is only known once the app is built, so build it before collecting tests.
 const t: TestApp = await createTestApp({
   FEATURE_FLAGS_OVERRIDE:
-    'workspaces.invitations=true,people.directory=true,meetings.upload=true,pipeline.media=true,transcription.enabled=true',
+    'workspaces.invitations=true,people.directory=true,meetings.upload=true,pipeline.media=true,transcription.enabled=true,analysis.enabled=true',
 });
 const catalog = t.app.routeCatalog.filter((r) => r.url.startsWith('/v1/'));
 

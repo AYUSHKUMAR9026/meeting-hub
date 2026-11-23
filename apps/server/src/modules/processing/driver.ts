@@ -204,6 +204,7 @@ export class PipelineDriver {
         run,
         attempt,
         startedAt,
+        setDeadline: (deadline) => repo.setStepDeadline(run.id, def.name, deadline),
         signal: controller.signal,
         logger,
         progress: (fraction, phase) => {

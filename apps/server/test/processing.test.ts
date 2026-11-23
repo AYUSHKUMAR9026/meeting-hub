@@ -36,8 +36,9 @@ describe('step registry', () => {
     const registry = createStepRegistry([
       step(),
       step({ name: 'transcribe', queue: 'transcription' }),
+      step({ name: 'analyze', queue: 'analysis' }),
     ]);
-    expect([...registry.keys()]).toEqual(['prepare_media', 'transcribe']);
+    expect([...registry.keys()]).toEqual(['prepare_media', 'transcribe', 'analyze']);
   });
 
   it('rejects duplicate steps, bad settings and pipelines with unknown steps', () => {

@@ -30,8 +30,22 @@ export const redactPaths = [
   'res.headers["set-cookie"]',
   'headers.authorization',
   'ASSEMBLYAI_API_KEY',
+  'ANTHROPIC_API_KEY',
+  ...[
+    'summary',
+    'paragraph',
+    'bullets',
+    'prompt',
+    'decisions',
+    'actionItems',
+    'action_items',
+    'rationale',
+    'checkpoints',
+  ].flatMap((field) => atDepths(field)),
   'headers.cookie',
   'req.body.q',
+  'req.body.title',
+  'req.body.description',
   ...SENSITIVE_FIELDS.flatMap((f) => atDepths(f)),
 ];
 

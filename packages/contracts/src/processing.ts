@@ -25,7 +25,7 @@ export const stepStatusSchema = z
 export type StepStatus = z.infer<typeof stepStatusSchema>;
 
 /** Steps of the current pipeline, in order. Later phases append to this list. */
-export const STEP_NAMES = ['prepare_media', 'transcribe'] as const;
+export const STEP_NAMES = ['prepare_media', 'transcribe', 'analyze'] as const;
 export const stepNameSchema = z.enum(STEP_NAMES).meta({ id: 'StepName' });
 export type StepName = z.infer<typeof stepNameSchema>;
 

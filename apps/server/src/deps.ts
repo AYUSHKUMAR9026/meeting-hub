@@ -10,6 +10,13 @@ import type { Logger } from './lib/logger';
 import { type Mailer, SmtpMailer } from './lib/mailer';
 import { createRedis, type Redis } from './lib/redis';
 import { createS3Client } from './lib/s3';
+import {
+  analyzeStep,
+  AnthropicProvider,
+  DocumentService,
+  FakeLlmProvider,
+  type LlmProvider,
+} from './modules/analysis';
 import { AuditService } from './modules/audit';
 import { type Auth, createAuth } from './modules/auth';
 import { ObjectStorage } from './modules/media';
@@ -50,6 +57,7 @@ export interface ApiDeps {
   stepQueue: BullStepQueue;
   processing: Processing;
   transcription: TranscriptionService;
+  documents: DocumentService;
   /** Fans Redis "run changed" messages out to SSE streams. */
   processingEvents: ProcessingEventHub;
 }
@@ -72,7 +80,11 @@ export function buildProcessing(
     stepQueue: BullStepQueue;
     flags: FeatureFlagService;
   },
-  options: { driver?: { cancelPollMs?: number }; provider?: TranscriptionProvider } = {},
+  options: {
+    driver?: { cancelPollMs?: number };
+    provider?: TranscriptionProvider;
+    llm?: LlmProvider;
+  } = {},
 ): Processing {
   return createProcessing({
     db: infra.db.db,
@@ -93,6 +105,17 @@ export function buildProcessing(
     mediaUrlTtlSeconds: config.MEDIA_URL_TTL_SECONDS,
     transcriptionEnabled: (workspaceId) =>
       infra.flags.isEnabled('transcription.enabled', { workspaceId }),
+    analysisEnabled: (workspaceId) => infra.flags.isEnabled('analysis.enabled', { workspaceId }),
+    analysisStep: analyzeStep({
+      db: infra.db.db,
+      queue: QUEUE_NAMES.analysis,
+      provider:
+        options.llm ??
+        (config.LLM_PROVIDER === 'anthropic'
+          ? new AnthropicProvider(config.LLM_MODEL, config.ANTHROPIC_API_KEY!)
+          : new FakeLlmProvider()),
+      maxInputTokens: config.ANALYSIS_MAX_INPUT_TOKENS,
+    }),
     transcriptionStep: transcribeStep({
       db: infra.db.db,
       storage: infra.storage,
@@ -182,6 +205,7 @@ export function createApiDeps(
     stepQueue,
     processing,
     transcription: new TranscriptionService(db.db, audit),
+    documents: new DocumentService(db.db, audit),
     processingEvents: new ProcessingEventHub(config.REDIS_URL, logger),
   };
 }

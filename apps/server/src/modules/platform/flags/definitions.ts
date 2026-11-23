@@ -45,6 +45,11 @@ export const flagDefinitions = {
     developmentDefault: true,
     clientVisible: true,
   },
+  'analysis.enabled': {
+    description: 'Generate a cited meeting summary, decisions and action items.',
+    defaultEnabled: false,
+    clientVisible: true,
+  },
   'transcription.enabled': {
     description: 'Transcribe normalized recordings with speaker labels.',
     defaultEnabled: false,

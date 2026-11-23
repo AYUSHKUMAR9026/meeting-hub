@@ -13,10 +13,14 @@ import type { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import type { TranscriptPage } from '@meeting-hub/contracts';
+import type { MeetingDocumentResponse, TranscriptPage } from '@meeting-hub/contracts';
 import { PutObjectCommand } from '@aws-sdk/client-s3';
 import {
+  actionItems,
   and,
+  decisions,
+  evidence,
+  meetingDocuments,
   auditLogs,
   domainEvents,
   eq,
@@ -39,6 +43,7 @@ import { PermanentError, RetryableError } from '../src/lib/errors';
 import { createStepQueue } from '../src/jobs/step-queue';
 import { listJobDirs, meetingPrefix, MAX_PEAK_POINTS } from '../src/modules/media';
 import { getStep, stepJobId } from '../src/modules/processing';
+import { FakeLlmProvider } from '../src/modules/analysis';
 import { FakeProvider, RetryableProviderJobError } from '../src/modules/transcription';
 import { startWorkerRuntime, type WorkerRuntime } from '../src/worker-runtime';
 import {
@@ -76,6 +81,7 @@ const TOO_LONG_SECONDS = 3 * 3600 + 5;
 let t: TestApp;
 let worker: WorkerRuntime;
 const transcriptionProvider = new FakeProvider();
+const llm = new FakeLlmProvider();
 let fixtures: Record<FixtureName, Fixture>;
 let fixturesDir: string;
 let mediaTmp: string;
@@ -127,6 +133,7 @@ beforeAll(async () => {
     queuePrefix: PREFIX,
     driver: { cancelPollMs: 200 },
     provider: transcriptionProvider,
+    llm,
   });
 
   owner = await createUser(t, 'proc-owner');
@@ -808,6 +815,171 @@ describe('transcription pipeline', () => {
       expect(media.statusCode).toBe(200);
     } finally {
       poll.mockRestore();
+    }
+  }, 120_000);
+});
+
+describe('cited meeting analysis', () => {
+  let workspaceId: string;
+  beforeAll(async () => {
+    workspaceId = (await createWorkspace(t, owner, 'Meeting Analysis')).id;
+    await enablePipeline(t, workspaceId);
+    await db()
+      .insert(featureFlags)
+      .values([
+        { key: 'transcription.enabled', workspaceId, enabled: true },
+        { key: 'analysis.enabled', workspaceId, enabled: true },
+      ]);
+    await addMember(t, workspaceId, owner, viewer, 'viewer');
+  });
+  const doc = (meetingId: string, revision?: string) =>
+    `/v1/meetings/${meetingId}/document${revision ? '?documentId=' + revision : ''}`;
+
+  it('retries provider and validation errors, shows verifiable citations, preserves edits and purges revisions', async () => {
+    const provider = vi
+      .spyOn(llm, 'generateStructured')
+      .mockRejectedValueOnce(
+        new RetryableError('ANALYSIS_PROVIDER_UNAVAILABLE', 'Provider unavailable'),
+      )
+      .mockResolvedValueOnce({ result: { invalid: true }, inputTokens: 42, outputTokens: 8 });
+    try {
+      const meetingId = await uploadFixture(t, owner, workspaceId, fixtures.audioWav);
+      const done = await waitForProcessing(t, owner, meetingId, finished);
+      expect(done.meetingStatus).toBe('ready');
+      expect(done.run?.steps[2]).toMatchObject({
+        name: 'analyze',
+        status: 'succeeded',
+        attempts: 2,
+      });
+      expect(provider.mock.calls[2]?.[0]).toContain('schema validation errors');
+      const initial = (
+        await call(t, viewer, { method: 'GET', url: doc(meetingId) })
+      ).json<MeetingDocumentResponse>().document!;
+      expect(initial.decisions[0]?.citations).toHaveLength(1);
+      expect(initial.actionItems[0]?.citations).toHaveLength(1);
+      const cited = initial.actionItems[0]!.citations[0]!;
+      const transcript = await call(t, viewer, {
+        method: 'GET',
+        url: `/v1/meetings/${meetingId}/transcript?transcriptId=${initial.transcriptId}&segmentId=${cited.segmentId}`,
+      });
+      expect(transcript.json<TranscriptPage>().segments[0]?.id).toBe(cited.segmentId);
+      const item = initial.decisions[0]!;
+      const path = `/v1/meetings/${meetingId}/decisions/${item.id}`;
+      expect((await call(t, outsider, { method: 'GET', url: doc(meetingId) })).statusCode).toBe(
+        404,
+      );
+      expect(
+        (await call(t, viewer, { method: 'PATCH', url: path, payload: { status: 'confirmed' } }))
+          .statusCode,
+      ).toBe(403);
+      expect(
+        (
+          await call(t, owner, {
+            method: 'PATCH',
+            url: path,
+            payload: { title: 'Human edit', status: 'confirmed' },
+          })
+        ).statusCode,
+      ).toBe(200);
+      expect(
+        (
+          await call(t, owner, {
+            method: 'POST',
+            url: `/v1/meetings/${meetingId}/action-items`,
+            payload: {
+              title: 'Invalid citation',
+              description: 'Rejected',
+              segmentIds: [randomUUID()],
+            },
+          })
+        ).statusCode,
+      ).toBe(400);
+      const retry = await call(t, owner, {
+        method: 'POST',
+        url: `/v1/meetings/${meetingId}/runs`,
+        payload: { fromStep: 'analyze' },
+      });
+      expect(retry.statusCode, retry.body).toBe(202);
+      const final = await waitForProcessing(
+        t,
+        owner,
+        meetingId,
+        (current) => current.run?.id !== done.run?.id && finished(current),
+      );
+      expect(final.run?.steps.map(({ status }) => status)).toEqual([
+        'skipped',
+        'skipped',
+        'succeeded',
+      ]);
+      const current = (
+        await call(t, owner, { method: 'GET', url: doc(meetingId) })
+      ).json<MeetingDocumentResponse>();
+      expect(current.document?.id).not.toBe(initial.id);
+      expect(current.revisions.find((entry) => entry.id === initial.id)?.hasHumanEdits).toBe(true);
+      const history = (
+        await call(t, owner, { method: 'GET', url: doc(meetingId, initial.id) })
+      ).json<MeetingDocumentResponse>();
+      expect(history.document?.decisions[0]).toMatchObject({
+        title: 'Human edit',
+        editedByUser: true,
+        status: 'confirmed',
+      });
+      expect(JSON.stringify(t.logLines)).not.toContain(
+        'The meeting covered the agenda and next steps.',
+      );
+      expect(
+        (await call(t, owner, { method: 'DELETE', url: `/v1/meetings/${meetingId}` })).statusCode,
+      ).toBe(202);
+      await vi.waitFor(
+        async () => {
+          expect(
+            await db()
+              .select()
+              .from(meetingDocuments)
+              .where(eq(meetingDocuments.meetingId, meetingId)),
+          ).toEqual([]);
+          expect(
+            await db().select().from(decisions).where(eq(decisions.documentId, initial.id)),
+          ).toEqual([]);
+          expect(
+            await db().select().from(actionItems).where(eq(actionItems.documentId, initial.id)),
+          ).toEqual([]);
+          expect(
+            await db().select().from(evidence).where(eq(evidence.documentId, initial.id)),
+          ).toEqual([]);
+        },
+        { timeout: 30_000 },
+      );
+    } finally {
+      provider.mockRestore();
+    }
+  }, 120_000);
+
+  it('keeps media available and reports partially_ready after two invalid responses', async () => {
+    const provider = vi
+      .spyOn(llm, 'generateStructured')
+      .mockResolvedValue({ result: null, inputTokens: 30, outputTokens: 0 });
+    try {
+      const meetingId = await uploadFixture(t, owner, workspaceId, fixtures.audioWav);
+      const done = await waitForProcessing(t, owner, meetingId, finished);
+      expect(done).toMatchObject({
+        meetingStatus: 'partially_ready',
+        run: { status: 'partially_ready', errorCode: 'ANALYSIS_INVALID_OUTPUT' },
+      });
+      expect(provider).toHaveBeenCalledTimes(2);
+      for (const suffix of ['media', 'transcript']) {
+        expect(
+          (await call(t, viewer, { method: 'GET', url: `/v1/meetings/${meetingId}/${suffix}` }))
+            .statusCode,
+        ).toBe(200);
+      }
+      expect(
+        (
+          await call(t, viewer, { method: 'GET', url: doc(meetingId) })
+        ).json<MeetingDocumentResponse>().document,
+      ).toBeNull();
+    } finally {
+      provider.mockRestore();
     }
   }, 120_000);
 });

@@ -1,4 +1,12 @@
-import type { MeetingStatus, RunStatus, RunTrigger, StepStatus } from '@meeting-hub/db';
+import {
+  and,
+  eq,
+  transcripts,
+  type MeetingStatus,
+  type RunStatus,
+  type RunTrigger,
+  type StepStatus,
+} from '@meeting-hub/db';
 import { z } from 'zod';
 
 import type { Database, Transaction } from '../../lib/db';
@@ -114,6 +122,7 @@ export class RunService implements ProcessingCanceller {
       logger: Logger;
       mediaUrlTtlSeconds: number;
       transcriptionEnabled: (workspaceId: string) => Promise<boolean>;
+      analysisEnabled: (workspaceId: string) => Promise<boolean>;
       enqueueTimeoutMs?: number;
       now?: () => Date;
     },
@@ -151,7 +160,30 @@ export class RunService implements ProcessingCanceller {
     if (original?.status !== 'uploaded') {
       throw new ConflictError('RECORDING_NOT_UPLOADED', 'This meeting has no uploaded recording');
     }
-    const pipelineVersion = await this.pipelineVersion(actor.workspaceId);
+    let pipelineVersion = await this.pipelineVersion(actor.workspaceId);
+    if (fromStep === 'analyze') {
+      if (!(await this.deps.analysisEnabled(actor.workspaceId)))
+        throw new ConflictError(
+          'ANALYSIS_DISABLED',
+          'Meeting analysis is not enabled for this workspace.',
+        );
+      const [current] = await this.deps.db
+        .select({ id: transcripts.id })
+        .from(transcripts)
+        .where(
+          and(
+            eq(transcripts.workspaceId, actor.workspaceId),
+            eq(transcripts.meetingId, meetingId),
+            eq(transcripts.isCurrent, true),
+          ),
+        );
+      if (!current)
+        throw new ConflictError(
+          'ANALYSIS_TRANSCRIPT_MISSING',
+          'Transcribe the meeting before requesting analysis.',
+        );
+      pipelineVersion = CURRENT_PIPELINE_VERSION;
+    }
     if (fromStep === 'transcribe') {
       if (pipelineVersion === 1)
         throw new ConflictError(
@@ -233,7 +265,8 @@ export class RunService implements ProcessingCanceller {
   }
 
   private async pipelineVersion(workspaceId: string) {
-    return (await this.deps.transcriptionEnabled(workspaceId)) ? CURRENT_PIPELINE_VERSION : 1;
+    if (!(await this.deps.transcriptionEnabled(workspaceId))) return 1;
+    return (await this.deps.analysisEnabled(workspaceId)) ? CURRENT_PIPELINE_VERSION : 2;
   }
 
   // --- cancellation ---------------------------------------------------------------------------------

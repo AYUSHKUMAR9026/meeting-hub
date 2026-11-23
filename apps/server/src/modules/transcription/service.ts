@@ -4,6 +4,7 @@ import {
   asc,
   eq,
   gt,
+  gte,
   ilike,
   isNull,
   meetings,
@@ -36,10 +37,21 @@ export class TranscriptionService {
   async read(
     actor: WorkspaceActor,
     meetingId: string,
-    query: { cursor?: string | undefined; q?: string | undefined },
+    query: {
+      cursor?: string | undefined;
+      q?: string | undefined;
+      transcriptId?: string | undefined;
+      segmentId?: string | undefined;
+    },
   ): Promise<TranscriptPage> {
     authorize(actor, 'meeting.read');
-    const [transcript] = await this.current(this.db, actor.workspaceId, meetingId);
+    const [transcript] = await this.current(
+      this.db,
+      actor.workspaceId,
+      meetingId,
+      query.transcriptId,
+    );
+    if (!transcript && query.transcriptId) throw new NotFoundError('Transcript not found');
     if (!transcript) return { transcript: null, speakers: [], segments: [], nextCursor: null };
     const [cursorId, idx] = query.cursor?.split('.') ?? [];
     if (cursorId && cursorId !== transcript.id)
@@ -47,6 +59,19 @@ export class TranscriptionService {
         'TRANSCRIPT_CHANGED',
         'The transcript changed. Reload the first page.',
       );
+    const [focus] = query.segmentId
+      ? await this.db
+          .select({ idx: transcriptSegments.idx })
+          .from(transcriptSegments)
+          .where(
+            and(
+              eq(transcriptSegments.id, query.segmentId),
+              eq(transcriptSegments.workspaceId, actor.workspaceId),
+              eq(transcriptSegments.transcriptId, transcript.id),
+            ),
+          )
+      : [];
+    if (query.segmentId && !focus) throw new NotFoundError('Transcript segment not found');
     try {
       const [speakers, rows] = await Promise.all([
         this.speakers(this.db, actor.workspaceId, transcript.id).orderBy(
@@ -67,7 +92,11 @@ export class TranscriptionService {
             and(
               eq(transcriptSegments.workspaceId, actor.workspaceId),
               eq(transcriptSegments.transcriptId, transcript.id),
-              idx === undefined ? undefined : gt(transcriptSegments.idx, Number(idx)),
+              focus
+                ? gte(transcriptSegments.idx, focus.idx)
+                : idx === undefined
+                  ? undefined
+                  : gt(transcriptSegments.idx, Number(idx)),
               query.q
                 ? ilike(transcriptSegments.text, '%' + query.q.replace(/[\\%_]/g, '\\$&') + '%')
                 : undefined,
@@ -131,7 +160,12 @@ export class TranscriptionService {
     return speaker;
   }
 
-  private current(db: Database | Transaction, workspaceId: string, meetingId: string) {
+  private current(
+    db: Database | Transaction,
+    workspaceId: string,
+    meetingId: string,
+    transcriptId?: string,
+  ) {
     return db
       .select({
         id: transcripts.id,
@@ -150,7 +184,8 @@ export class TranscriptionService {
         and(
           eq(transcripts.workspaceId, workspaceId),
           eq(transcripts.meetingId, meetingId),
-          eq(transcripts.isCurrent, true),
+          transcriptId ? eq(transcripts.id, transcriptId) : eq(transcripts.isCurrent, true),
+          eq(transcripts.status, 'completed'),
           isNull(meetings.deletedAt),
         ),
       )

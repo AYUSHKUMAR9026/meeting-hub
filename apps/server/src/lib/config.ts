@@ -106,6 +106,10 @@ export const configSchema = z
       .max(12 * 3600)
       .default(15 * 60),
     OUTBOX_POLL_INTERVAL_MS: positiveInt.min(50).default(1_000),
+    LLM_PROVIDER: z.enum(['anthropic', 'fake']).default('fake'),
+    ANTHROPIC_API_KEY: z.string().trim().min(1).optional(),
+    LLM_MODEL: z.string().trim().min(1).max(200).default('claude-sonnet-4-6'),
+    ANALYSIS_MAX_INPUT_TOKENS: positiveInt.min(1000).max(1000000).default(160000),
     TRANSCRIPTION_PROVIDER: z.enum(['assemblyai', 'fake']).default('fake'),
     ASSEMBLYAI_API_KEY: z.string().trim().min(1).optional(),
     TRANSCRIPTION_MAX_DURATION_SECONDS: positiveInt.max(36_000).default(10_800),
@@ -130,6 +134,13 @@ export const configSchema = z
     TRUST_PROXY_HOPS: z.coerce.number().int().min(0).max(10).default(1),
   })
   .superRefine((c, ctx) => {
+    if (c.LLM_PROVIDER === 'anthropic' && !c.ANTHROPIC_API_KEY) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['ANTHROPIC_API_KEY'],
+        message: 'required for the Anthropic provider',
+      });
+    }
     if (c.TRANSCRIPTION_PROVIDER === 'assemblyai' && !c.ASSEMBLYAI_API_KEY) {
       ctx.addIssue({
         code: 'custom',

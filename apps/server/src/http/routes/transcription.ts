@@ -9,6 +9,7 @@ import {
 } from '@meeting-hub/contracts';
 import type { FastifyPluginCallbackZod } from 'fastify-type-provider-zod';
 
+import { NotFoundError } from '../../lib/errors';
 import type { ApiDeps } from '../../deps';
 import { workspaceActorOf } from '../../modules/auth';
 import { originOf } from '../caller';
@@ -28,7 +29,7 @@ export const transcriptionRoutes: FastifyPluginCallbackZod<{ deps: ApiDeps }> = 
   app.get(
     '/v1/meetings/:id/transcript',
     {
-      config: { access: { ...scope, action: 'meeting.read' } },
+      config: { access: { kind: 'workspace', workspaceFrom: 'meeting', action: 'meeting.read' } },
       schema: {
         tags: ['transcription'],
         summary: 'Read the current transcript and its speakers',
@@ -39,7 +40,14 @@ export const transcriptionRoutes: FastifyPluginCallbackZod<{ deps: ApiDeps }> = 
     },
     async (req, reply) => {
       reply.header('Cache-Control', 'private, no-store');
-      return deps.transcription.read(workspaceActorOf(req), req.params.id, req.query);
+      const actor = workspaceActorOf(req);
+      const flags = { workspaceId: actor.workspaceId };
+      if (
+        !(await deps.flags.isEnabled('transcription.enabled', flags)) &&
+        !(req.query.transcriptId && (await deps.flags.isEnabled('analysis.enabled', flags)))
+      )
+        throw new NotFoundError();
+      return deps.transcription.read(actor, req.params.id, req.query);
     },
   );
 
