@@ -175,7 +175,17 @@ resource)` and Better Auth's access-control roles are both derived from it. Add 
   passes the root `.prettierignore` and `.gitignore` explicitly, and the pre-commit hook (simple-git-hooks + lint-staged)
   formats only staged files with the same ignore files. Don't run bare `prettier .` inside a package.
 
+## Transcription (ADR 0005)
+
+- Preserve pipeline v1 for workspaces with `transcription.enabled` off. Pipeline v2 adds
+  `transcribe`. Its delayed BullMQ polls reuse the provider job receipt in Postgres.
+- Keep provider response bodies and transcript text out of logs, errors, job payloads, audit
+  metadata and request URLs. Send search terms in the JSON body of the transcript search route.
+- Publish the new current transcript, segments and speakers in the same transaction as step
+  completion. Keep previous revisions until meeting purge. All transcript access is workspace-scoped.
+- The fake provider consumes S3 audio but returns fixture text. CI and local smoke tests use it.
+
 ## Out of scope until their phase
 
-Transcription and speakers (Phase 5), the waveform and transcript UI, AI/LLM calls, embeddings, search, 2FA/SSO, Postgres RLS (hardening),
-production email provider, deployment. Do not create `packages/ai` or `evals/` until those phases start.
+AI/LLM extraction, embeddings, cross-meeting search, 2FA/SSO, Postgres RLS (hardening),
+production email provider, and deployment. Do not create `packages/ai` or `evals/` until those phases start.

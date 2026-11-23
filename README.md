@@ -3,11 +3,10 @@
 AI meeting-intelligence platform: upload recordings, get transcripts with speakers, and a persistent,
 evidence-linked ledger of decisions and action items across meetings.
 
-> **Status: Phase 4 — processing pipeline & media.** Accounts, workspaces, roles and audit (Phase 2); meetings and
-> recordings of up to 2 GB uploaded **straight from the browser to object storage** (Phase 3, ADR 0003); and now a
-> **processing run** starts automatically when an upload completes: ffmpeg validates the file and produces normalized
-> audio (AAC/M4A, mono, 16 kHz) and waveform peaks, the meeting page shows live progress over Server-Sent Events, and
-> the processed audio plays in the browser (ADR 0004). Transcription comes in Phase 5.
+> **Status: Phase 5 — transcription and speaker labels.** Meeting recordings go straight from the
+> browser to object storage. The worker normalizes and validates audio with ffmpeg (Phase 4).
+> When transcription is enabled, the worker then produces speaker-labelled, searchable segments
+> and the meeting page syncs them with audio playback and a waveform (ADR 0005).
 
 ## Prerequisites
 
@@ -61,6 +60,9 @@ admins can **Reprocess** a meeting. Deleting a meeting hides it at once, cancels
 | `pnpm openapi:export`                           | Export OpenAPI → `packages/contracts` and regenerate the web client  |
 | `pnpm --filter @meeting-hub/server auth:schema` | Better Auth CLI's view of its schema, for review                     |
 
+For the Playwright smoke test, stop `pnpm dev` first. Playwright starts its own API and worker with
+transcription enabled and the fake provider selected.
+
 ## Layout
 
 ```
@@ -91,13 +93,14 @@ session cookies are first-party. See [ADR 0002](docs/adr/0002-auth-and-workspace
 
 ## Feature flags
 
-| Flag                     | Default (dev / other) | What it gates                                                    |
-| ------------------------ | --------------------- | ---------------------------------------------------------------- |
-| `workspaces.invitations` | on / off              | Inviting people and accepting invitations                        |
-| `people.directory`       | on / off              | People directory API and settings page                           |
-| `meetings.upload`        | on / off              | Recording upload endpoints and uploader UI                       |
-| `pipeline.media`         | on / off              | Processing runs on upload (backlog kept while off) and reprocess |
-| `auth.google_signin`     | off / off             | "Continue with Google" (also needs `GOOGLE_CLIENT_*`)            |
+| Flag                     | Default (dev / other) | What it gates                                                                  |
+| ------------------------ | --------------------- | ------------------------------------------------------------------------------ |
+| `workspaces.invitations` | on / off              | Inviting people and accepting invitations                                      |
+| `people.directory`       | on / off              | People directory API and settings page                                         |
+| `meetings.upload`        | on / off              | Recording upload endpoints and uploader UI                                     |
+| `transcription.enabled`  | off / off             | Speaker-labelled transcripts, waveform UI, and transcription-only reprocessing |
+| `pipeline.media`         | on / off              | Processing runs on upload (backlog kept while off) and reprocess               |
+| `auth.google_signin`     | off / off             | "Continue with Google" (also needs `GOOGLE_CLIENT_*`)                          |
 
 Turn one on with `FEATURE_FLAGS_OVERRIDE=flag.key=true` in `.env`, or a `feature_flags` row (global or per workspace).
 
@@ -148,6 +151,22 @@ Live progress is a Server-Sent Events stream (`GET /v1/meetings/{id}/events`) th
 unbuffered in both `next dev` and a production build. If a proxy in front of the web app buffers responses, make it
 pass `text/event-stream` through unbuffered (`X-Accel-Buffering: no` is set for nginx); the page falls back to
 polling every 5 s either way.
+
+## Transcription
+
+Add `transcription.enabled=true` to the comma-separated `FEATURE_FLAGS_OVERRIDE` in the root
+`.env` and restart the API and worker. Keep the `pipeline.media` flag enabled for automatic processing.
+
+- Use `TRANSCRIPTION_PROVIDER=fake` for predictable fixture text without an API key.
+- To transcribe a real recording, set `TRANSCRIPTION_PROVIDER=assemblyai` and `ASSEMBLYAI_API_KEY`.
+  This sends normalized audio and glossary terms to AssemblyAI. Use audio you have permission to share.
+- `TRANSCRIPTION_MAX_DURATION_SECONDS` defaults to 10,800. Set a workspace transcription language
+  under **Settings → General**, or leave it blank for automatic detection.
+
+Upload a recording, wait for **Ready**, and open the meeting's **Transcript** panel. Select a segment
+to seek the audio. Owners and admins can use **Manage speakers** to rename a label or link a directory
+entry, and **Retry transcription** to rerun the step using the existing normalized audio. The previous
+transcript stays available until the new one is ready.
 
 ## Docker images
 
