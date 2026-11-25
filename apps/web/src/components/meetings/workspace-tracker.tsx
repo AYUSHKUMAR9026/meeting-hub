@@ -1,7 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { type FormEvent, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { trackedActionQuerySchema, trackedDecisionQuerySchema } from '@meeting-hub/contracts';
+import { type FormEvent, Suspense, useState } from 'react';
 import { toast } from 'sonner';
 
 import { FormError, FormField, NativeSelect } from '@/components/app/form-field';
@@ -34,7 +36,9 @@ export function WorkspaceTracker({ kind }: { kind: TrackerKind }) {
     <div className="grid gap-5">
       <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
       {workspace.features.includes('review.enabled') ? (
-        <Tracker kind={kind} />
+        <Suspense fallback={<p>Loading tracker…</p>}>
+          <Tracker key={`${workspace.id}:${kind}`} kind={kind} />
+        </Suspense>
       ) : (
         <p className="text-sm text-muted-foreground">
           Document review is unavailable in this workspace.
@@ -49,15 +53,37 @@ function Tracker({ kind }: { kind: TrackerKind }) {
   const user = useCurrentUser();
   const can = useCan();
   const actions = kind === 'action';
-  const [filters, setFilters] = useState<{ decision: DecisionFilters; action: ActionFilters }>({
-    decision: {},
-    action: {},
-  });
+  const search = useSearchParams();
+  const [filters, setFilters] = useState<{ decision: DecisionFilters; action: ActionFilters }>(
+    () => {
+      const values = Object.fromEntries(search.entries());
+      const decision = trackedDecisionQuerySchema.safeParse(values);
+      const action = trackedActionQuerySchema.safeParse(values);
+      return {
+        decision: decision.success ? decision.data : {},
+        action: action.success
+          ? {
+              ...action.data,
+              mine:
+                action.data.mine === undefined ? undefined : action.data.mine ? 'true' : 'false',
+              unassigned:
+                action.data.unassigned === undefined
+                  ? undefined
+                  : action.data.unassigned
+                    ? 'true'
+                    : 'false',
+            }
+          : {},
+      };
+    },
+  );
   const [pages, setPages] = useState<number[]>([0]);
   const [busy, setBusy] = useState<string>();
   const [filterError, setFilterError] = useState('');
   const [meetingPages, setMeetingPages] = useState<(string | undefined)[]>([undefined]);
-  const [meetingId, setMeetingId] = useState('');
+  const [meetingId, setMeetingId] = useState(
+    (actions ? filters.action.meetingId : filters.decision.meetingId) ?? '',
+  );
   const [meetingName, setMeetingName] = useState('');
   const [ownerSearch, setOwnerSearch] = useState('');
   const [ownerQuery, setOwnerQuery] = useState('');
@@ -163,7 +189,11 @@ function Tracker({ kind }: { kind: TrackerKind }) {
           <FormField id="q" label="Search title or description" maxLength={160} />
           <div className="grid gap-1.5">
             <Label htmlFor="tracker-status">Status</Label>
-            <NativeSelect id="tracker-status" name="status">
+            <NativeSelect
+              id="tracker-status"
+              name="status"
+              defaultValue={(actions ? filters.action.status : filters.decision.status) ?? ''}
+            >
               <option value="">All statuses</option>
               {actions ? (
                 <>
@@ -194,7 +224,7 @@ function Tracker({ kind }: { kind: TrackerKind }) {
             >
               <option value="">All meetings</option>
               {meetingId && !availableMeetings.some((meeting) => meeting.id === meetingId) && (
-                <option value={meetingId}>{meetingName}</option>
+                <option value={meetingId}>{meetingName || 'Selected meeting'}</option>
               )}
               {availableMeetings.map((meeting) => (
                 <option key={meeting.id} value={meeting.id}>
@@ -205,7 +235,14 @@ function Tracker({ kind }: { kind: TrackerKind }) {
           </div>
           <div className="grid gap-1.5">
             <Label htmlFor="tracker-sort">Sort by</Label>
-            <NativeSelect id="tracker-sort" name="sort" defaultValue={actions ? 'due' : 'newest'}>
+            <NativeSelect
+              id="tracker-sort"
+              name="sort"
+              defaultValue={
+                (actions ? filters.action.sort : filters.decision.sort) ??
+                (actions ? 'due' : 'newest')
+              }
+            >
               {actions && <option value="due">Due date</option>}
               <option value="newest">Newest meeting</option>
               <option value="oldest">Oldest meeting</option>
@@ -258,8 +295,17 @@ function Tracker({ kind }: { kind: TrackerKind }) {
             </div>
             <div className="grid gap-1.5">
               <Label htmlFor="tracker-owner">Owner</Label>
-              <NativeSelect id="tracker-owner" name="ownerPersonId">
+              <NativeSelect
+                id="tracker-owner"
+                name="ownerPersonId"
+                defaultValue={filters.action.ownerPersonId ?? ''}
+              >
                 <option value="">All owners</option>
+                {filters.action.ownerPersonId &&
+                  (people.state.status !== 'ok' ||
+                    !people.state.data.people.some(
+                      (p) => p.id === filters.action.ownerPersonId,
+                    )) && <option value={filters.action.ownerPersonId}>Selected owner</option>}
                 {people.state.status === 'ok' &&
                   people.state.data.people.map((person) => (
                     <option key={person.id} value={person.id}>
@@ -268,8 +314,18 @@ function Tracker({ kind }: { kind: TrackerKind }) {
                   ))}
               </NativeSelect>
             </div>
-            <FormField id="dueFrom" label="Due on or after" type="date" />
-            <FormField id="dueTo" label="Due on or before" type="date" />
+            <FormField
+              id="dueFrom"
+              label="Due on or after"
+              type="date"
+              defaultValue={filters.action.dueFrom ?? ''}
+            />
+            <FormField
+              id="dueTo"
+              label="Due on or before"
+              type="date"
+              defaultValue={filters.action.dueTo ?? ''}
+            />
             <Label>
               <input type="checkbox" name="mine" /> My action items
             </Label>
@@ -283,6 +339,28 @@ function Tracker({ kind }: { kind: TrackerKind }) {
           Apply filters
         </Button>
       </form>
+      {actions &&
+        (filters.action.overdue ||
+          filters.action.ownerSpeakerId ||
+          filters.action.unassigned ||
+          filters.action.itemId) && (
+          <p className="text-sm" role="status">
+            Current selection:{' '}
+            {[
+              filters.action.overdue === 'true'
+                ? 'overdue'
+                : filters.action.overdue === 'false'
+                  ? 'not overdue'
+                  : null,
+              filters.action.ownerSpeakerId ? 'selected speaker' : null,
+              filters.action.unassigned ? 'unassigned' : null,
+              filters.action.itemId ? 'selected item' : null,
+            ]
+              .filter(Boolean)
+              .join(', ')}
+            . Applying the form replaces this selection.
+          </p>
+        )}
       {result.state.status === 'loading' && <Skeleton className="h-28" />}
       {result.state.status === 'error' && (
         <FormError message={problemMessage(result.state.error, 'Could not load the tracker.')} />

@@ -64,6 +64,13 @@ export function AppHeader({
     router.refresh();
   }
 
+  if (features.includes('progress.enabled'))
+    nav.splice(2, 0, {
+      href: `${base}/progress`,
+      label: 'Progress',
+      isActive: (p) => p === `${base}/progress`,
+    });
+
   return (
     <header className="border-b">
       <div className="mx-auto flex min-h-14 max-w-5xl flex-wrap items-center gap-2 px-4 py-2 sm:gap-4">

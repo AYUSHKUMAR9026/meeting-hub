@@ -1,5 +1,6 @@
 'use client';
 import { RoomControls } from '@/components/meetings/room-controls';
+import { MeetingProgress } from '@/components/meetings/meeting-progress';
 
 import { DownloadIcon, FileAudioIcon } from 'lucide-react';
 import Link from 'next/link';
@@ -157,6 +158,7 @@ function MeetingDetail({ meeting, onChanged }: { meeting: Meeting; onChanged: ()
 
   return (
     <div className="grid gap-6" data-meeting-detail>
+      <MeetingProgress meetingId={meeting.id} />
       <RoomControls
         id={meeting.id}
         allowStart={meeting.status === 'awaiting_upload' && !meeting.recording}
