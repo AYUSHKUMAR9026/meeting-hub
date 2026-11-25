@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "check:live": "tsx scripts/check-live.ts",
     "dev": "concurrently -k -n api,worker -c blue,magenta \"pnpm dev:api\" \"pnpm dev:worker\"",
     "dev:api": "tsx watch --clear-screen=false src/api.ts",
     "dev:worker": "tsx watch --clear-screen=false src/worker.ts",
