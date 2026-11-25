@@ -1,0 +1,39 @@
+name: LiveKit room browser test
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  rooms:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      CI: '1'
+      E2E_ROOMS: '1'
+      TURBO_TELEMETRY_DISABLED: '1'
+      NEXT_TELEMETRY_DISABLED: '1'
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
+      - run: cp .env.example .env
+      - run: pnpm infra:up
+      - run: docker compose -f infra/docker-compose.yml --profile rooms up -d --wait livekit-server livekit-egress
+      - run: pnpm db:migrate
+      - run: pnpm --filter @meeting-hub/web exec playwright install --with-deps chromium
+      - run: pnpm --filter @meeting-hub/web exec playwright test e2e/rooms.spec.ts
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: livekit-playwright-report
+          path: |
+            apps/web/playwright-report
+            apps/web/test-results
+          retention-days: 7
+      - if: failure()
+        run: docker compose -f infra/docker-compose.yml --profile rooms logs --tail 80

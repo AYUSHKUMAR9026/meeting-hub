@@ -9,11 +9,25 @@ import { defineConfig, devices } from '@playwright/test';
 const isCI = Boolean(process.env.CI);
 const repoRoot = '../..';
 const transcriptionEnv = {
+  // Repeated local runs share Redis; abuse limits are covered by integration tests.
+  RATE_LIMIT_ENABLED: 'false',
+  ROOM_PROVIDER: process.env.E2E_ROOMS === '1' ? 'livekit' : 'fake',
+  ...(process.env.E2E_ROOMS === '1'
+    ? {
+        LIVEKIT_API_KEY: 'meetinghubdev',
+        LIVEKIT_API_SECRET: 'meeting-hub-livekit-development-secret-only',
+        LIVEKIT_URL: 'http://localhost:7880',
+        LIVEKIT_PUBLIC_URL: 'ws://localhost:7880',
+        LIVEKIT_EGRESS_S3_ENDPOINT: 'http://garage:3900',
+        ROOM_EMPTY_TIMEOUT_SECONDS: '300',
+      }
+    : {}),
   TRANSCRIPTION_PROVIDER: 'fake',
   LLM_PROVIDER: 'fake',
   PUBLIC_WEB_URL: process.env.E2E_BASE_URL ?? 'http://localhost:3000',
   FEATURE_FLAGS_OVERRIDE:
-    'transcription.enabled=true,analysis.enabled=true,exports.enabled=true,sharing.enabled=true,review.enabled=true',
+    'transcription.enabled=true,analysis.enabled=true,exports.enabled=true,sharing.enabled=true,review.enabled=true' +
+    (process.env.E2E_ROOMS === '1' ? ',rooms.enabled=true' : ''),
 };
 
 export default defineConfig({
