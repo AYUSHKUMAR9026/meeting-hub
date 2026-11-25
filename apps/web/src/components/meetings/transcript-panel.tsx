@@ -159,6 +159,12 @@ function TranscriptResults({
 
   return (
     <>
+      {page.transcript?.fallbackReason && (
+        <p role="status">
+          Fallback: no speaker labels. The mixed recording was used to stay within the free quota or
+          because participant audio was unavailable.
+        </p>
+      )}
       {!citation && can('transcript.speaker.update') && speakers.length > 0 && (
         <details className="grid gap-2">
           <summary className="cursor-pointer text-sm font-medium">Manage speakers</summary>

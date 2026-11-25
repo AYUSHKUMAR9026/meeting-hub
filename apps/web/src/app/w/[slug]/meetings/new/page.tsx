@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 import { FormError, FormField } from '@/components/app/form-field';
 import { useWorkspace } from '@/components/app/workspace-context';
 import { ConsentCheckbox } from '@/components/meetings/consent-checkbox';
+import { AiDisclosure } from '@/components/meetings/ai-disclosure';
 import { FileDropZone, type SelectedRecording } from '@/components/meetings/file-drop-zone';
 import { ParticipantsPicker, type PickedPerson } from '@/components/meetings/participants-picker';
 import { UploadProgressView } from '@/components/meetings/upload-progress';
@@ -145,7 +146,10 @@ export default function NewMeetingPage() {
                 <Label>Recording</Label>
                 <FileDropZone value={recording} onChange={setRecording} disabled={locked} />
                 {recording && (
-                  <ConsentCheckbox checked={consent} onChange={setConsent} disabled={locked} />
+                  <>
+                    <ConsentCheckbox checked={consent} onChange={setConsent} disabled={locked} />
+                    <AiDisclosure />
+                  </>
                 )}
               </div>
             )}

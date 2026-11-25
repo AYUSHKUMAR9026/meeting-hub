@@ -299,6 +299,9 @@ export function SummaryPanel({
         )}
         {document && (
           <>
+            {document.lowConfidence && (
+              <Badge variant="outline">Low confidence — review against the transcript</Badge>
+            )}
             {selected && review && (
               <p className="text-sm text-muted-foreground">Read-only revision</p>
             )}
@@ -441,6 +444,7 @@ export function SummaryPanel({
                         />
                       )}
                       <h4 className="text-sm font-semibold">{item.title}</h4>
+                      {item.lowConfidence && <Badge variant="outline">Low confidence</Badge>}
                       <Badge variant="outline">{item.status}</Badge>
                       <Badge variant="secondary">
                         {item.source === 'manual'

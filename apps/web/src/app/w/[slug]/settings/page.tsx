@@ -12,6 +12,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { api, problemMessage } from '@/lib/api/client';
 import { formValue } from '@/lib/form';
+import { AiDisclosure } from '@/components/meetings/ai-disclosure';
 
 export default function GeneralSettingsPage() {
   const workspace = useWorkspace();
@@ -32,6 +33,7 @@ export default function GeneralSettingsPage() {
       body: {
         name: formValue(form, 'name'),
         settings: {
+          externalAiEnabled: form.has('externalAiEnabled'),
           timezone: formValue(form, 'timezone'),
           retentionDays: Number(form.get('retentionDays')),
           ...(workspace.features.includes('sharing.enabled')
@@ -69,6 +71,15 @@ export default function GeneralSettingsPage() {
       <CardContent>
         <form onSubmit={(e) => void onSubmit(e)} className="grid max-w-lg gap-4">
           <fieldset disabled={!editable || pending} className="grid gap-4">
+            <Label>
+              <input
+                type="checkbox"
+                name="externalAiEnabled"
+                defaultChecked={workspace.settings.externalAiEnabled}
+              />{' '}
+              Allow external AI processing
+            </Label>
+            <AiDisclosure />
             <FormField
               id="name"
               label="Name"

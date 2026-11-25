@@ -12,6 +12,7 @@ import '@livekit/components-styles';
 import { api, problemMessage } from '@/lib/api/client';
 import { Button } from '@/components/ui/button';
 import { useCurrentUser } from '@/components/app/workspace-context';
+import { AiDisclosure } from '@/components/meetings/ai-disclosure';
 
 export default function RoomPage() {
   const currentUser = useCurrentUser();
@@ -63,6 +64,7 @@ export default function RoomPage() {
   return (
     <main className="grid gap-4">
       <h1>Meeting room</h1>
+      <AiDisclosure />
       <p>
         {recording
           ? 'Audio is recorded for the transcript and meeting document. Each participant’s audio track is also saved.'

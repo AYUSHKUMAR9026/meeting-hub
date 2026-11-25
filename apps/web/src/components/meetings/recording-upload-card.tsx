@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { useRecordingUpload } from '@/hooks/use-recording-upload';
 
 import { ConsentCheckbox } from './consent-checkbox';
+import { AiDisclosure } from './ai-disclosure';
 import { FileDropZone, type SelectedRecording } from './file-drop-zone';
 import { UploadProgressView } from './upload-progress';
 
@@ -48,6 +49,7 @@ export function RecordingUploadCard({
       <CardContent className="grid gap-4">
         <FileDropZone value={selected} onChange={setSelected} disabled={busy} />
         <ConsentCheckbox checked={consent} onChange={setConsent} disabled={busy} />
+        <AiDisclosure />
         {busy ? (
           <UploadProgressView
             state={upload.state}

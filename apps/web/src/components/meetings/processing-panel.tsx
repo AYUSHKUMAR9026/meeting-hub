@@ -117,6 +117,21 @@ export function ProcessingPanel({
   return (
     <Card data-testid="processing-panel" data-run-status={run.status}>
       <CardHeader>
+        {running?.phase === 'waiting for free quota' && (
+          <p role="status">
+            Waiting for free quota
+            {running.retryAt
+              ? `; estimated retry ${new Date(running.retryAt).toLocaleString()}`
+              : ''}
+            .
+          </p>
+        )}
+        {run.steps.some((step) => step.fallbackReason) && (
+          <p role="status">
+            Fallback: no speaker labels. Mixed audio is being used to stay within the free quota or
+            because participant audio is unavailable.
+          </p>
+        )}
         <div className="flex flex-wrap items-center gap-3">
           <CardTitle>{title}</CardTitle>
           <span className="text-sm text-muted-foreground" data-testid="processing-elapsed">
