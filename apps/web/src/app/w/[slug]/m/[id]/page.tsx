@@ -1,4 +1,5 @@
 'use client';
+import { RoomControls } from '@/components/meetings/room-controls';
 
 import { DownloadIcon, FileAudioIcon } from 'lucide-react';
 import Link from 'next/link';
@@ -156,6 +157,10 @@ function MeetingDetail({ meeting, onChanged }: { meeting: Meeting; onChanged: ()
 
   return (
     <div className="grid gap-6" data-meeting-detail>
+      <RoomControls
+        id={meeting.id}
+        allowStart={meeting.status === 'awaiting_upload' && !meeting.recording}
+      />
       <div className="grid gap-2">
         <Link
           href={`/w/${workspace.slug}/meetings`}

@@ -10,6 +10,7 @@ import { api, type DependencyCheck, type ReadyResponse } from '@/lib/api/client'
 const REFRESH_MS = 5_000;
 
 const LABELS: Record<keyof ReadyResponse['checks'], string> = {
+  livekit: 'LiveKit',
   postgres: 'PostgreSQL',
   redis: 'Redis',
   s3: 'Object storage (S3)',
@@ -83,14 +84,19 @@ export function StatusBoard() {
       )}
 
       <div className="grid gap-4 sm:grid-cols-3">
-        {(Object.keys(LABELS) as (keyof typeof LABELS)[]).map((name) => (
-          <DependencyCard
-            key={name}
-            label={LABELS[name]}
-            check={state.kind === 'ok' ? state.data.checks[name] : undefined}
-            loading={state.kind === 'loading'}
-          />
-        ))}
+        {(Object.keys(LABELS) as (keyof typeof LABELS)[])
+          .filter(
+            (name) =>
+              name !== 'livekit' || (state.kind === 'ok' && Boolean(state.data.checks.livekit)),
+          )
+          .map((name) => (
+            <DependencyCard
+              key={name}
+              label={LABELS[name]}
+              check={state.kind === 'ok' ? state.data.checks[name] : undefined}
+              loading={state.kind === 'loading'}
+            />
+          ))}
       </div>
     </div>
   );
