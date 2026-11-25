@@ -8,7 +8,8 @@ evidence-linked ledger of decisions and action items across meetings.
 > When transcription is enabled, the worker then produces speaker-labelled, searchable segments
 > and the meeting page syncs them with audio playback and a waveform (ADR 0005). With analysis
 > enabled, the Summary tab adds decisions and action items with citations to those segments (ADR 0006). Workspaces can enable document exports, public share
-> links, and decision and action item trackers (ADR 0007).
+> links, and decision and action item trackers (ADR 0007). Workspace progress charts and meeting
+> recaps use the current documents while preserving earlier observations (ADR 0010).
 
 ## Prerequisites
 
@@ -259,3 +260,21 @@ Enable `pipeline.media=true,transcription.enabled=true,analysis.enabled=true,tra
 Groq's published Whisper free limits are 25 MB/upload, 20 requests/minute, 2,000/day, 7,200 audio seconds/hour and 28,800/day. Gemini quotas vary by account: set the application caps in `.env` no higher than the values in AI Studio. Current Groq Llama models are enterprise-only, so the alternative defaults to the listed free `openai/gpt-oss-20b`. See [ADR 0009](docs/adr/0009-free-ai-and-track-speakers.md) for verified sources, model limits, quota behavior and quality limitations.
 
 With Redis and ffmpeg available, run `pnpm check:live "C:/path/to/recording.wav"` to send a real file through the configured free providers without database access. It prints duration, word/speaker/item counts, citation validity and runtime. `--show` explicitly displays transcript/document text. A single file has a generic speaker because it has no attendance provenance. The check is never run in CI; verify named speakers separately in a real opted-in two-person room. Physical microphone and model quality need real recordings, not fake-device fixtures.
+
+# Workspace progress (Phase 10)
+
+Enable `progress.enabled=true` in `FEATURE_FLAGS_OVERRIDE` (alongside `analysis.enabled=true` and
+`review.enabled=true`) or a workspace feature-flag row. Open `/w/<slug>/progress` for current KPIs,
+action history, weekly decision activity, owner counts, latest meetings and audited CSV download.
+Meeting pages also show their items and open actions from earlier meetings sharing participants.
+
+The worker observes each workspace after local midnight and coalesces edits through the outbox.
+Today's totals are live; completed snapshot dates survive regenerated summaries. Dates use the
+workspace's IANA zone and weeks start Monday. Each chart has a keyboard-accessible data table and
+print output. Tracker links initialize status, owner/speaker, unassigned, meeting and item filters.
+
+Run `pnpm db:migrate` to apply migration **0009** (0008 is occupied by Phase 9). Existing items and
+the initial snapshot are marked as backfilled; legacy audits cannot reconstruct every completion
+time. History has workspace granularity; historical owner/meeting filters are unavailable. Missing
+observation dates are not fabricated. See [ADR 0010](docs/adr/0010-workspace-progress.md) for metrics,
+purge rules, query limits and the free MIT Recharts library choice.

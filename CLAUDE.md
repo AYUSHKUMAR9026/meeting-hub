@@ -206,6 +206,20 @@ resource)` and Better Auth's access-control roles are both derived from it. Add 
 Embeddings, semantic search, Q&A, Google Meet integration, 2FA/SSO, Postgres RLS (hardening),
 production email provider, and deployment. Do not create `packages/ai` or `evals/` until those phases start.
 
+## Workspace progress (ADR 0010)
+
+- Gate progress routes, jobs and UI with `progress.enabled` (default off). Current totals share the
+  tracker's current-document and nondeleted-meeting scope. Rejected items never enter completion.
+- Migration 0009 owns progress (0008 already belongs to Phase 9). Item triggers write status events
+  and content-free outbox notifications transactionally. Document edits set the local actor ID.
+- Only upsert today's workspace-calendar snapshot; never reconstruct past counts from current
+  documents. Preserve backfill markers and report unavailable baselines as null.
+- Reuse the maintenance queue and durable refresh markers. Keep queries scoped, indexed, bounded
+  and time-limited. Historical workspace snapshots cannot be filtered by current owner/meeting.
+- Meeting purge cascades item events; anonymous historical workspace aggregates survive. Workspace
+  purge cascades all progress tables. CSV export audits contain no chart data or meeting content.
+- Recharts is MIT; maintain a table fallback, print output, patterns and tracker links for charts.
+
 ## Live meeting rooms (ADR 0008)
 
 The rooms module owns room/session state and provider adapters. Keep join tokens and webhook bodies out of logs.
