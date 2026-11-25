@@ -101,6 +101,7 @@ export const decisions = pgTable(
   },
   (t) => [
     unique('decisions_scope_key').on(t.id, t.documentId, t.workspaceId),
+    unique('decisions_workspace_key').on(t.id, t.workspaceId),
     index('decisions_workspace_status_idx')
       .on(t.workspaceId, t.status)
       .where(sql`${t.deletedAt} IS NULL`),
@@ -132,6 +133,7 @@ export const actionItems = pgTable(
   },
   (t) => [
     unique('action_items_scope_key').on(t.id, t.documentId, t.workspaceId),
+    unique('action_items_workspace_key').on(t.id, t.workspaceId),
     index('action_items_workspace_due_idx')
       .on(t.workspaceId, t.status, t.dueDate)
       .where(sql`${t.deletedAt} IS NULL`),
