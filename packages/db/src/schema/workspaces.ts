@@ -26,6 +26,7 @@ export const workspaceSettings = pgTable(
     retentionDays: integer('retention_days').notNull().default(30),
     sharingEnabled: boolean('sharing_enabled').notNull().default(true),
     transcriptLanguage: text('transcript_language'),
+    externalAiEnabled: boolean('external_ai_enabled').notNull().default(false),
     glossary: text('glossary')
       .array()
       .notNull()

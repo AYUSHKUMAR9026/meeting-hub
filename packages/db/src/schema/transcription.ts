@@ -11,12 +11,14 @@ import {
   uniqueIndex,
   uuid,
   boolean,
+  jsonb,
 } from 'drizzle-orm/pg-core';
 
 import { createdAt, id } from './columns';
 import { meetings } from './meetings';
 import { processingRuns } from './processing';
 import { people } from './workspaces';
+import { user } from './auth';
 
 export const transcripts = pgTable(
   'transcripts',
@@ -28,6 +30,11 @@ export const transcripts = pgTable(
     language: text('language'),
     provider: text('provider').notNull(),
     providerJobId: text('provider_job_id').notNull(),
+    speakerSource: text('speaker_source')
+      .$type<'generic' | 'attendance'>()
+      .notNull()
+      .default('generic'),
+    fallbackReason: text('fallback_reason'),
     durationMs: integer('duration_ms').notNull(),
     status: text('status').$type<'pending' | 'completed' | 'failed'>().notNull().default('pending'),
     isCurrent: boolean('is_current').notNull().default(false),
@@ -68,6 +75,7 @@ export const transcriptSpeakers = pgTable(
     label: text('label').notNull(),
     personId: uuid('person_id'),
     displayName: text('display_name'),
+    userId: uuid('user_id').references(() => user.id, { onDelete: 'set null' }),
   },
   (t) => [
     unique('transcript_speakers_transcript_label_key').on(t.transcriptId, t.label),
@@ -83,6 +91,28 @@ export const transcriptSpeakers = pgTable(
       name: 'transcript_speakers_person_fk',
     }).onDelete('set null'),
     index('transcript_speakers_person_idx').on(t.personId, t.workspaceId),
+  ],
+);
+
+/** Durable provider results: content never enters queue payloads or log metadata. */
+export const transcriptionCheckpoints = pgTable(
+  'transcription_checkpoints',
+  {
+    id: id(),
+    workspaceId: uuid('workspace_id').notNull(),
+    meetingId: uuid('meeting_id').notNull(),
+    runId: uuid('run_id').notNull(),
+    key: text('key').notNull(),
+    content: jsonb('content').$type<unknown>().notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    unique('transcription_checkpoints_run_key').on(t.runId, t.key),
+    foreignKey({
+      name: 'transcription_checkpoint_run_fk',
+      columns: [t.runId, t.meetingId, t.workspaceId],
+      foreignColumns: [processingRuns.id, processingRuns.meetingId, processingRuns.workspaceId],
+    }).onDelete('cascade'),
   ],
 );
 

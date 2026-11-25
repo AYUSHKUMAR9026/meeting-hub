@@ -57,6 +57,13 @@
       "when": 1795521258637,
       "tag": "0007_live_rooms",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1795584188670,
+      "tag": "0008_free_ai_and_track_speakers",
+      "breakpoints": true
     }
   ]
 }

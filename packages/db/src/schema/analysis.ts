@@ -41,6 +41,7 @@ export const meetingDocuments = pgTable(
     inputTokens: integer('input_tokens').notNull().default(0),
     outputTokens: integer('output_tokens').notNull().default(0),
     budgetTokens: integer('budget_tokens').notNull().default(0),
+    lowConfidence: boolean('low_confidence').notNull().default(false),
     checkpoints: jsonb('checkpoints').$type<unknown[]>().notNull().default([]),
     createdAt: createdAt(),
   },
@@ -83,6 +84,7 @@ const itemColumns = () => ({
   title: text('title').notNull(),
   description: text('description').notNull(),
   editedByUser: boolean('edited_by_user').notNull().default(false),
+  lowConfidence: boolean('low_confidence').notNull().default(false),
   source: text('source').$type<'ai' | 'manual'>().notNull().default('ai'),
   deletedAt: timestamptz('deleted_at'),
 });
