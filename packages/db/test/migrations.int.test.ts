@@ -16,6 +16,9 @@ import {
   processingRuns,
   processingSteps,
   recordings,
+  roomSessions,
+  roomAttendance,
+  roomWebhookReceipts,
   runMigrations,
   sql,
   user,
@@ -93,6 +96,67 @@ describe('migrations', () => {
       sql`SELECT '[1,2,3]'::vector <-> '[1,2,4]'::vector AS d`,
     );
     expect(Number(result.rows[0]?.d)).toBe(1);
+  });
+
+  it('scopes room receipts and attendance and preserves workspace scope when a person is removed', async () => {
+    const [workspace, other] = await client.db
+      .insert(organization)
+      .values([
+        { name: 'Rooms', slug: 'room-schema' },
+        { name: 'Other rooms', slug: 'other-room-schema' },
+      ])
+      .returning();
+    const workspaceId = workspace!.id;
+    const [meeting] = await client.db
+      .insert(meetings)
+      .values({ workspaceId, title: 'Room', occurredAt: new Date() })
+      .returning();
+    const meetingId = meeting!.id;
+    const [session] = await client.db
+      .insert(roomSessions)
+      .values({ workspaceId, meetingId })
+      .returning();
+    const sessionId = session!.id;
+    expect(
+      await postgresError(client.db.insert(roomSessions).values({ workspaceId, meetingId })),
+    ).toMatch(/room_sessions_one_active/);
+    expect(
+      await postgresError(
+        client.db
+          .insert(roomWebhookReceipts)
+          .values({ sessionId, meetingId, workspaceId: other!.id, eventId: 'wrong-workspace' }),
+      ),
+    ).toMatch(/room_webhook_session_fk/);
+    await client.db
+      .insert(roomWebhookReceipts)
+      .values({ sessionId, meetingId, workspaceId, eventId: 'scoped-room-event' });
+    const [person] = await client.db
+      .insert(people)
+      .values({ workspaceId, displayName: 'Participant' })
+      .returning();
+    const [attendance] = await client.db
+      .insert(roomAttendance)
+      .values({ sessionId, meetingId, workspaceId, personId: person!.id })
+      .returning();
+    await client.db.delete(people).where(sql`id = ${person!.id}`);
+    const [remaining] = await client.db
+      .select()
+      .from(roomAttendance)
+      .where(sql`id = ${attendance!.id}`);
+    expect(remaining).toMatchObject({ personId: null, workspaceId });
+    await client.db.delete(meetings).where(sql`id = ${meetingId}`);
+    expect(
+      await client.db
+        .select()
+        .from(roomWebhookReceipts)
+        .where(sql`session_id = ${sessionId}`),
+    ).toHaveLength(0);
+    expect(
+      await client.db
+        .select()
+        .from(roomAttendance)
+        .where(sql`session_id = ${sessionId}`),
+    ).toHaveLength(0);
   });
 
   describe('auth and workspace tables', () => {
@@ -257,7 +321,7 @@ describe('migrations', () => {
       const meeting = await newMeeting(ws1);
       await newRecording(meeting.id, ws1);
       expect(await postgresError(newRecording(meeting.id, ws1))).toMatch(
-        /recordings_meeting_id_kind_key/,
+        /recordings_(meeting_id_kind_key|one_source_key)/,
       );
       const other = await newMeeting(ws1);
       expect(await postgresError(newRecording(other.id, ws2))).toMatch(/recordings_meeting_fk/);

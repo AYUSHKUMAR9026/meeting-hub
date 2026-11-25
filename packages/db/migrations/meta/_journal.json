@@ -50,6 +50,13 @@
       "when": 1795424501108,
       "tag": "0006_sharing_and_review",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1795521258637,
+      "tag": "0007_live_rooms",
+      "breakpoints": true
     }
   ]
 }

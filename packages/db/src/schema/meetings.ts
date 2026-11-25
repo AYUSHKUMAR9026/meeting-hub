@@ -1,6 +1,7 @@
 import { sql } from 'drizzle-orm';
 import {
   bigint,
+  boolean,
   check,
   foreignKey,
   index,
@@ -29,7 +30,12 @@ export const meetingStatuses = [
 ] as const;
 export type MeetingStatus = (typeof meetingStatuses)[number];
 
-export const recordingKinds = ['original', 'normalized'] as const;
+export const recordingKinds = [
+  'original',
+  'normalized',
+  'mixed_audio',
+  'participant_track',
+] as const;
 export type RecordingKind = (typeof recordingKinds)[number];
 
 export const recordingStatuses = ['pending', 'uploading', 'uploaded', 'failed', 'deleted'] as const;
@@ -55,6 +61,14 @@ export const meetings = pgTable(
     status: text('status').$type<MeetingStatus>().notNull().default('awaiting_upload'),
     source: text('source').notNull().default('upload'),
     externalId: text('external_id'),
+    roomStatus: text('room_status')
+      .$type<'none' | 'scheduled' | 'live' | 'ended'>()
+      .notNull()
+      .default('none'),
+    roomName: text('room_name').unique(),
+    roomStartedAt: timestamptz('room_started_at'),
+    roomEndedAt: timestamptz('room_ended_at'),
+    recordingEnabled: boolean('recording_enabled').notNull().default(true),
     createdBy: uuid('created_by').references(() => user.id, { onDelete: 'set null' }),
     deletedAt: timestamptz('deleted_at'),
     createdAt: createdAt(),
@@ -73,6 +87,10 @@ export const meetings = pgTable(
       .on(t.deletedAt)
       .where(sql`${t.deletedAt} IS NOT NULL`),
     check('meetings_status_check', sql`${t.status} IN (${inList(meetingStatuses)})`),
+    check(
+      'meetings_room_status_check',
+      sql`${t.roomStatus} IN ('none','scheduled','live','ended')`,
+    ),
     check('meetings_duration_ms_check', sql`${t.durationMs} IS NULL OR ${t.durationMs} >= 0`),
   ],
 );
@@ -109,6 +127,120 @@ export const meetingParticipants = pgTable(
  * A media file of a meeting in object storage. `storage_key` never contains user input; the
  * original file name lives only in `original_filename` (ADR 0003).
  */
+export const roomSessions = pgTable(
+  'room_sessions',
+  {
+    id: id(),
+    workspaceId: uuid('workspace_id').notNull(),
+    meetingId: uuid('meeting_id').notNull(),
+    startedBy: uuid('started_by').references(() => user.id, { onDelete: 'set null' }),
+    startedAt: timestamptz('started_at').notNull().defaultNow(),
+    endedAt: timestamptz('ended_at'),
+    endReason: text('end_reason').$type<
+      'host_ended' | 'empty_timeout' | 'max_duration' | 'error'
+    >(),
+  },
+  (t) => [
+    foreignKey({
+      columns: [t.meetingId, t.workspaceId],
+      foreignColumns: [meetings.id, meetings.workspaceId],
+    }).onDelete('cascade'),
+    unique().on(t.id, t.meetingId, t.workspaceId),
+    uniqueIndex('room_sessions_one_active')
+      .on(t.meetingId)
+      .where(sql`${t.endedAt} IS NULL`),
+    index('room_sessions_active_workspace')
+      .on(t.workspaceId)
+      .where(sql`${t.endedAt} IS NULL`),
+    check(
+      'room_sessions_end_check',
+      sql`(${t.endedAt} IS NULL) = (${t.endReason} IS NULL) AND ${t.endReason} IN ('host_ended','empty_timeout','max_duration','error')`,
+    ),
+  ],
+);
+
+export const roomAttendance = pgTable(
+  'room_attendance',
+  {
+    id: id(),
+    workspaceId: uuid('workspace_id').notNull(),
+    sessionId: uuid('session_id').notNull(),
+    meetingId: uuid('meeting_id').notNull(),
+    userId: uuid('user_id').references(() => user.id, { onDelete: 'set null' }),
+    personId: uuid('person_id'),
+    joinedAt: timestamptz('joined_at'),
+    leftAt: timestamptz('left_at'),
+    consentAcknowledgedAt: timestamptz('consent_acknowledged_at'),
+  },
+  (t) => [
+    foreignKey({
+      name: 'attendance_session_fk',
+      columns: [t.sessionId, t.meetingId, t.workspaceId],
+      foreignColumns: [roomSessions.id, roomSessions.meetingId, roomSessions.workspaceId],
+    }).onDelete('cascade'),
+    foreignKey({
+      name: 'attendance_person_fk',
+      // Migration 0007 nulls only person_id on deletion, preserving the workspace scope.
+      columns: [t.personId, t.workspaceId],
+      foreignColumns: [people.id, people.workspaceId],
+    }),
+    unique().on(t.id, t.meetingId, t.workspaceId),
+    uniqueIndex('attendance_active_user')
+      .on(t.sessionId, t.userId)
+      .where(sql`${t.leftAt} IS NULL`),
+  ],
+);
+
+export const roomExports = pgTable(
+  'room_exports',
+  {
+    id: id(),
+    workspaceId: uuid('workspace_id').notNull(),
+    meetingId: uuid('meeting_id').notNull(),
+    sessionId: uuid('session_id').notNull(),
+    attendanceId: uuid('attendance_id'),
+    sourceId: text('source_id').notNull(),
+    storageKey: text('storage_key').notNull().unique(),
+    egressId: text('egress_id').unique(),
+    state: text('state')
+      .$type<'pending' | 'active' | 'done' | 'failed'>()
+      .notNull()
+      .default('pending'),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    foreignKey({
+      name: 'room_export_session_fk',
+      columns: [t.sessionId, t.meetingId, t.workspaceId],
+      foreignColumns: [roomSessions.id, roomSessions.meetingId, roomSessions.workspaceId],
+    }).onDelete('cascade'),
+    foreignKey({
+      name: 'room_export_attendance_fk',
+      columns: [t.attendanceId, t.meetingId, t.workspaceId],
+      foreignColumns: [roomAttendance.id, roomAttendance.meetingId, roomAttendance.workspaceId],
+    }).onDelete('cascade'),
+    unique().on(t.sessionId, t.sourceId),
+  ],
+);
+export const roomWebhookReceipts = pgTable(
+  'room_webhook_receipts',
+  {
+    id: id(),
+    sessionId: uuid('session_id').notNull(),
+    meetingId: uuid('meeting_id').notNull(),
+    workspaceId: uuid('workspace_id').notNull(),
+    eventId: text('event_id').notNull().unique(),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    foreignKey({
+      name: 'room_webhook_session_fk',
+      columns: [t.sessionId, t.meetingId, t.workspaceId],
+      foreignColumns: [roomSessions.id, roomSessions.meetingId, roomSessions.workspaceId],
+    }).onDelete('cascade'),
+  ],
+);
+
 export const recordings = pgTable(
   'recordings',
   {
@@ -118,6 +250,8 @@ export const recordings = pgTable(
     kind: text('kind').$type<RecordingKind>().notNull().default('original'),
     storageKey: text('storage_key').notNull(),
     originalFilename: text('original_filename').notNull(),
+    attendanceId: uuid('attendance_id'),
+    startOffsetMs: integer('start_offset_ms'),
     contentType: text('content_type').notNull(),
     sizeBytes: bigint('size_bytes', { mode: 'number' }).notNull(),
     sha256: text('sha256'),
@@ -147,7 +281,21 @@ export const recordings = pgTable(
       columns: [t.meetingId, t.workspaceId],
       foreignColumns: [meetings.id, meetings.workspaceId],
     }).onDelete('cascade'),
-    uniqueIndex('recordings_meeting_id_kind_key').on(t.meetingId, t.kind),
+    foreignKey({
+      name: 'recording_attendance_fk',
+      columns: [t.attendanceId, t.meetingId, t.workspaceId],
+      foreignColumns: [roomAttendance.id, roomAttendance.meetingId, roomAttendance.workspaceId],
+    }).onDelete('cascade'),
+    check(
+      'recordings_track_check',
+      sql`CASE WHEN ${t.kind} = 'participant_track' THEN ${t.attendanceId} IS NOT NULL AND ${t.startOffsetMs} IS NOT NULL AND ${t.startOffsetMs} >= 0 ELSE ${t.attendanceId} IS NULL AND ${t.startOffsetMs} IS NULL END`,
+    ),
+    uniqueIndex('recordings_meeting_id_kind_key')
+      .on(t.meetingId, t.kind)
+      .where(sql`${t.kind} <> 'participant_track'`),
+    uniqueIndex('recordings_one_source_key')
+      .on(t.meetingId)
+      .where(sql`${t.kind} IN ('original','mixed_audio')`),
     uniqueIndex('recordings_workspace_id_idempotency_key_key')
       .on(t.workspaceId, t.idempotencyKey)
       .where(sql`${t.idempotencyKey} IS NOT NULL`),
