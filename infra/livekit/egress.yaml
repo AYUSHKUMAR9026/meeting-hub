@@ -1,0 +1,7 @@
+api_key: meetinghubdev
+api_secret: meeting-hub-livekit-development-secret-only
+ws_url: ws://livekit-server:7880
+insecure: true
+redis:
+  address: redis:6379
+health_port: 7979

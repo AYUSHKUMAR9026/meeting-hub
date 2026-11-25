@@ -8,6 +8,46 @@ x-dev-s3: &dev-s3
   S3_BUCKET: meeting-hub-dev
 
 services:
+  livekit-server:
+    image: livekit/livekit-server:v1.9.11
+    profiles: ['rooms']
+    command: ['--config', '/etc/livekit.yaml']
+    volumes:
+      - ./livekit/server.yaml:/etc/livekit.yaml:ro
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
+    ports:
+      - '127.0.0.1:7880:7880'
+      - '7881:7881'
+      - '7882:7882/udp'
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://localhost:7880/']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  livekit-egress:
+    image: livekit/egress:v1.15.0
+    profiles: ['rooms']
+    environment:
+      EGRESS_CONFIG_FILE: /etc/egress.yaml
+    volumes:
+      - ./livekit/egress.yaml:/etc/egress.yaml:ro
+      - livekit-egress-tmp:/tmp
+    depends_on:
+      livekit-server:
+        condition: service_healthy
+      garage-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ['CMD', 'curl', '-fsS', 'http://localhost:7979/']
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
   postgres:
     image: pgvector/pgvector:0.8.7-pg18-trixie
     environment:
@@ -90,6 +130,7 @@ services:
       retries: 30
 
 volumes:
+  livekit-egress-tmp:
   postgres-data:
   redis-data:
   garage-meta:
