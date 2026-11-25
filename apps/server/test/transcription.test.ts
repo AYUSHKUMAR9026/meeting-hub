@@ -33,7 +33,7 @@ describe('AssemblyAI transcription', () => {
       audio_url: 'https://cdn.example.test/recording',
       language_code: 'en',
       speech_models: ['universal-2'],
-      speaker_labels: true,
+      speaker_labels: false,
       keyterms_prompt: ['Meeting Hub'],
     });
   });

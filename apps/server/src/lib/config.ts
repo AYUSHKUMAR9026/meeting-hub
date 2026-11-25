@@ -125,11 +125,38 @@ export const configSchema = z
       .max(25 * MiB)
       .default(8 * MiB),
     SHARE_MAX_DAYS: positiveInt.max(90).default(90),
-    LLM_PROVIDER: z.enum(['anthropic', 'fake']).default('fake'),
+    LLM_PROVIDER: z.enum(['gemini', 'groq', 'anthropic', 'fake']).default('fake'),
+    LLM_FALLBACK_PROVIDER: z.enum(['gemini', 'groq']).optional(),
+    GROQ_API_KEY: z.string().trim().min(1).optional(),
+    GEMINI_API_KEY: z.string().trim().min(1).optional(),
+    GROQ_STT_MODEL: z
+      .enum(['whisper-large-v3-turbo', 'whisper-large-v3'])
+      .default('whisper-large-v3-turbo'),
+    GEMINI_MODEL: z
+      .string()
+      .regex(/^[a-zA-Z0-9._-]+$/)
+      .default('gemini-3.5-flash-lite'),
+    GROQ_LLM_MODEL: z
+      .string()
+      .regex(/^[a-zA-Z0-9/._-]+$/)
+      .default('openai/gpt-oss-20b'),
+    GEMINI_RPM: positiveInt.default(1),
+    GEMINI_RPD: positiveInt.default(20),
+    GEMINI_TPM: positiveInt.min(4096).default(32000),
+    GEMINI_CONTEXT_TOKENS: positiveInt.default(1048576),
+    GROQ_LLM_RPM: positiveInt.default(30),
+    GROQ_LLM_RPD: positiveInt.default(1000),
+    GROQ_LLM_TPM: positiveInt.min(4096).default(8000),
+    GROQ_LLM_TPD: positiveInt.default(200000),
+    GROQ_LLM_CONTEXT_TOKENS: positiveInt.default(131072),
+    TRANSCRIPTION_QUOTA_SECONDS_PER_HOUR: positiveInt.min(10).default(7200),
+    TRANSCRIPTION_QUOTA_SECONDS_PER_DAY: positiveInt.min(10).default(28800),
+    GROQ_STT_RPM: positiveInt.default(20),
+    GROQ_STT_RPD: positiveInt.default(2000),
     ANTHROPIC_API_KEY: z.string().trim().min(1).optional(),
     LLM_MODEL: z.string().trim().min(1).max(200).default('claude-sonnet-4-6'),
     ANALYSIS_MAX_INPUT_TOKENS: positiveInt.min(1000).max(1000000).default(160000),
-    TRANSCRIPTION_PROVIDER: z.enum(['assemblyai', 'fake']).default('fake'),
+    TRANSCRIPTION_PROVIDER: z.enum(['groq', 'assemblyai', 'fake']).default('fake'),
     ASSEMBLYAI_API_KEY: z.string().trim().min(1).optional(),
     TRANSCRIPTION_MAX_DURATION_SECONDS: positiveInt.max(36_000).default(10_800),
     PROCESSING_SWEEP_INTERVAL_MS: positiveInt.min(1_000).default(60_000),
@@ -153,6 +180,24 @@ export const configSchema = z
     TRUST_PROXY_HOPS: z.coerce.number().int().min(0).max(10).default(1),
   })
   .superRefine((c, ctx) => {
+    const selected = [c.LLM_PROVIDER, c.LLM_FALLBACK_PROVIDER, c.TRANSCRIPTION_PROVIDER];
+    for (const [provider, key] of [
+      ['groq', 'GROQ_API_KEY'],
+      ['gemini', 'GEMINI_API_KEY'],
+    ] as const) {
+      if (selected.includes(provider) && !c[key])
+        ctx.addIssue({
+          code: 'custom',
+          path: [key],
+          message: `required for the ${provider} provider`,
+        });
+    }
+    if (c.LLM_FALLBACK_PROVIDER === c.LLM_PROVIDER)
+      ctx.addIssue({
+        code: 'custom',
+        path: ['LLM_FALLBACK_PROVIDER'],
+        message: 'must differ from the primary provider',
+      });
     if (c.ROOM_PROVIDER === 'livekit' && (!c.LIVEKIT_API_KEY || !c.LIVEKIT_API_SECRET)) {
       ctx.addIssue({
         code: 'custom',

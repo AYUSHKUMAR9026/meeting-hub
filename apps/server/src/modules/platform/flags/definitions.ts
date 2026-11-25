@@ -21,6 +21,10 @@ export const clientVisibleFlags = (): FlagKey[] =>
     .map(([key]) => key);
 
 export const flagDefinitions = {
+  'transcription.per_track_speakers': {
+    description: 'Use participant audio tracks and attendance for speaker labels.',
+    defaultEnabled: false,
+  },
   'rooms.enabled': {
     description: 'Host and join live workspace meeting rooms.',
     defaultEnabled: false,

@@ -1,12 +1,14 @@
 import { z } from 'zod';
 
 import { PermanentError, RetryableError } from '../../lib/errors';
+import { providerError } from '../../lib/ai-quota';
 import { systemPrompt } from './extraction';
 
 export interface LlmOptions {
   signal: AbortSignal;
   task: 'extract' | 'summarize';
   segmentIndexes: readonly number[];
+  beforeRequest?: () => Promise<void>;
 }
 export interface LlmResult {
   result: unknown;
@@ -15,6 +17,8 @@ export interface LlmResult {
 }
 export interface LlmProvider {
   readonly model: string;
+  readonly external?: boolean;
+  readonly contextBudget?: number;
   generateStructured(
     prompt: string,
     jsonSchema: Record<string, unknown>,
@@ -46,6 +50,7 @@ const envelope = z.object({
 });
 
 export class AnthropicProvider implements LlmProvider {
+  readonly external = true;
   constructor(
     readonly model: string,
     private readonly key: string,
@@ -61,6 +66,7 @@ export class AnthropicProvider implements LlmProvider {
     const { $schema: dialect, ...schema } = jsonSchema;
     void dialect;
     let response: Response;
+    await options.beforeRequest?.();
     try {
       response = await this.request('https://api.anthropic.com/v1/messages', {
         method: 'POST',
@@ -84,6 +90,11 @@ export class AnthropicProvider implements LlmProvider {
       throw anthropicError(503);
     }
     if (!response.ok) {
+      if (
+        response.status === 429 ||
+        (response.status >= 500 && response.headers.has('retry-after'))
+      )
+        await providerError(response);
       await response.body?.cancel().catch(() => {});
       throw anthropicError(response.status);
     }
@@ -114,6 +125,7 @@ export class AnthropicProvider implements LlmProvider {
 }
 
 export class FakeLlmProvider implements LlmProvider {
+  readonly external = false;
   readonly model = 'fake-meeting-extraction/1';
 
   generateStructured(

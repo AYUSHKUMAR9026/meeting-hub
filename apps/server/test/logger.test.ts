@@ -14,6 +14,16 @@ function capture(obj: Record<string, unknown>): Record<string, unknown> {
 }
 
 describe('log redaction', () => {
+  it('redacts free-provider keys and nested audio URLs', () => {
+    const output = capture({
+      GROQ_API_KEY: 'free-key',
+      GEMINI_API_KEY: 'gemini-key',
+      audioUrl: 'https://private/audio',
+      request: { audio_url: 'https://private/recording' },
+      nested: { apiKey: 'secret', url: 'https://private/signed' },
+    });
+    expect(JSON.stringify(output)).not.toMatch(/free-key|gemini-key|https:\/\/private|"secret"/);
+  });
   it('redacts authorization and cookie headers', () => {
     const out = capture({
       req: { headers: { authorization: 'Bearer abc', cookie: 'sid=1', accept: '*/*' } },

@@ -9,3 +9,5 @@ export { FakeProvider } from './fake';
 export { mergeSegments, type TranscriptionProvider, type TranscriptionResult } from './provider';
 export { TranscriptionService } from './service';
 export { transcribeStep } from './step';
+export { GroqTranscriptionProvider } from './groq';
+export { mergeTrackSegments, estimateSpeechSeconds, shouldUseMixed } from './timeline';

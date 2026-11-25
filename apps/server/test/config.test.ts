@@ -27,6 +27,32 @@ function issuesFor(env: Record<string, string>): string[] {
 }
 
 describe('loadConfig', () => {
+  it('requires keys only for selected external providers and their fallback', () => {
+    expect(loadConfig(validEnv).GROQ_API_KEY).toBeUndefined();
+    expect(issuesFor({ ...validEnv, TRANSCRIPTION_PROVIDER: 'groq' })).toContain(
+      'GROQ_API_KEY: required for the groq provider',
+    );
+    expect(issuesFor({ ...validEnv, LLM_PROVIDER: 'gemini' })).toContain(
+      'GEMINI_API_KEY: required for the gemini provider',
+    );
+    expect(issuesFor({ ...validEnv, LLM_FALLBACK_PROVIDER: 'groq' })).toContain(
+      'GROQ_API_KEY: required for the groq provider',
+    );
+    expect(
+      loadConfig({
+        ...validEnv,
+        TRANSCRIPTION_PROVIDER: 'groq',
+        LLM_PROVIDER: 'gemini',
+        GROQ_API_KEY: 'test',
+        GEMINI_API_KEY: 'test',
+      }),
+    ).toMatchObject({
+      GROQ_STT_MODEL: 'whisper-large-v3-turbo',
+      GEMINI_MODEL: 'gemini-3.5-flash-lite',
+      TRANSCRIPTION_QUOTA_SECONDS_PER_HOUR: 7200,
+      TRANSCRIPTION_QUOTA_SECONDS_PER_DAY: 28800,
+    });
+  });
   it('parses a valid environment and applies defaults', () => {
     const config = loadConfig(validEnv);
     expect(config).toMatchObject({

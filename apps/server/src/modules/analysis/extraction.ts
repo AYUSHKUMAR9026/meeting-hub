@@ -57,6 +57,32 @@ export const extractionSchema = z.strictObject({
     .max(50),
 });
 export const summarySchema = summary;
+/** Salvage only structurally valid, cited items; never invent missing source evidence. */
+export function repairExtraction(input: unknown): Extraction | null {
+  const envelope = z
+    .object({
+      summary: summarySchema,
+      decisions: z.array(z.unknown()),
+      action_items: z.array(z.unknown()),
+    })
+    .safeParse(input);
+  if (!envelope.success) return null;
+  return {
+    summary: envelope.data.summary,
+    decisions: envelope.data.decisions
+      .flatMap((row) => {
+        const result = extractionSchema.shape.decisions.element.safeParse(row);
+        return result.success && result.data.segment_idx.length ? [result.data] : [];
+      })
+      .slice(0, 50),
+    action_items: envelope.data.action_items
+      .flatMap((row) => {
+        const result = extractionSchema.shape.action_items.element.safeParse(row);
+        return result.success && result.data.segment_idx.length ? [result.data] : [];
+      })
+      .slice(0, 50),
+  };
+}
 export const extractionJsonSchema = z.toJSONSchema(providerExtraction, { target: 'draft-7' });
 export const summaryJsonSchema = z.toJSONSchema(providerSummary, { target: 'draft-7' });
 export type Extraction = z.infer<typeof extractionSchema>;

@@ -132,3 +132,119 @@ export function normalizeArgs(input: NormalizeArgsInput): string[] {
     'pipe:1',
   ];
 }
+
+/** Private PCM scratch file for silence/energy analysis. No input metadata is retained. */
+export function speechPcmArgs(input: {
+  inputPath: string;
+  outputPath: string;
+  threads: number;
+  maxSeconds: number;
+}): string[] {
+  return [
+    '-hide_banner',
+    '-nostdin',
+    '-loglevel',
+    'error',
+    '-threads',
+    String(input.threads),
+    ...inputSafety(),
+    '-i',
+    fileUrl(input.inputPath),
+    '-map',
+    '0:a:0',
+    '-vn',
+    '-sn',
+    '-dn',
+    '-map_metadata',
+    '-1',
+    '-ac',
+    '1',
+    '-ar',
+    '16000',
+    '-c:a',
+    'pcm_s16le',
+    '-t',
+    String(input.maxSeconds),
+    '-f',
+    's16le',
+    '-y',
+    fileUrl(input.outputPath),
+  ];
+}
+
+/** ffmpeg removes silent spans and joins the retained intervals into a compressed chunk. */
+export function speechChunkArgs(input: {
+  inputPath: string;
+  outputPath: string;
+  ranges: readonly { startMs: number; endMs: number }[];
+  threads: number;
+}): string[] {
+  if (
+    !input.ranges.length ||
+    input.ranges.length > 100 ||
+    input.ranges.some((r) => r.startMs < 0 || r.endMs <= r.startMs || !Number.isFinite(r.endMs))
+  )
+    throw new Error('Invalid speech intervals');
+  const base = input.ranges[0]!.startMs;
+  const count = input.ranges.length;
+  const filter =
+    `[0:a]asplit=${count}${input.ranges.map((_, i) => `[a${i}]`).join('')};` +
+    input.ranges
+      .map(
+        (r, i) =>
+          `[a${i}]atrim=start_sample=${Math.round((r.startMs - base) * 16)}:end_sample=${Math.round((r.endMs - base) * 16)},asetpts=PTS-STARTPTS[b${i}]`,
+      )
+      .join(';') +
+    `;${input.ranges.map((_, i) => `[b${i}]`).join('')}concat=n=${count}:v=0:a=1[out]`;
+  const duration = input.ranges.reduce((sum, r) => sum + r.endMs - r.startMs, 0) / 1000;
+  return [
+    '-hide_banner',
+    '-nostdin',
+    '-loglevel',
+    'error',
+    '-threads',
+    String(input.threads),
+    '-filter_complex_threads',
+    '1',
+    '-protocol_whitelist',
+    PROTOCOL_WHITELIST,
+    '-format_whitelist',
+    's16le',
+    '-f',
+    's16le',
+    '-ar',
+    '16000',
+    '-ac',
+    '1',
+    '-ss',
+    String(base / 1000),
+    '-t',
+    String((input.ranges.at(-1)!.endMs - base) / 1000),
+    '-i',
+    fileUrl(input.inputPath),
+    '-filter_complex',
+    filter,
+    '-map',
+    '[out]',
+    '-map_metadata',
+    '-1',
+    '-ac',
+    '1',
+    '-ar',
+    '16000',
+    '-c:a',
+    'aac',
+    '-b:a',
+    '40k',
+    '-threads',
+    String(input.threads),
+    '-t',
+    String(duration),
+    '-movflags',
+    '+faststart',
+    '-f',
+    'mp4',
+    '-y',
+    fileUrl(input.outputPath),
+  ];
+}

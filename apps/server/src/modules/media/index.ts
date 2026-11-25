@@ -2,6 +2,19 @@
 // ffmpeg-based probing/normalization. No domain rules here; meetings and processing decide who may
 // do what with which file.
 export {
+  prepareSpeechAudio,
+  renderSpeechChunk,
+  planSpeechChunks,
+  speechRanges,
+  originalTime,
+  windowRms,
+  type SpeechAudio,
+  type SpeechRange,
+  type EnergyFrame,
+  type SpeechTools,
+} from './speech';
+export { speechPcmArgs, speechChunkArgs } from './ffmpeg/args';
+export {
   FORMAT_WHITELIST,
   ffprobeArgs,
   NORMALIZED_AUDIO,

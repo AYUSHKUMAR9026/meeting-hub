@@ -127,6 +127,7 @@ describe('FeatureFlagService', () => {
       'rooms.enabled',
       'sharing.enabled',
       'transcription.enabled',
+      'transcription.per_track_speakers',
       'workspaces.invitations',
     ]);
     expect((await flags.evaluateAll({ workspaceId: WS })).map((f) => f.key)).toContain('ws.only');

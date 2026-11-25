@@ -1,10 +1,23 @@
 import type { Readable } from 'node:stream';
+import type { SpeechAudio } from '../media';
 
 export interface TranscriptionOptions {
   durationMs: number;
   language: string | null;
   glossary: readonly string[];
   signal: AbortSignal;
+  beforeRequest?: () => Promise<void>;
+}
+export type CompletedTranscript = Extract<TranscriptionResult, { status: 'completed' }>;
+export interface DirectTranscriptionOptions extends TranscriptionOptions {
+  beforeRequest(): Promise<void>;
+  cache?: {
+    load(key: string): Promise<CompletedTranscript | undefined>;
+    save(key: string, value: CompletedTranscript): Promise<void>;
+    loadReceipt?(key: string): Promise<string | undefined>;
+    saveReceipt?(key: string, jobId: string): Promise<void>;
+    clearReceipt?(key: string): Promise<void>;
+  };
 }
 
 export interface TranscriptSegment {
@@ -20,7 +33,11 @@ export type TranscriptionResult =
   | { status: 'completed'; language: string | null; segments: TranscriptSegment[] };
 
 export interface TranscriptionProvider {
-  readonly name: 'assemblyai' | 'fake';
+  readonly name: 'groq' | 'assemblyai' | 'fake';
+  transcribe?(
+    audio: SpeechAudio,
+    options: DirectTranscriptionOptions,
+  ): Promise<CompletedTranscript>;
   submit(audio: Readable, options: TranscriptionOptions): Promise<string>;
   getResult(jobId: string, signal: AbortSignal): Promise<TranscriptionResult>;
 }
