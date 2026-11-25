@@ -97,6 +97,9 @@ test('two consented browsers record audio and produce a cited document', async (
     .click();
   await expect(host.getByTestId('transcript-segment').first()).toBeFocused();
   await expect(host.getByTestId('transcript-panel')).toContainText('agenda');
+  await host.getByRole('button', { name: 'Transcript', exact: true }).click();
+  await expect(host.getByTestId('transcript-panel')).toContainText('Room Host');
+  await expect(host.getByTestId('transcript-panel')).toContainText('Room Guest');
   await hostContext.close();
   await guestContext.close();
 });

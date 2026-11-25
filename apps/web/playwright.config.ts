@@ -27,7 +27,9 @@ const transcriptionEnv = {
   PUBLIC_WEB_URL: process.env.E2E_BASE_URL ?? 'http://localhost:3000',
   FEATURE_FLAGS_OVERRIDE:
     'transcription.enabled=true,analysis.enabled=true,exports.enabled=true,sharing.enabled=true,review.enabled=true' +
-    (process.env.E2E_ROOMS === '1' ? ',rooms.enabled=true' : ''),
+    (process.env.E2E_ROOMS === '1'
+      ? ',rooms.enabled=true,transcription.per_track_speakers=true'
+      : ''),
 };
 
 export default defineConfig({

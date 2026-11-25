@@ -56,6 +56,12 @@ test('sign up → verify → workspace → invite → accept → upload → revi
 
   // 3. Invite the second user as a member.
   await ownerPage.getByRole('link', { name: 'Settings' }).click();
+  await expect(
+    ownerPage.getByRole('checkbox', { name: 'Allow external AI processing' }),
+  ).not.toBeChecked();
+  await ownerPage.getByRole('checkbox', { name: 'Allow external AI processing' }).check();
+  await ownerPage.getByRole('button', { name: 'Save changes' }).click();
+  await expect(ownerPage.getByText('Settings saved', { exact: true })).toBeVisible();
   await ownerPage.getByRole('link', { name: 'Members' }).click();
   await ownerPage.getByLabel('Email', { exact: true }).fill(invitee.email);
   await ownerPage.getByLabel('Role', { exact: true }).selectOption('member');
@@ -146,8 +152,7 @@ test('sign up → verify → workspace → invite → accept → upload → revi
   await ownerPage.getByRole('button', { name: 'Transcript', exact: true }).click();
   const transcript = ownerPage.getByTestId('transcript-panel');
   const segments = transcript.getByRole('list', { name: 'Transcript segments' });
-  await expect(segments.getByText('Speaker A', { exact: true })).toBeVisible();
-  await expect(segments.getByText('Speaker B', { exact: true })).toBeVisible();
+  await expect(segments.getByText('Speaker', { exact: true })).toHaveCount(2);
   const cue = transcript.getByTestId('transcript-segment').nth(1);
   const start = Number(await cue.getAttribute('data-start-ms')) / 1000;
   expect(start).toBeGreaterThan(0);
