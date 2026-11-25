@@ -444,8 +444,18 @@ describe('idempotency and recovery', () => {
     const rows = await recordingsOf(meetingId);
     expect(rows.filter((r) => r.kind === 'normalized')).toHaveLength(1);
     const prefix = meetingPrefix(held, meetingId);
-    expect(await keysUnder(`${prefix}normalized/`)).toEqual([`${prefix}normalized/${runId}`]);
-    expect(await keysUnder(`${prefix}peaks/`)).toEqual([`${prefix}peaks/${runId}`]);
+    const audioKey = `${prefix}normalized/${runId}`;
+    const peaksObjectKey = `${prefix}peaks/${runId}`;
+    expect((await t.deps.storage.headObject(audioKey))?.sizeBytes).toBeGreaterThan(0);
+    expect((await t.deps.storage.headObject(peaksObjectKey))?.sizeBytes).toBeGreaterThan(0);
+    // Garage's listing index may lag a completed PUT; still require exactly one of each object.
+    await vi.waitFor(
+      async () => {
+        expect(await keysUnder(`${prefix}normalized/`)).toEqual([audioKey]);
+        expect(await keysUnder(`${prefix}peaks/`)).toEqual([peaksObjectKey]);
+      },
+      { timeout: 15_000, interval: 200 },
+    );
     expect(await listJobDirs(mediaTmp)).toEqual([]);
   });
 });
