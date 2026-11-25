@@ -123,6 +123,7 @@ describe('FeatureFlagService', () => {
       'people.directory',
       'pipeline.media',
       'platform.heartbeat',
+      'progress.enabled',
       'review.enabled',
       'rooms.enabled',
       'sharing.enabled',
@@ -135,6 +136,7 @@ describe('FeatureFlagService', () => {
 
   it('lists only client-visible flags for the UI', () => {
     expect(clientVisibleFlags()).toEqual([
+      'progress.enabled',
       'rooms.enabled',
       'meetings.upload',
       'exports.enabled',

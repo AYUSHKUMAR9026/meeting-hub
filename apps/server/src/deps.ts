@@ -18,6 +18,7 @@ import { analyzeStep, DocumentService, type LlmProvider } from './modules/analys
 import { ExportService } from './modules/exports';
 import { ShareService } from './modules/sharing';
 import { TrackerService } from './modules/tracking';
+import { ProgressService } from './modules/progress';
 import { AuditService } from './modules/audit';
 import { type Auth, createAuth } from './modules/auth';
 import { ObjectStorage } from './modules/media';
@@ -63,6 +64,7 @@ export interface ApiDeps {
   exports: ExportService;
   shares: ShareService;
   tracker: TrackerService;
+  progress: ProgressService;
   /** Fans Redis "run changed" messages out to SSE streams. */
   processingEvents: ProcessingEventHub;
 }
@@ -282,6 +284,7 @@ export function createApiDeps(
       maxBytes: config.EXPORT_MAX_BYTES,
     }),
     tracker: new TrackerService(db.db),
+    progress: new ProgressService(db.db),
     processingEvents: new ProcessingEventHub(config.REDIS_URL, logger),
   };
 }

@@ -13,6 +13,7 @@ import {
   sql,
   transcriptSegments,
   transcriptSpeakers,
+  workspaceSettings,
 } from '@meeting-hub/db';
 
 import type { Database } from '../../lib/db';
@@ -69,6 +70,21 @@ export class TrackerService {
 
   async actions(actor: WorkspaceActor, query: TrackedActionQuery) {
     authorize(actor, 'workspace.read');
+    const [settings] = query.overdue
+      ? await this.db
+          .select({ timezone: workspaceSettings.timezone })
+          .from(workspaceSettings)
+          .where(eq(workspaceSettings.workspaceId, actor.workspaceId))
+          .limit(1)
+      : [];
+    const today = query.overdue
+      ? new Intl.DateTimeFormat('en-CA', {
+          timeZone: settings?.timezone ?? 'UTC',
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+        }).format(new Date())
+      : undefined;
     const [mine] = query.mine
       ? await this.db
           .select({ id: people.id })
@@ -105,7 +121,10 @@ export class TrackerService {
         ),
       )
       .where(
-        and(trackerScope(actionItems, actor.workspaceId, query), actionFilters(query, mine?.id)),
+        and(
+          trackerScope(actionItems, actor.workspaceId, query),
+          actionFilters(query, mine?.id, today),
+        ),
       )
       .orderBy(...trackerSort(actionItems, query.sort))
       .offset(query.cursor)

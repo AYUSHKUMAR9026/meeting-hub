@@ -285,6 +285,21 @@ const invitationForCaller = ({ caller }: CaseContext) =>
 // --- the route table ------------------------------------------------------------------------------
 
 const ROUTES: Record<string, RouteSpec> = {
+  ...Object.fromEntries(
+    ['summary', 'timeseries', 'owners', 'meetings', 'export'].map((endpoint) => [
+      `GET /v1/workspaces/:wid/progress/${endpoint}`,
+      {
+        access: 'workspace.read' as const,
+        success: 200,
+        request: ({ ws }: CaseContext) => ({ url: `/v1/workspaces/${ws.id}/progress/${endpoint}` }),
+      },
+    ]),
+  ),
+  'GET /v1/meetings/:id/progress': {
+    access: 'meeting.read',
+    success: 200,
+    request: async (ctx) => ({ url: `/v1/meetings/${await insertMeeting(ctx)}/progress` }),
+  },
   'POST /v1/rooms/webhook': {
     access: 'public',
     success: 401,
@@ -773,7 +788,7 @@ const declaredKind = (access: RouteAccess | undefined) =>
 const t: TestApp = await createTestApp({
   ROOM_WORKSPACE_LIMIT: '100',
   FEATURE_FLAGS_OVERRIDE:
-    'workspaces.invitations=true,people.directory=true,meetings.upload=true,pipeline.media=true,transcription.enabled=true,analysis.enabled=true,exports.enabled=true,sharing.enabled=true,review.enabled=true,rooms.enabled=true',
+    'workspaces.invitations=true,people.directory=true,meetings.upload=true,pipeline.media=true,transcription.enabled=true,analysis.enabled=true,exports.enabled=true,sharing.enabled=true,review.enabled=true,rooms.enabled=true,progress.enabled=true',
 });
 const catalog = t.app.routeCatalog.filter((r) => r.url.startsWith('/v1/'));
 

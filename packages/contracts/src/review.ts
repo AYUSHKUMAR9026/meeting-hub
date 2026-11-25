@@ -73,6 +73,7 @@ export const bulkDecisionSchema = z
   .meta({ id: 'BulkDecisions' });
 
 const trackerFields = {
+  itemId: z.uuid().optional(),
   meetingId: z.uuid().optional(),
   q: z.string().trim().min(1).max(160).optional(),
   cursor: z.coerce.number().int().min(0).max(100_000).default(0),
@@ -89,12 +90,18 @@ export const trackedActionQuerySchema = z
     status: z.enum(['open', 'done', 'rejected']).optional(),
     sort: z.enum(['newest', 'oldest', 'title', 'due']).default('due'),
     ownerPersonId: z.uuid().optional(),
+    ownerSpeakerId: z.uuid().optional(),
+    unassigned: z
+      .enum(['true', 'false'])
+      .transform((v) => v === 'true')
+      .optional(),
     mine: z
       .enum(['true', 'false'])
       .transform((v) => v === 'true')
       .optional(),
     dueFrom: z.iso.date().optional(),
     dueTo: z.iso.date().optional(),
+    overdue: z.enum(['true', 'false']).optional(),
   })
   .refine(
     (query) => !query.dueFrom || !query.dueTo || query.dueFrom <= query.dueTo,

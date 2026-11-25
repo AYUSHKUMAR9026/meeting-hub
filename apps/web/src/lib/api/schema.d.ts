@@ -5169,6 +5169,7 @@ export interface paths {
         get: {
             parameters: {
                 query?: {
+                    itemId?: string;
                     meetingId?: string;
                     q?: string;
                     cursor?: number;
@@ -5268,6 +5269,7 @@ export interface paths {
         get: {
             parameters: {
                 query?: {
+                    itemId?: string;
                     meetingId?: string;
                     q?: string;
                     cursor?: number;
@@ -5275,9 +5277,12 @@ export interface paths {
                     status?: "open" | "done" | "rejected";
                     sort?: "newest" | "oldest" | "title" | "due";
                     ownerPersonId?: string;
+                    ownerSpeakerId?: string;
+                    unassigned?: "true" | "false";
                     mine?: "true" | "false";
                     dueFrom?: string;
                     dueTo?: string;
+                    overdue?: "true" | "false";
                 };
                 header?: never;
                 path: {
@@ -5457,6 +5462,587 @@ export interface paths {
                 };
             };
         };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/workspaces/{wid}/progress/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    from?: string;
+                    to?: string;
+                    bucket?: "day" | "week";
+                    ownerPersonId?: string;
+                    meetingId?: string;
+                    limit?: number;
+                };
+                header?: never;
+                path: {
+                    wid: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProgressSummary"];
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/workspaces/{wid}/progress/timeseries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    from?: string;
+                    to?: string;
+                    bucket?: "day" | "week";
+                    ownerPersonId?: string;
+                    meetingId?: string;
+                    limit?: number;
+                };
+                header?: never;
+                path: {
+                    wid: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProgressSeries"];
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/workspaces/{wid}/progress/owners": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    from?: string;
+                    to?: string;
+                    bucket?: "day" | "week";
+                    ownerPersonId?: string;
+                    meetingId?: string;
+                    limit?: number;
+                };
+                header?: never;
+                path: {
+                    wid: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProgressOwners"];
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/workspaces/{wid}/progress/meetings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    from?: string;
+                    to?: string;
+                    bucket?: "day" | "week";
+                    ownerPersonId?: string;
+                    meetingId?: string;
+                    limit?: number;
+                };
+                header?: never;
+                path: {
+                    wid: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProgressMeetings"];
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/meetings/{id}/progress": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProgressRecap"];
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/workspaces/{wid}/progress/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    from?: string;
+                    to?: string;
+                    bucket?: "day" | "week";
+                    ownerPersonId?: string;
+                    meetingId?: string;
+                    limit?: number;
+                };
+                header?: never;
+                path: {
+                    wid: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/csv": string;
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -6185,6 +6771,105 @@ export interface components {
         AcceptInvitationResponseInput: {
             workspace: components["schemas"]["WorkspaceSummaryInput"];
         };
+        ProgressTotalsInput: {
+            open: number;
+            done: number;
+            overdue: number;
+            proposed: number;
+            rejected: number;
+            decisionsProposed: number;
+            decisionsConfirmed: number;
+            meetings: number;
+            completionRate: number;
+        };
+        ProgressSummaryInput: {
+            timezone: string;
+            /** Format: date */
+            today: string;
+            totals: components["schemas"]["ProgressTotalsInput"];
+            change: {
+                open: number;
+                done: number;
+                overdue: number;
+                completionRate: number;
+            } | null;
+            comparisonDate: string | null;
+        };
+        ProgressSeriesInput: {
+            timezone: string;
+            points: {
+                /** Format: date */
+                date: string;
+                open: number;
+                done: number;
+                overdue: number;
+                decisionsProposed: number;
+                decisionsConfirmed: number;
+                meetings: number;
+                backfilled: boolean;
+            }[];
+        };
+        ProgressOwnersInput: {
+            truncated: boolean;
+            owners: {
+                key: string;
+                name: string;
+                ownerPersonId: string | null;
+                ownerSpeakerId: string | null;
+                open: number;
+                done: number;
+                overdue: number;
+            }[];
+        };
+        ProgressMeetingsInput: {
+            meetings: {
+                /** Format: uuid */
+                id: string;
+                title: string;
+                /** Format: date-time */
+                occurredAt: string;
+                open: number;
+                done: number;
+                overdue: number;
+                decisions: number;
+                items: number;
+                completionRate: number;
+            }[];
+        };
+        ProgressRecapInput: {
+            recap: {
+                /** Format: uuid */
+                id: string;
+                title: string;
+                /** Format: date-time */
+                occurredAt: string;
+                open: number;
+                done: number;
+                overdue: number;
+                decisions: number;
+                items: number;
+                completionRate: number;
+            };
+            items: {
+                /** Format: uuid */
+                id: string;
+                title: string;
+                /** Format: uuid */
+                meetingId: string;
+                status: string;
+                dueDate: string | null;
+            }[];
+            carriedOver: {
+                /** Format: uuid */
+                id: string;
+                title: string;
+                /** Format: uuid */
+                meetingId: string;
+                status: string;
+                dueDate: string | null;
+            }[];
+            truncated: boolean;
+        };
         MeetingSummary: {
             paragraph: string;
             bullets: string[];
@@ -6902,6 +7587,105 @@ export interface components {
         };
         AcceptInvitationResponse: {
             workspace: components["schemas"]["WorkspaceSummary"];
+        };
+        ProgressTotals: {
+            open: number;
+            done: number;
+            overdue: number;
+            proposed: number;
+            rejected: number;
+            decisionsProposed: number;
+            decisionsConfirmed: number;
+            meetings: number;
+            completionRate: number;
+        };
+        ProgressSummary: {
+            timezone: string;
+            /** Format: date */
+            today: string;
+            totals: components["schemas"]["ProgressTotals"];
+            change: {
+                open: number;
+                done: number;
+                overdue: number;
+                completionRate: number;
+            } | null;
+            comparisonDate: string | null;
+        };
+        ProgressSeries: {
+            timezone: string;
+            points: {
+                /** Format: date */
+                date: string;
+                open: number;
+                done: number;
+                overdue: number;
+                decisionsProposed: number;
+                decisionsConfirmed: number;
+                meetings: number;
+                backfilled: boolean;
+            }[];
+        };
+        ProgressOwners: {
+            truncated: boolean;
+            owners: {
+                key: string;
+                name: string;
+                ownerPersonId: string | null;
+                ownerSpeakerId: string | null;
+                open: number;
+                done: number;
+                overdue: number;
+            }[];
+        };
+        ProgressMeetings: {
+            meetings: {
+                /** Format: uuid */
+                id: string;
+                title: string;
+                /** Format: date-time */
+                occurredAt: string;
+                open: number;
+                done: number;
+                overdue: number;
+                decisions: number;
+                items: number;
+                completionRate: number;
+            }[];
+        };
+        ProgressRecap: {
+            recap: {
+                /** Format: uuid */
+                id: string;
+                title: string;
+                /** Format: date-time */
+                occurredAt: string;
+                open: number;
+                done: number;
+                overdue: number;
+                decisions: number;
+                items: number;
+                completionRate: number;
+            };
+            items: {
+                /** Format: uuid */
+                id: string;
+                title: string;
+                /** Format: uuid */
+                meetingId: string;
+                status: string;
+                dueDate: string | null;
+            }[];
+            carriedOver: {
+                /** Format: uuid */
+                id: string;
+                title: string;
+                /** Format: uuid */
+                meetingId: string;
+                status: string;
+                dueDate: string | null;
+            }[];
+            truncated: boolean;
         };
     };
     responses: never;

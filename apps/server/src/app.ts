@@ -24,6 +24,7 @@ import { meRoutes } from './http/routes/me';
 import { peopleRoutes } from './http/routes/people';
 import { processingRoutes } from './http/routes/processing';
 import { reviewRoutes } from './http/routes/review';
+import { progressRoutes } from './http/routes/progress';
 import { systemRoutes } from './http/routes/system';
 import { transcriptionRoutes } from './http/routes/transcription';
 import { workspaceRoutes } from './http/routes/workspaces';
@@ -135,6 +136,7 @@ export async function buildApp(deps: ApiDeps): Promise<FastifyInstance> {
   await app.register(transcriptionRoutes, { deps });
   await app.register(analysisRoutes, { deps });
   await app.register(reviewRoutes, { deps });
+  await app.register(progressRoutes, { deps });
 
   if (config.NODE_ENV !== 'production') {
     app.get('/openapi.json', { schema: { hide: true } }, () => app.swagger());

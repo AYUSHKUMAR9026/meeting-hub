@@ -4,6 +4,7 @@
  */
 import { buildProcessing } from './deps';
 import { RoomService } from './modules/rooms';
+import { ProgressService, progressOutboxHandler } from './modules/progress';
 import { type MaintenanceRuntime, startMaintenance } from './jobs/maintenance';
 import { type ProcessingWorkers, startProcessingWorkers } from './jobs/processing';
 import { DEFAULT_QUEUE_PREFIX, QUEUE_NAMES, type StalledJobSettings } from './jobs/queues';
@@ -95,7 +96,7 @@ export async function startWorkerRuntime(
     db: db.db,
     flags,
     logger: logger.child({ module: 'outbox' }),
-    handlers: processing.runs.outboxHandlers(),
+    handlers: [...processing.runs.outboxHandlers(), progressOutboxHandler()],
   });
 
   await redis.connect();
@@ -135,6 +136,7 @@ export async function startWorkerRuntime(
         meetings,
         sweeper: processing.sweeper,
         rooms,
+        progress: new ProgressService(db.db),
         sweepIntervalMs: config.PROCESSING_SWEEP_INTERVAL_MS,
         concurrency: config.WORKER_CONCURRENCY,
         heartbeatIntervalMs: config.HEARTBEAT_INTERVAL_MS,

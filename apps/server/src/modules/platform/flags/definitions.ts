@@ -21,6 +21,11 @@ export const clientVisibleFlags = (): FlagKey[] =>
     .map(([key]) => key);
 
 export const flagDefinitions = {
+  'progress.enabled': {
+    description: 'Workspace progress charts and meeting recaps.',
+    defaultEnabled: false,
+    clientVisible: true,
+  },
   'transcription.per_track_speakers': {
     description: 'Use participant audio tracks and attendance for speaker labels.',
     defaultEnabled: false,

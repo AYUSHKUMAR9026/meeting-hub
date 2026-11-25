@@ -5,6 +5,7 @@ import type { Logger } from '../../lib/logger';
 
 /** Every audit action we write. Stable strings: they are stored and shown to admins. */
 export const auditActions = [
+  'progress.exported',
   'auth.sign_in',
   'auth.sign_out',
   'auth.sign_in_failed',

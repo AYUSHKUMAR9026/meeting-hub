@@ -221,6 +221,7 @@ export class DocumentService {
     const requested = [...new Set(ids)];
     const workspaceId = actor.workspaceId;
     await this.db.transaction(async (tx) => {
+      await tx.execute(sql`SELECT set_config('app.progress_actor', ${actor.userId}, true)`);
       const [meeting] = await tx
         .select({ createdBy: meetings.createdBy })
         .from(meetings)
@@ -283,6 +284,7 @@ export class DocumentService {
   ) {
     const workspaceId = actor.workspaceId;
     const id = await this.db.transaction(async (tx) => {
+      await tx.execute(sql`SELECT set_config('app.progress_actor', ${actor.userId}, true)`);
       const [meeting] = await tx
         .select({ createdBy: meetings.createdBy })
         .from(meetings)

@@ -31,6 +31,7 @@ export interface MaintenanceDeps {
   sweeper: ProcessingSweeper;
   sweepIntervalMs: number;
   rooms?: { sweep(): Promise<void> };
+  progress?: { sweep(flags: FeatureFlagService): Promise<void> };
   /** BullMQ key prefix (tests isolate queues with their own). */
   prefix?: string;
 }
@@ -60,6 +61,8 @@ export async function startMaintenance(deps: MaintenanceDeps): Promise<Maintenan
 
   const processor = withErrorPolicy(async (job: Job) => {
     switch (job.name) {
+      case 'progress.sweep':
+        return deps.progress?.sweep(deps.flags);
       case HEARTBEAT_JOB:
         return heartbeat(job);
       case MEETING_DELETE_JOB:
@@ -124,6 +127,8 @@ export async function startMaintenance(deps: MaintenanceDeps): Promise<Maintenan
   );
 
   logger.info({ concurrency: deps.concurrency }, 'maintenance worker started');
+  await queue.upsertJobScheduler('progress-sweep', { every: 60_000 }, { name: 'progress.sweep' });
+  await queue.add('progress.sweep', {});
 
   return {
     queue,
