@@ -437,7 +437,7 @@ const ROUTES: Record<string, RouteSpec> = {
     success: 200,
     request: ({ ws }) => ({
       url: `/v1/workspaces/${ws.id}`,
-      payload: { settings: { retentionDays: 45 } },
+      payload: { settings: { retentionDays: 45, externalAiEnabled: true } },
     }),
   },
   'GET /v1/workspaces/:wid/members': {

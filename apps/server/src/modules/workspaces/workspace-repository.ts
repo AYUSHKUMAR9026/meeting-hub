@@ -28,6 +28,7 @@ export interface WorkspaceSettings {
   glossary: string[];
   transcriptLanguage: string | null;
   sharingEnabled: boolean;
+  externalAiEnabled: boolean;
 }
 
 export interface MemberView {
@@ -55,6 +56,7 @@ export const DEFAULT_SETTINGS: WorkspaceSettings = {
   glossary: [],
   transcriptLanguage: null,
   sharingEnabled: true,
+  externalAiEnabled: false,
 };
 
 /** Better Auth stores roles as text (comma-separated when multiple). We only ever assign one. */
@@ -118,6 +120,7 @@ export class WorkspaceRepository {
         glossary: workspaceSettings.glossary,
         transcriptLanguage: workspaceSettings.transcriptLanguage,
         sharingEnabled: workspaceSettings.sharingEnabled,
+        externalAiEnabled: workspaceSettings.externalAiEnabled,
       })
       .from(workspaceSettings)
       .where(eq(workspaceSettings.workspaceId, workspaceId));

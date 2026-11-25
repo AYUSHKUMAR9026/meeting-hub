@@ -27,6 +27,7 @@ const toRun = (run: RunView) => ({
     ...s,
     startedAt: isoOrNull(s.startedAt),
     finishedAt: isoOrNull(s.finishedAt),
+    retryAt: isoOrNull(s.retryAt),
   })),
 });
 

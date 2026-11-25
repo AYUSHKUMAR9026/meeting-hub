@@ -43,6 +43,7 @@ export const workspaceSettingsSchema = z
     retentionDays: z.int().min(1).max(3650),
     sharingEnabled: z.boolean().optional(),
     glossary: z.array(z.string().trim().min(1).max(100)).max(500),
+    externalAiEnabled: z.boolean(),
     transcriptLanguage: z
       .string()
       .trim()
@@ -69,6 +70,7 @@ export const workspaceSchema = z
         'Client-visible feature flags that are on for this workspace, e.g. meetings.upload',
       ),
     settings: workspaceSettingsSchema,
+    aiProviders: z.array(z.string()),
   })
   .meta({ id: 'Workspace' });
 export type Workspace = z.infer<typeof workspaceSchema>;

@@ -10,6 +10,7 @@ export const auditActions = [
   'auth.sign_in_failed',
   'workspace.created',
   'workspace.updated',
+  'workspace.external_ai_toggled',
   'member.invited',
   'member.joined',
   'member.removed',

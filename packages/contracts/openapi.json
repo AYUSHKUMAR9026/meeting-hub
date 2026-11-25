@@ -76,6 +76,9 @@
           "editedByUser": {
             "type": "boolean"
           },
+          "lowConfidence": {
+            "type": "boolean"
+          },
           "source": {
             "type": "string",
             "enum": [
@@ -115,6 +118,7 @@
           "title",
           "description",
           "editedByUser",
+          "lowConfidence",
           "source",
           "citations",
           "rationale",
@@ -145,6 +149,9 @@
             "maxLength": 2000
           },
           "editedByUser": {
+            "type": "boolean"
+          },
+          "lowConfidence": {
             "type": "boolean"
           },
           "source": {
@@ -217,6 +224,7 @@
           "title",
           "description",
           "editedByUser",
+          "lowConfidence",
           "source",
           "citations",
           "ownerSpeakerId",
@@ -268,6 +276,9 @@
           "isCurrent": {
             "type": "boolean"
           },
+          "lowConfidence": {
+            "type": "boolean"
+          },
           "summary": {
             "$ref": "#/components/schemas/MeetingSummaryInput"
           },
@@ -294,6 +305,7 @@
           "outputTokens",
           "createdAt",
           "isCurrent",
+          "lowConfidence",
           "summary",
           "decisions",
           "actionItems"
@@ -1470,6 +1482,24 @@
               "null"
             ]
           },
+          "retryAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "fallbackReason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "startedAt": {
             "anyOf": [
               {
@@ -1521,6 +1551,8 @@
           "attempts",
           "progress",
           "phase",
+          "retryAt",
+          "fallbackReason",
           "startedAt",
           "finishedAt",
           "errorCode",
@@ -2665,12 +2697,27 @@
                     "type": "integer",
                     "exclusiveMinimum": 0,
                     "maximum": 9007199254740991
+                  },
+                  "speakerSource": {
+                    "type": "string",
+                    "enum": [
+                      "generic",
+                      "attendance"
+                    ]
+                  },
+                  "fallbackReason": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   }
                 },
                 "required": [
                   "id",
                   "language",
-                  "durationMs"
+                  "durationMs",
+                  "speakerSource",
+                  "fallbackReason"
                 ]
               },
               {
@@ -2811,6 +2858,9 @@
               "maxLength": 100
             }
           },
+          "externalAiEnabled": {
+            "type": "boolean"
+          },
           "transcriptLanguage": {
             "anyOf": [
               {
@@ -2826,7 +2876,8 @@
         "required": [
           "timezone",
           "retentionDays",
-          "glossary"
+          "glossary",
+          "externalAiEnabled"
         ]
       },
       "WorkspaceInput": {
@@ -2868,6 +2919,12 @@
           },
           "settings": {
             "$ref": "#/components/schemas/WorkspaceSettingsInput"
+          },
+          "aiProviders": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         },
         "required": [
@@ -2878,7 +2935,8 @@
           "role",
           "permissions",
           "features",
-          "settings"
+          "settings",
+          "aiProviders"
         ]
       },
       "CreateWorkspaceRequestInput": {
@@ -2936,6 +2994,9 @@
                   "minLength": 1,
                   "maxLength": 100
                 }
+              },
+              "externalAiEnabled": {
+                "type": "boolean"
               },
               "transcriptLanguage": {
                 "anyOf": [
@@ -3218,6 +3279,9 @@
           "editedByUser": {
             "type": "boolean"
           },
+          "lowConfidence": {
+            "type": "boolean"
+          },
           "source": {
             "type": "string",
             "enum": [
@@ -3257,6 +3321,7 @@
           "title",
           "description",
           "editedByUser",
+          "lowConfidence",
           "source",
           "citations",
           "rationale",
@@ -3288,6 +3353,9 @@
             "maxLength": 2000
           },
           "editedByUser": {
+            "type": "boolean"
+          },
+          "lowConfidence": {
             "type": "boolean"
           },
           "source": {
@@ -3360,6 +3428,7 @@
           "title",
           "description",
           "editedByUser",
+          "lowConfidence",
           "source",
           "citations",
           "ownerSpeakerId",
@@ -3412,6 +3481,9 @@
           "isCurrent": {
             "type": "boolean"
           },
+          "lowConfidence": {
+            "type": "boolean"
+          },
           "summary": {
             "$ref": "#/components/schemas/MeetingSummary"
           },
@@ -3438,6 +3510,7 @@
           "outputTokens",
           "createdAt",
           "isCurrent",
+          "lowConfidence",
           "summary",
           "decisions",
           "actionItems"
@@ -4650,6 +4723,24 @@
               "null"
             ]
           },
+          "retryAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "fallbackReason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "startedAt": {
             "anyOf": [
               {
@@ -4701,6 +4792,8 @@
           "attempts",
           "progress",
           "phase",
+          "retryAt",
+          "fallbackReason",
           "startedAt",
           "finishedAt",
           "errorCode",
@@ -5877,12 +5970,27 @@
                     "type": "integer",
                     "exclusiveMinimum": 0,
                     "maximum": 9007199254740991
+                  },
+                  "speakerSource": {
+                    "type": "string",
+                    "enum": [
+                      "generic",
+                      "attendance"
+                    ]
+                  },
+                  "fallbackReason": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   }
                 },
                 "required": [
                   "id",
                   "language",
-                  "durationMs"
+                  "durationMs",
+                  "speakerSource",
+                  "fallbackReason"
                 ],
                 "additionalProperties": false
               },
@@ -6028,6 +6136,9 @@
               "maxLength": 100
             }
           },
+          "externalAiEnabled": {
+            "type": "boolean"
+          },
           "transcriptLanguage": {
             "anyOf": [
               {
@@ -6043,7 +6154,8 @@
         "required": [
           "timezone",
           "retentionDays",
-          "glossary"
+          "glossary",
+          "externalAiEnabled"
         ],
         "additionalProperties": false
       },
@@ -6086,6 +6198,12 @@
           },
           "settings": {
             "$ref": "#/components/schemas/WorkspaceSettings"
+          },
+          "aiProviders": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         },
         "required": [
@@ -6096,7 +6214,8 @@
           "role",
           "permissions",
           "features",
-          "settings"
+          "settings",
+          "aiProviders"
         ],
         "additionalProperties": false
       },
@@ -6156,6 +6275,9 @@
                   "minLength": 1,
                   "maxLength": 100
                 }
+              },
+              "externalAiEnabled": {
+                "type": "boolean"
               },
               "transcriptLanguage": {
                 "anyOf": [

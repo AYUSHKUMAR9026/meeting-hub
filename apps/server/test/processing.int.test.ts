@@ -635,7 +635,7 @@ describe('transcription pipeline', () => {
       });
       const page = await read(meetingId, viewer);
       expect(page.transcript?.language).toBe('fr');
-      expect(page.speakers.map((speaker) => speaker.label)).toEqual(['Speaker A', 'Speaker B']);
+      expect(page.speakers.map((speaker) => speaker.label)).toEqual(['Speaker']);
       expect(page.segments).toHaveLength(2);
 
       const search = await call(t, viewer, {

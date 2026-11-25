@@ -16,10 +16,12 @@ import {
   transcripts,
   workspaceSettings,
 } from '@meeting-hub/db';
-import type { z } from 'zod';
+import { z } from 'zod';
 
 import type { Database, Transaction } from '../../lib/db';
 import { PermanentError } from '../../lib/errors';
+import { ProviderRetryError } from '../../lib/ai-quota';
+import { assertExternalAiEnabled } from '../workspaces';
 import type { RunRef, StepDefinition } from '../processing';
 import {
   chunkByBudget,
@@ -33,6 +35,7 @@ import {
   summaryJsonSchema,
   summarySchema,
   systemPrompt,
+  repairExtraction,
   type Extraction,
   type Summary,
 } from './extraction';
@@ -66,6 +69,7 @@ async function publish(
   result: Extraction,
   segments: Segment[],
   speakers: Speaker[],
+  lowConfidence: boolean,
 ) {
   const { workspaceId, transcriptId, meetingId } = document;
   const documentId = document.id;
@@ -101,6 +105,7 @@ async function publish(
             title,
             description,
             rationale,
+            lowConfidence,
           })),
         )
         .returning({ id: decisions.id, idx: decisions.idx });
@@ -128,6 +133,7 @@ async function publish(
               title,
               description,
               dueDate: due_date,
+              lowConfidence,
               ownerSpeakerId: owner?.id ?? null,
               ownerPersonId: owner?.personId ?? null,
             };
@@ -153,6 +159,7 @@ async function publish(
         status: 'completed',
         summary: result.summary,
         checkpoints: [],
+        lowConfidence,
       })
       .where(
         and(eq(meetingDocuments.workspaceId, workspaceId), eq(meetingDocuments.id, documentId)),
@@ -195,6 +202,8 @@ export function analyzeStep({
     isAlreadyDone: async (run) => (await find(run))?.status === 'completed',
     async execute(ctx) {
       const { workspaceId, meetingId } = ctx.run;
+      if (provider.external !== false) await assertExternalAiEnabled(db, workspaceId);
+      const contextBudget = provider.contextBudget ?? CONTEXT_BUDGET;
       const previous = await find(ctx.run);
       const [transcript] = await db
         .select({ id: transcripts.id })
@@ -302,11 +311,16 @@ export function analyzeStep({
       const glossary = (settings?.glossary ?? []).slice(0, 60);
       const overhead =
         Buffer.byteLength(promptFor('extract', { glossary, segments: [] }) + systemPrompt) + 2000;
-      const chunkBudget = CONTEXT_BUDGET - overhead;
+      const chunkBudget = contextBudget - overhead;
       const chunks = chunkByBudget(sources, chunkBudget);
       const saved = new Map(
         (document.checkpoints as SavedResult[]).map(({ key, value }) => [key, value]),
       );
+      let lowConfidence = document.lowConfidence;
+      const markRepaired = async () => {
+        lowConfidence = true;
+        await db.update(meetingDocuments).set({ lowConfidence: true }).where(documentScope);
+      };
 
       async function generate<T>(
         prompt: string,
@@ -317,13 +331,17 @@ export function analyzeStep({
         const key = hash(prompt);
         const previousResult = shape.safeParse(saved.get(key));
         if (previousResult.success) return previousResult.data;
-        let currentPrompt = prompt;
-        for (let attempt = 0; attempt < 2; attempt++) {
+        const validationKey = key + '.validation';
+        const priorIssues = z.array(z.string()).safeParse(saved.get(validationKey));
+        const correctedPrompt = (issues: string[]) =>
+          `${prompt}\nCorrect these schema validation errors: ${issues.join(', ')}. Return only matching JSON.`;
+        let currentPrompt = priorIssues.success ? correctedPrompt(priorIssues.data) : prompt;
+        for (let attempt = priorIssues.success ? 1 : 0; attempt < 2; attempt++) {
           await ctx.checkpoint();
           signal.throwIfAborted();
           const estimate =
             Buffer.byteLength(currentPrompt + systemPrompt + JSON.stringify(jsonSchema)) + 512;
-          if (estimate > CONTEXT_BUDGET)
+          if (estimate > contextBudget)
             throw new PermanentError(
               'ANALYSIS_CONTEXT_LIMIT',
               'Analysis input exceeds the per-request context budget.',
@@ -339,11 +357,33 @@ export function analyzeStep({
             await ctx.checkpoint();
             throw budgetError();
           }
-          const usage = await provider.generateStructured(currentPrompt, jsonSchema, {
-            ...options,
-            signal,
-          });
-          const validated = shape.safeParse(usage.result);
+          let usage;
+          try {
+            usage = await provider.generateStructured(currentPrompt, jsonSchema, {
+              ...options,
+              signal,
+              beforeRequest: async () => {
+                await ctx.checkpoint();
+                if (provider.external !== false) await assertExternalAiEnabled(db, workspaceId);
+              },
+            });
+          } catch (error) {
+            if (error instanceof ProviderRetryError && error.quota)
+              await db
+                .update(meetingDocuments)
+                .set({ budgetTokens: sql`${meetingDocuments.budgetTokens} - ${estimate}` })
+                .where(documentScope);
+            throw error;
+          }
+          let validated = shape.safeParse(usage.result);
+          if (!validated.success && attempt === 1 && options.task === 'extract') {
+            const repaired = repairExtraction(usage.result);
+            if (repaired) {
+              validated = shape.safeParse(repaired);
+              if (validated.success) await markRepaired();
+            }
+          }
+          if (attempt > 0 && validated.success) await markRepaired();
           const overrun = Math.max(0, usage.inputTokens - estimate);
           const checkpoint = validated.success ? [{ key, value: validated.data }] : [];
           const [charged] = await withoutContent(() =>
@@ -363,7 +403,16 @@ export function analyzeStep({
           const issues = validated.error.issues
             .slice(0, 8)
             .map(({ path, code }) => `${path.map(String).join('.') || 'root'} (${code})`);
-          currentPrompt = `${prompt}\nCorrect these schema validation errors: ${issues.join(', ')}. Return only matching JSON.`;
+          await withoutContent(() =>
+            db
+              .update(meetingDocuments)
+              .set({
+                checkpoints: sql`${meetingDocuments.checkpoints} || ${JSON.stringify([{ key: validationKey, value: issues }])}::jsonb`,
+              })
+              .where(documentScope),
+          );
+          saved.set(validationKey, issues);
+          currentPrompt = correctedPrompt(issues);
         }
         throw new PermanentError(
           'ANALYSIS_INVALID_OUTPUT',
@@ -382,13 +431,15 @@ export function analyzeStep({
             extractionJsonSchema,
             { task: 'extract', segmentIndexes },
           );
-          partials.push(guardCitations(partial, new Set(segmentIndexes)));
+          const guarded = guardCitations(partial, new Set(segmentIndexes));
+          if (JSON.stringify(guarded) !== JSON.stringify(partial)) await markRepaired();
+          partials.push(guarded);
         }
 
         let summaries = partials.map(({ summary }) => summary);
         while (summaries.length > 1) {
           ctx.progress(0.9, 'combining meeting summaries');
-          const groups = chunkByBudget(summaries, CONTEXT_BUDGET - 4000);
+          const groups = chunkByBudget(summaries, contextBudget - 4000);
           if (groups.length === summaries.length)
             throw new PermanentError(
               'ANALYSIS_CONTEXT_LIMIT',
@@ -420,7 +471,7 @@ export function analyzeStep({
           ),
         };
         return {
-          commit: ({ tx }) => publish(tx, document, result, segments, speakers),
+          commit: ({ tx }) => publish(tx, document, result, segments, speakers, lowConfidence),
           discard: () => Promise.resolve(),
         };
       } catch (error) {

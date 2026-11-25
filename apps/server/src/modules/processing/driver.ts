@@ -1,4 +1,5 @@
 import type { Logger } from '../../lib/logger';
+import { ProviderRetryError } from '../../lib/ai-quota';
 import type { AuditService } from '../audit';
 import {
   classifyStepError,
@@ -79,6 +80,8 @@ export class PipelineDriver {
     const logger = this.deps.logger.child({ run_id: job.runId, step: job.step });
     const claim = await this.claim(job, def);
 
+    if (claim.kind === 'delayed') return { delayMs: claim.delayMs };
+
     if (claim.kind === 'inactive') {
       logger.info('run no longer active; nothing to do');
       return 'skipped';
@@ -137,6 +140,7 @@ export class PipelineDriver {
 
   private claim(job: StepJob, def: StepDefinition) {
     type Claim =
+      | { kind: 'delayed'; delayMs: number }
       | { kind: 'inactive' }
       | { kind: 'done'; run: RunRecord }
       | { kind: 'exhausted'; run: RunRecord; failure: StepFailure }
@@ -148,6 +152,9 @@ export class PipelineDriver {
       if (!step || step.status === 'failed') return { kind: 'inactive' };
       if (step.status === 'succeeded' || step.status === 'skipped') return { kind: 'done', run };
       const now = this.now();
+      const retryAt = step.metadata.retryAt;
+      if (typeof retryAt === 'number' && retryAt > now.getTime())
+        return { kind: 'delayed', delayMs: retryAt - now.getTime() };
       if (step.status !== 'waiting_external' && step.attempts >= def.maxAttempts) {
         const failure = exhausted(
           {
@@ -169,7 +176,7 @@ export class PipelineDriver {
         def.runStatus,
         now,
         startedAt,
-        step.status === 'waiting_external',
+        step.status === 'waiting_external' && step.metadata.waitKind !== 'retry',
       );
       return { kind: 'claimed', run, attempt, startedAt };
     });
@@ -276,6 +283,27 @@ export class PipelineDriver {
     if (err instanceof RunCancelledError) {
       logger.info('run cancelled while the step ran');
       return 'skipped';
+    }
+    if (err instanceof ProviderRetryError && (err.quota || attempt < def.maxAttempts)) {
+      const delayMs = Math.max(1000, err.retryAfterMs);
+      const saved = await this.deps.repo.withActiveRun(run.id, async (locked, tx) => {
+        if (!locked) return false;
+        await this.deps.repo.markProviderWait(
+          tx,
+          run.id,
+          def.name,
+          this.now(),
+          delayMs,
+          def.timeoutMs,
+          err.quota,
+          err.waitingForTracks,
+        );
+        return true;
+      });
+      if (!saved) return 'skipped';
+      await this.publish(run);
+      logger.info({ retryAfterMs: delayMs, code: err.code }, 'AI request deferred');
+      return { delayMs };
     }
     const classified = classifyStepError(err);
     const final = classified.permanent || attempt >= def.maxAttempts;

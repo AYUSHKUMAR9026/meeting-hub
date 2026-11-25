@@ -38,6 +38,8 @@ export const processingStepSchema = z
     attempts: z.int().min(0),
     progress: fraction.describe("This step's own progress, 0 to 1"),
     phase: z.string().nullable().describe('What the running step is doing, e.g. "transcoding"'),
+    retryAt: z.iso.datetime().nullable(),
+    fallbackReason: z.string().nullable(),
     startedAt: z.iso.datetime().nullable(),
     finishedAt: z.iso.datetime().nullable(),
     errorCode: z.string().nullable(),

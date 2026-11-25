@@ -33,6 +33,7 @@ export interface WorkspaceView {
   /** Client-visible feature flags that are on for this workspace. */
   features: string[];
   settings: WorkspaceSettings;
+  aiProviders: string[];
 }
 
 export interface InvitationDetails {
@@ -83,6 +84,7 @@ export class WorkspaceService {
       people: PeopleService;
       audit: AuditService;
       flags: FeatureFlagService;
+      aiProviders?: string[];
     },
   ) {}
 
@@ -133,6 +135,7 @@ export class WorkspaceService {
       permissions: permissionsFor(actor.role),
       features: await this.enabledFeatures(actor.workspaceId),
       settings: await this.deps.repo.getSettings(actor.workspaceId),
+      aiProviders: this.deps.aiProviders ?? [],
     };
   }
 
@@ -163,7 +166,18 @@ export class WorkspaceService {
     const settings = Object.fromEntries(
       Object.entries(patch.settings ?? {}).filter(([, v]) => v !== undefined),
     ) as Partial<WorkspaceSettings>;
+    const previousSettings =
+      settings.externalAiEnabled === undefined ? null : await repo.getSettings(actor.workspaceId);
     if (Object.keys(settings).length > 0) await repo.updateSettings(actor.workspaceId, settings);
+    if (previousSettings && previousSettings.externalAiEnabled !== settings.externalAiEnabled)
+      await audit.record({
+        action: 'workspace.external_ai_toggled',
+        workspaceId: actor.workspaceId,
+        actorUserId: actor.userId,
+        target: { type: 'workspace', id: actor.workspaceId },
+        metadata: { enabled: settings.externalAiEnabled },
+        origin: caller.origin,
+      });
 
     // Field names only: glossary terms may come from meeting content.
     const fields = [

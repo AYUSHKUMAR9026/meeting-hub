@@ -282,7 +282,7 @@ export class ProcessingRepository {
         attempts: sql`${processingSteps.attempts} + ${polling ? 0 : 1}`,
         startedAt,
         finishedAt: null,
-        ...(!polling && { metadata: sql`${processingSteps.metadata} || '{"progress": 0}'::jsonb` }),
+        metadata: sql`${processingSteps.metadata} || ${JSON.stringify({ retryAt: null, phase: null, ...(!polling ? { progress: 0 } : {}) })}::jsonb`,
         updatedAt: now,
       })
       .where(and(eq(processingSteps.runId, run.id), eq(processingSteps.name, step)))
@@ -322,7 +322,32 @@ export class ProcessingRepository {
         errorCode: null,
         errorMessage: null,
         errorDetail: null,
-        metadata: sql`${processingSteps.metadata} || ${JSON.stringify({ deadlineAt: deadlineAt.getTime(), progress: 0.5, phase: 'waiting for transcription' })}::jsonb`,
+        metadata: sql`${processingSteps.metadata} || ${JSON.stringify({ deadlineAt: deadlineAt.getTime(), progress: 0.5, phase: 'waiting for transcription', retryAt: null, waitKind: 'poll' })}::jsonb`,
+        updatedAt: now,
+      })
+      .where(and(eq(processingSteps.runId, runId), eq(processingSteps.name, step)));
+    await touchRun(tx, runId, now);
+  }
+
+  async markProviderWait(
+    tx: Transaction,
+    runId: string,
+    step: string,
+    now: Date,
+    delayMs: number,
+    timeoutMs: number,
+    quota: boolean,
+    tracks = false,
+  ) {
+    await tx
+      .update(processingSteps)
+      .set({
+        status: 'waiting_external',
+        startedAt: null,
+        errorCode: quota ? 'FREE_QUOTA_WAIT' : 'AI_PROVIDER_UNAVAILABLE',
+        errorMessage: quota ? 'Waiting for free quota.' : 'Waiting to retry the AI provider.',
+        errorDetail: null,
+        metadata: sql`${processingSteps.metadata} || ${JSON.stringify({ retryAt: now.getTime() + delayMs, deadlineAt: now.getTime() + delayMs + timeoutMs, phase: tracks ? 'waiting for participant audio' : quota ? 'waiting for free quota' : 'waiting for provider retry', waitKind: quota ? 'quota' : 'retry' })}::jsonb`,
         updatedAt: now,
       })
       .where(and(eq(processingSteps.runId, runId), eq(processingSteps.name, step)));

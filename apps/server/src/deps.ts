@@ -5,19 +5,16 @@ import { DEFAULT_QUEUE_PREFIX, type LazyQueue, lazyQueue, QUEUE_NAMES } from './
 import { type BullStepQueue, createStepQueue } from './jobs/step-queue';
 import { ProcessingEventHub } from './http/processing-events';
 import { RoomService } from './modules/rooms';
+import { RedisQuotaLimiter } from './lib/ai-quota';
+import { configuredLlm } from './modules/analysis';
+import { GroqTranscriptionProvider } from './modules/transcription';
 import type { Config } from './lib/config';
 import { createDatabase, type DbClient } from './lib/db';
 import type { Logger } from './lib/logger';
 import { type Mailer, SmtpMailer } from './lib/mailer';
 import { createRedis, type Redis } from './lib/redis';
 import { createS3Client } from './lib/s3';
-import {
-  analyzeStep,
-  AnthropicProvider,
-  DocumentService,
-  FakeLlmProvider,
-  type LlmProvider,
-} from './modules/analysis';
+import { analyzeStep, DocumentService, type LlmProvider } from './modules/analysis';
 import { ExportService } from './modules/exports';
 import { ShareService } from './modules/sharing';
 import { TrackerService } from './modules/tracking';
@@ -94,6 +91,11 @@ export function buildProcessing(
     llm?: LlmProvider;
   } = {},
 ): Processing {
+  const speechLimiter = new RedisQuotaLimiter(
+    infra.redis,
+    'groq-stt',
+    config.GROQ_API_KEY ?? 'offline',
+  );
   return createProcessing({
     db: infra.db.db,
     storage: infra.storage,
@@ -117,11 +119,7 @@ export function buildProcessing(
     analysisStep: analyzeStep({
       db: infra.db.db,
       queue: QUEUE_NAMES.analysis,
-      provider:
-        options.llm ??
-        (config.LLM_PROVIDER === 'anthropic'
-          ? new AnthropicProvider(config.LLM_MODEL, config.ANTHROPIC_API_KEY!)
-          : new FakeLlmProvider()),
+      provider: options.llm ?? configuredLlm(config, infra.redis),
       maxInputTokens: config.ANALYSIS_MAX_INPUT_TOKENS,
     }),
     transcriptionStep: transcribeStep({
@@ -130,9 +128,42 @@ export function buildProcessing(
       queue: QUEUE_NAMES.transcription,
       provider:
         options.provider ??
-        (config.TRANSCRIPTION_PROVIDER === 'assemblyai'
-          ? new AssemblyAIProvider(config.ASSEMBLYAI_API_KEY!)
-          : new FakeProvider()),
+        (config.TRANSCRIPTION_PROVIDER === 'groq'
+          ? new GroqTranscriptionProvider({
+              key: config.GROQ_API_KEY!,
+              model: config.GROQ_STT_MODEL,
+              limiter: speechLimiter,
+              hourSeconds: config.TRANSCRIPTION_QUOTA_SECONDS_PER_HOUR,
+              daySeconds: config.TRANSCRIPTION_QUOTA_SECONDS_PER_DAY,
+              rpm: config.GROQ_STT_RPM,
+              rpd: config.GROQ_STT_RPD,
+              tools: {
+                ffmpegPath: config.FFMPEG_PATH,
+                threads: config.FFMPEG_THREADS,
+                maxDurationSeconds: config.TRANSCRIPTION_MAX_DURATION_SECONDS,
+              },
+            })
+          : config.TRANSCRIPTION_PROVIDER === 'assemblyai'
+            ? new AssemblyAIProvider(config.ASSEMBLYAI_API_KEY!, undefined, {
+                ffmpegPath: config.FFMPEG_PATH,
+                threads: config.FFMPEG_THREADS,
+                maxDurationSeconds: config.TRANSCRIPTION_MAX_DURATION_SECONDS,
+              })
+            : new FakeProvider()),
+      tracks: {
+        tools: {
+          ffmpegPath: config.FFMPEG_PATH,
+          threads: config.FFMPEG_THREADS,
+          maxDurationSeconds: config.TRANSCRIPTION_MAX_DURATION_SECONDS,
+        },
+        tmpDir: config.MEDIA_TMP_DIR,
+        maxBytes: config.MAX_UPLOAD_BYTES,
+        perTrackEnabled: (workspaceId) =>
+          infra.flags.isEnabled('transcription.per_track_speakers', { workspaceId }),
+        limiter: speechLimiter,
+        hourSeconds: config.TRANSCRIPTION_QUOTA_SECONDS_PER_HOUR,
+        daySeconds: config.TRANSCRIPTION_QUOTA_SECONDS_PER_DAY,
+      },
       maxDurationSeconds: config.TRANSCRIPTION_MAX_DURATION_SECONDS,
     }),
     ...(options.driver ? { driver: options.driver } : {}),
@@ -168,7 +199,20 @@ export function createApiDeps(
   const audit = new AuditService(db.db, logger.child({ module: 'audit' }));
   const auth = createAuth({ config, db: db.db, redis, mailer, audit, logger });
   const people = createPeopleService({ db: db.db, audit });
-  const workspaces = createWorkspaceService({ db: db.db, auth, people, audit, flags });
+  const providerNames: Record<string, string> = {
+    groq: 'Groq',
+    gemini: 'Google Gemini',
+    assemblyai: 'AssemblyAI',
+    anthropic: 'Anthropic',
+  };
+  const aiProviders = [
+    ...new Set(
+      [config.TRANSCRIPTION_PROVIDER, config.LLM_PROVIDER, config.LLM_FALLBACK_PROVIDER].flatMap(
+        (name) => (name && providerNames[name] ? [providerNames[name]] : []),
+      ),
+    ),
+  ];
+  const workspaces = createWorkspaceService({ db: db.db, auth, people, audit, flags, aiProviders });
   const processing = buildProcessing(config, {
     db,
     redis,

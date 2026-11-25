@@ -171,6 +171,8 @@ export class TranscriptionService {
         id: transcripts.id,
         language: transcripts.language,
         durationMs: transcripts.durationMs,
+        speakerSource: transcripts.speakerSource,
+        fallbackReason: transcripts.fallbackReason,
       })
       .from(transcripts)
       .innerJoin(

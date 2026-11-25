@@ -42,6 +42,8 @@ export const transcriptPageSchema = z
         id: z.uuid(),
         language: z.string().nullable(),
         durationMs: z.int().positive(),
+        speakerSource: z.enum(['generic', 'attendance']),
+        fallbackReason: z.string().nullable(),
       })
       .nullable(),
     speakers: z.array(transcriptSpeakerSchema),

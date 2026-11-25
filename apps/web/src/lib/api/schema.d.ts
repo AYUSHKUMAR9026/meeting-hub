@@ -5484,6 +5484,7 @@ export interface components {
             title: string;
             description: string;
             editedByUser: boolean;
+            lowConfidence: boolean;
             /** @enum {string} */
             source: "ai" | "manual";
             citations: components["schemas"]["DocumentCitationInput"][];
@@ -5498,6 +5499,7 @@ export interface components {
             title: string;
             description: string;
             editedByUser: boolean;
+            lowConfidence: boolean;
             /** @enum {string} */
             source: "ai" | "manual";
             citations: components["schemas"]["DocumentCitationInput"][];
@@ -5522,6 +5524,7 @@ export interface components {
             /** Format: date-time */
             createdAt: string;
             isCurrent: boolean;
+            lowConfidence: boolean;
             summary: components["schemas"]["MeetingSummaryInput"];
             decisions: components["schemas"]["MeetingDecisionInput"][];
             actionItems: components["schemas"]["MeetingActionItemInput"][];
@@ -5804,6 +5807,8 @@ export interface components {
             progress: number;
             /** @description What the running step is doing, e.g. "transcoding" */
             phase: string | null;
+            retryAt: string | null;
+            fallbackReason: string | null;
             startedAt: string | null;
             finishedAt: string | null;
             errorCode: string | null;
@@ -6054,6 +6059,9 @@ export interface components {
                 id: string;
                 language: string | null;
                 durationMs: number;
+                /** @enum {string} */
+                speakerSource: "generic" | "attendance";
+                fallbackReason: string | null;
             } | null;
             speakers: components["schemas"]["TranscriptSpeakerInput"][];
             segments: components["schemas"]["TranscriptSegmentInput"][];
@@ -6083,6 +6091,7 @@ export interface components {
             retentionDays: number;
             sharingEnabled?: boolean;
             glossary: string[];
+            externalAiEnabled: boolean;
             transcriptLanguage?: string | null;
         };
         WorkspaceInput: {
@@ -6099,6 +6108,7 @@ export interface components {
             /** @description Client-visible feature flags that are on for this workspace, e.g. meetings.upload */
             features: string[];
             settings: components["schemas"]["WorkspaceSettingsInput"];
+            aiProviders: string[];
         };
         CreateWorkspaceRequestInput: {
             name: string;
@@ -6115,6 +6125,7 @@ export interface components {
                 retentionDays?: number;
                 sharingEnabled?: boolean;
                 glossary?: string[];
+                externalAiEnabled?: boolean;
                 transcriptLanguage?: string | null;
             };
         };
@@ -6191,6 +6202,7 @@ export interface components {
             title: string;
             description: string;
             editedByUser: boolean;
+            lowConfidence: boolean;
             /** @enum {string} */
             source: "ai" | "manual";
             citations: components["schemas"]["DocumentCitation"][];
@@ -6205,6 +6217,7 @@ export interface components {
             title: string;
             description: string;
             editedByUser: boolean;
+            lowConfidence: boolean;
             /** @enum {string} */
             source: "ai" | "manual";
             citations: components["schemas"]["DocumentCitation"][];
@@ -6229,6 +6242,7 @@ export interface components {
             /** Format: date-time */
             createdAt: string;
             isCurrent: boolean;
+            lowConfidence: boolean;
             summary: components["schemas"]["MeetingSummary"];
             decisions: components["schemas"]["MeetingDecision"][];
             actionItems: components["schemas"]["MeetingActionItem"][];
@@ -6511,6 +6525,8 @@ export interface components {
             progress: number;
             /** @description What the running step is doing, e.g. "transcoding" */
             phase: string | null;
+            retryAt: string | null;
+            fallbackReason: string | null;
             startedAt: string | null;
             finishedAt: string | null;
             errorCode: string | null;
@@ -6761,6 +6777,9 @@ export interface components {
                 id: string;
                 language: string | null;
                 durationMs: number;
+                /** @enum {string} */
+                speakerSource: "generic" | "attendance";
+                fallbackReason: string | null;
             } | null;
             speakers: components["schemas"]["TranscriptSpeaker"][];
             segments: components["schemas"]["TranscriptSegment"][];
@@ -6790,6 +6809,7 @@ export interface components {
             retentionDays: number;
             sharingEnabled?: boolean;
             glossary: string[];
+            externalAiEnabled: boolean;
             transcriptLanguage?: string | null;
         };
         Workspace: {
@@ -6806,6 +6826,7 @@ export interface components {
             /** @description Client-visible feature flags that are on for this workspace, e.g. meetings.upload */
             features: string[];
             settings: components["schemas"]["WorkspaceSettings"];
+            aiProviders: string[];
         };
         CreateWorkspaceRequest: {
             name: string;
@@ -6822,6 +6843,7 @@ export interface components {
                 retentionDays?: number;
                 sharingEnabled?: boolean;
                 glossary?: string[];
+                externalAiEnabled?: boolean;
                 transcriptLanguage?: string | null;
             };
         };

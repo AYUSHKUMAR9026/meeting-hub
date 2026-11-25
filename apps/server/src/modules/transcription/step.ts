@@ -12,6 +12,8 @@ import type { Database, Transaction } from '../../lib/db';
 import { PermanentError } from '../../lib/errors';
 import type { ObjectStorage } from '../media';
 import type { RunRef, StepDefinition } from '../processing';
+import { assertExternalAiEnabled } from '../workspaces';
+import { transcribeTracks, type AttendanceSpeaker, type TrackOptions } from './tracks';
 import { RetryableProviderJobError } from './assemblyai';
 import type { TranscriptionProvider, TranscriptionResult } from './provider';
 
@@ -26,9 +28,14 @@ async function completeTranscript(
   tx: Transaction,
   transcript: Transcript,
   result: CompletedResult,
+  roster: AttendanceSpeaker[] = [],
 ) {
   const segments = result.segments
-    .map((segment) => ({ ...segment, endMs: Math.min(transcript.durationMs, segment.endMs) }))
+    .map((segment) => ({
+      ...segment,
+      speaker: roster.length ? segment.speaker : 'Speaker',
+      endMs: Math.min(transcript.durationMs, segment.endMs),
+    }))
     .filter((segment) => segment.startMs < segment.endMs);
   const labels = [...new Set(segments.map((segment) => segment.speaker))];
   try {
@@ -38,6 +45,9 @@ async function completeTranscript(
           .values(
             labels.map((label) => ({
               label,
+              displayName: roster.find((speaker) => speaker.label === label)?.displayName ?? null,
+              personId: roster.find((speaker) => speaker.label === label)?.personId ?? null,
+              userId: roster.find((speaker) => speaker.label === label)?.userId ?? null,
               transcriptId: transcript.id,
               workspaceId: transcript.workspaceId,
             })),
@@ -88,6 +98,7 @@ export function transcribeStep(options: {
   maxDurationSeconds: number;
   queue: string;
   pollMs?: number;
+  tracks?: Omit<TrackOptions, 'db' | 'storage' | 'provider'>;
 }): StepDefinition {
   const { db, storage, provider } = options;
   const findTranscript = async (run: RunRef) => {
@@ -111,6 +122,7 @@ export function transcribeStep(options: {
     weight: 2,
     isAlreadyDone: async (run) => (await findTranscript(run))?.status === 'completed',
     async execute(ctx) {
+      if (provider.name !== 'fake') await assertExternalAiEnabled(db, ctx.run.workspaceId);
       const existing = await findTranscript(ctx.run);
       const [audio] = await db
         .select()
@@ -171,10 +183,49 @@ export function transcribeStep(options: {
           })
           .from(workspaceSettings)
           .where(eq(workspaceSettings.workspaceId, ctx.run.workspaceId));
+        if (options.tracks) {
+          const direct = await transcribeTracks(
+            { ...options.tracks, db, storage, provider },
+            ctx.run,
+            audio,
+            {
+              durationMs,
+              language: settings?.language ?? null,
+              glossary: settings?.glossary ?? [],
+              signal,
+            },
+          );
+          if (direct)
+            return {
+              discard,
+              metadata: {
+                fallbackReason: direct.fallbackReason,
+                speakerSource: direct.speakers.length ? 'attendance' : 'generic',
+              },
+              commit: async ({ tx }) => {
+                const [transcript] = await tx
+                  .insert(transcripts)
+                  .values({
+                    workspaceId: ctx.run.workspaceId,
+                    meetingId: ctx.run.meetingId,
+                    processingRunId: ctx.run.id,
+                    provider: provider.name,
+                    providerJobId: `local:${ctx.run.id}`,
+                    durationMs,
+                    language: direct.result.language,
+                    speakerSource: direct.speakers.length ? 'attendance' : 'generic',
+                    fallbackReason: direct.fallbackReason,
+                  })
+                  .returning();
+                await completeTranscript(tx, transcript!, direct.result, direct.speakers);
+              },
+            };
+        }
         ctx.progress(0.15, 'submitting audio');
         const stream = await storage.streamObject(audio.storageKey, signal);
         const language = settings?.language ?? null;
         try {
+          if (provider.name !== 'fake') await assertExternalAiEnabled(db, ctx.run.workspaceId);
           const providerJobId = await provider.submit(stream, {
             durationMs,
             language,

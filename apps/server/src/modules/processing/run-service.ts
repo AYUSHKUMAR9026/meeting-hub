@@ -43,6 +43,8 @@ export interface StepView {
   /** This step's own progress, 0..1. */
   progress: number;
   phase: string | null;
+  retryAt: Date | null;
+  fallbackReason: string | null;
   startedAt: Date | null;
   finishedAt: Date | null;
   errorCode: string | null;
@@ -403,7 +405,12 @@ export class RunService implements ProcessingCanceller {
         status: s.status,
         attempts: s.attempts,
         progress,
-        phase: s.status === 'running' ? str(s.metadata.phase) : null,
+        phase: ['running', 'waiting_external'].includes(s.status) ? str(s.metadata.phase) : null,
+        retryAt:
+          typeof s.metadata.retryAt === 'number' && s.status === 'waiting_external'
+            ? new Date(s.metadata.retryAt)
+            : null,
+        fallbackReason: str(s.metadata.fallbackReason),
         startedAt: s.startedAt,
         finishedAt: s.finishedAt,
         errorCode: s.errorCode,

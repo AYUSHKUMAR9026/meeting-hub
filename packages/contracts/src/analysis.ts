@@ -19,6 +19,7 @@ const itemDetails = {
   idx: z.int().nonnegative(),
   ...fields,
   editedByUser: z.boolean(),
+  lowConfidence: z.boolean(),
   source: z.enum(['ai', 'manual']),
   citations: z.array(citation),
 };
@@ -46,6 +47,7 @@ export const meetingDocumentSchema = z
     outputTokens: z.int().nonnegative(),
     createdAt: z.iso.datetime(),
     isCurrent: z.boolean(),
+    lowConfidence: z.boolean(),
     summary,
     decisions: z.array(decisionSchema),
     actionItems: z.array(actionItemSchema),

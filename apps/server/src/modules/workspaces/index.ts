@@ -6,6 +6,7 @@ import type { PeopleService } from '../people';
 import type { FeatureFlagService } from '../platform';
 import { WorkspaceRepository } from './workspace-repository';
 import { WorkspaceService } from './workspace-service';
+export { assertExternalAiEnabled } from './external-ai';
 
 export { requireWorkspace, workspaceFromParam, type WorkspaceResolver } from './require-workspace';
 export {
@@ -30,6 +31,7 @@ export function createWorkspaceService(deps: {
   people: PeopleService;
   audit: AuditService;
   flags: FeatureFlagService;
+  aiProviders?: string[];
 }): WorkspaceService {
   return new WorkspaceService({ ...deps, repo: new WorkspaceRepository(deps.db) });
 }
