@@ -1,17 +1,24 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { type FormEvent, useState } from 'react';
+import { type FormEvent, useState, useSyncExternalStore } from 'react';
 
 import { FormError, FormField } from '@/components/app/form-field';
 import { Button } from '@/components/ui/button';
 import { api, problemMessage } from '@/lib/api/client';
 import { formValue } from '@/lib/form';
 
+const subscribeToHydration = () => () => {};
+
 export function CreateWorkspaceForm() {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const hydrated = useSyncExternalStore(
+    subscribeToHydration,
+    () => true,
+    () => false,
+  );
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -41,7 +48,7 @@ export function CreateWorkspaceForm() {
         autoFocus
       />
       <FormError message={error} />
-      <Button type="submit" disabled={pending}>
+      <Button type="submit" disabled={pending || !hydrated}>
         {pending ? 'Creating…' : 'Create workspace'}
       </Button>
     </form>
