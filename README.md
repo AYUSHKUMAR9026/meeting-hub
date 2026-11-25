@@ -247,3 +247,15 @@ See [ADR 0008](docs/adr/0008-live-meeting-rooms.md) for consent, storage and net
 
 Run the optional real-media browser test with `E2E_ROOMS=1 pnpm --filter @meeting-hub/web exec playwright test e2e/rooms.spec.ts`.
 The manually dispatched LiveKit room browser workflow runs it with Chromium fake devices against real LiveKit and Egress.
+
+## Free hosted AI and named speakers (Phase 9)
+
+Use free-tier Groq and Google AI Studio projects with billing disabled. Add server-side `GROQ_API_KEY` and `GEMINI_API_KEY` to local `.env`, select `TRANSCRIPTION_PROVIDER=groq` and `LLM_PROVIDER=gemini`, and optionally set `LLM_FALLBACK_PROVIDER=groq`. No browser environment variable contains a key. AssemblyAI and Anthropic require explicit selection; they are never automatic fallbacks. Keyless development and CI use fake providers.
+
+As an owner/admin, open workspace **Settings**, review the provider disclosure, and enable **Allow external AI processing**. It defaults off. Audio stays playable if external processing is disabled or fails. Fake local providers do not send data and are exempt from this external-processing gate.
+
+Enable `pipeline.media=true,transcription.enabled=true,analysis.enabled=true,transcription.per_track_speakers=true` for live speaker attribution (and `rooms.enabled=true` for calls). Participant microphone tracks are transcribed independently and labelled from attendance, including display names and directory/user links. Uploaded recordings use one generic speaker label. No diarization is used. Quota pressure falls back to the mixed recording and shows a notice; exhausted free quota defers work with an estimated retry time. Repaired extraction has a low-confidence badge.
+
+Groq's published Whisper free limits are 25 MB/upload, 20 requests/minute, 2,000/day, 7,200 audio seconds/hour and 28,800/day. Gemini quotas vary by account: set the application caps in `.env` no higher than the values in AI Studio. Current Groq Llama models are enterprise-only, so the alternative defaults to the listed free `openai/gpt-oss-20b`. See [ADR 0009](docs/adr/0009-free-ai-and-track-speakers.md) for verified sources, model limits, quota behavior and quality limitations.
+
+With Redis and ffmpeg available, run `pnpm check:live "C:/path/to/recording.wav"` to send a real file through the configured free providers without database access. It prints duration, word/speaker/item counts, citation validity and runtime. `--show` explicitly displays transcript/document text. A single file has a generic speaker because it has no attendance provenance. The check is never run in CI; verify named speakers separately in a real opted-in two-person room. Physical microphone and model quality need real recordings, not fake-device fixtures.

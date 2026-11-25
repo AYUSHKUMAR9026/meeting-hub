@@ -212,3 +212,13 @@ The rooms module owns room/session state and provider adapters. Keep join tokens
 Only consented identities may publish to a recorded session. Egress objects stay beneath the meeting prefix.
 Mixed audio emits recording.uploaded through the transactional outbox. Participant tracks remain stored for Phase 9.
 Gate room entry points with rooms.enabled. Keep synthetic room recordings confined to the fake provider.
+
+## Free AI and track speakers (ADR 0009)
+
+- Real external transcription/analysis requires workspace `external_ai_enabled`; check again before every external request, including fallback and resumed chunks. Local fake fixtures send no external data. Never automatically enable workspace consent.
+- Groq/Gemini are the hosted free path; AssemblyAI/Anthropic remain explicit opt-ins. Never automatically fall back to a paid adapter. Verify model availability and account quotas before changing defaults; Gemini's public docs do not guarantee a universal free quota.
+- Gate attendance-based speakers with `transcription.per_track_speakers` (default off). Restore silence-trim and chunk timestamps before adding track offsets. Do not infer identities from diarization. Mixed fallback and uploads have generic speaker labels.
+- Persist successful chunk content/async receipts and source plans in scoped transcription checkpoints. Keep content out of step metadata, queues, error details and audit. Shared Redis quota reservations apply across workers and `check:live`; Redis failure must defer work.
+- Save quota retry times in Postgres and release the worker. Quota waits do not exhaust normal attempts, and recovered jobs must honor the saved retry time. Drop uncited items; repaired extraction must remain visibly low confidence.
+- Preserve migration 0007's selective attendance SET NULL and migration 0008's selective speaker/action identity SET NULL clauses when regenerating migrations. Null only optional identity columns, never tenant/revision columns.
+- `pnpm check:live <file> [--show]` is a manual, real-key check outside the database, never a CI job. Do not claim real-provider quality or real-microphone verification from mocked HTTP or fake-device browser tests.
