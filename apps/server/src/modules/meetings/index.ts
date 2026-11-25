@@ -59,6 +59,7 @@ export function createMeetingServices(deps: {
 }
 
 export function createMeetingMaintenance(deps: {
+  stopRooms?: (meetingId: string) => Promise<void>;
   db: Database;
   storage: ObjectStorage;
   audit: AuditService;
@@ -73,5 +74,6 @@ export function createMeetingMaintenance(deps: {
     logger: deps.logger.child({ module: 'meetings.maintenance' }),
     runs: deps.runs,
     staleAfterHours: deps.staleAfterHours,
+    stopRooms: deps.stopRooms,
   });
 }

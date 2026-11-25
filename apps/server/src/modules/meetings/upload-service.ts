@@ -105,6 +105,8 @@ export class UploadService {
   ): Promise<UploadSession> {
     const { repo, storage, limits } = this.deps;
     const meeting = await this.modifiableMeeting(actor, meetingId);
+    if (meeting.roomStatus === 'live')
+      throw new ConflictError('ROOM_LIVE', 'End the live meeting before uploading a recording');
     const contentType = input.contentType.toLowerCase();
 
     const previous = await repo.findByIdempotencyKey(actor.workspaceId, idempotencyKey);

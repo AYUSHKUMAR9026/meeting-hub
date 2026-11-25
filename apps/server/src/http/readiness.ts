@@ -11,6 +11,7 @@ export interface ReadinessDeps {
   s3: S3Client;
   bucket: string;
   timeoutMs?: number;
+  livekit?: () => Promise<unknown>;
 }
 
 async function check(name: DependencyName, fn: () => Promise<unknown>, timeoutMs: number) {
@@ -49,7 +50,12 @@ export async function checkReadiness(deps: ReadinessDeps): Promise<ReadyResponse
       timeoutMs,
     ),
   ]);
-  const checks = { postgres, redis, s3 };
+  const checks = {
+    postgres,
+    redis,
+    s3,
+    ...(deps.livekit ? { livekit: await check('livekit', deps.livekit, timeoutMs) } : {}),
+  };
   const allUp = Object.values(checks).every((c) => c.status === 'up');
   return { status: allUp ? 'ready' : 'not_ready', checks };
 }

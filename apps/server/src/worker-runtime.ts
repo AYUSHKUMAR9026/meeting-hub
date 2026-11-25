@@ -3,6 +3,7 @@
  * outbox dispatcher and the processing sweeper. worker.ts runs it; integration tests run it too.
  */
 import { buildProcessing } from './deps';
+import { RoomService } from './modules/rooms';
 import { type MaintenanceRuntime, startMaintenance } from './jobs/maintenance';
 import { type ProcessingWorkers, startProcessingWorkers } from './jobs/processing';
 import { DEFAULT_QUEUE_PREFIX, QUEUE_NAMES, type StalledJobSettings } from './jobs/queues';
@@ -78,7 +79,11 @@ export async function startWorkerRuntime(
       ...(options.llm ? { llm: options.llm } : {}),
     },
   );
+  const rooms = new RoomService(db.db, config, storage, audit, async (id) => {
+    await redis.publish('meeting-hub:processing:meeting:' + id, JSON.stringify({ meetingId: id }));
+  });
   const meetings = createMeetingMaintenance({
+    stopRooms: (id) => rooms.stopForDeletion(id),
     db: db.db,
     storage,
     audit,
@@ -129,6 +134,7 @@ export async function startWorkerRuntime(
         flags,
         meetings,
         sweeper: processing.sweeper,
+        rooms,
         sweepIntervalMs: config.PROCESSING_SWEEP_INTERVAL_MS,
         concurrency: config.WORKER_CONCURRENCY,
         heartbeatIntervalMs: config.HEARTBEAT_INTERVAL_MS,

@@ -79,6 +79,14 @@ export class FeatureFlagService {
     return [...keys].sort().map((key) => this.evaluateWith(snapshot, key, context));
   }
 
+  async enabledAnywhere(key: FlagKey): Promise<boolean> {
+    const snapshot = await this.getSnapshot();
+    if (this.evaluateWith(snapshot, key, {}).enabled) return true;
+    return [...snapshot.byWorkspace.keys()].some(
+      (workspaceId) => this.evaluateWith(snapshot, key, { workspaceId }).enabled,
+    );
+  }
+
   /** Drops the cached snapshot so the next evaluation reads the store. */
   invalidate(): void {
     this.snapshot = undefined;

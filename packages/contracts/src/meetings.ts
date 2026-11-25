@@ -29,7 +29,7 @@ export const meetingParticipantSchema = z
 export const recordingSummarySchema = z
   .object({
     id: z.uuid(),
-    kind: z.enum(['original', 'normalized']),
+    kind: z.enum(['original', 'normalized', 'mixed_audio', 'participant_track']),
     fileName: z.string().describe('Original file name (display only; never used as a storage key)'),
     contentType: z.string(),
     sizeBytes: z.int(),

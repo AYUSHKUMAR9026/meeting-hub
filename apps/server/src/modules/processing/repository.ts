@@ -193,7 +193,9 @@ export class ProcessingRepository {
         and(
           eq(recordings.workspaceId, workspaceId),
           eq(recordings.meetingId, meetingId),
-          eq(recordings.kind, kind),
+          kind === 'original'
+            ? inArray(recordings.kind, ['original', 'mixed_audio'])
+            : eq(recordings.kind, kind),
         ),
       );
     return row;

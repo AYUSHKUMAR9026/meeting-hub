@@ -4,6 +4,7 @@ import { createMeetingDeletionScheduler } from './jobs/meeting-jobs';
 import { DEFAULT_QUEUE_PREFIX, type LazyQueue, lazyQueue, QUEUE_NAMES } from './jobs/queues';
 import { type BullStepQueue, createStepQueue } from './jobs/step-queue';
 import { ProcessingEventHub } from './http/processing-events';
+import { RoomService } from './modules/rooms';
 import type { Config } from './lib/config';
 import { createDatabase, type DbClient } from './lib/db';
 import type { Logger } from './lib/logger';
@@ -38,6 +39,7 @@ import { createWorkspaceService, type WorkspaceService } from './modules/workspa
 
 /** Everything the API needs, created once at startup and injected (keeps tests swappable). */
 export interface ApiDeps {
+  rooms: RoomService;
   config: Config;
   logger: Logger;
   db: DbClient;
@@ -212,6 +214,12 @@ export function createApiDeps(
     stepQueue,
     processing,
     transcription: new TranscriptionService(db.db, audit),
+    rooms: new RoomService(db.db, config, storage, audit, async (id) => {
+      await redis.publish(
+        'meeting-hub:processing:meeting:' + id,
+        JSON.stringify({ meetingId: id }),
+      );
+    }),
     documents,
     exports: new ExportService({
       db: db.db,

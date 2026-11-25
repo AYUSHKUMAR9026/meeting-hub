@@ -22,6 +22,14 @@ export function originalRecordingKey(workspaceId: string, meetingId: string): st
   return `${meetingPrefix(workspaceId, meetingId)}original/${randomUUID()}`;
 }
 
+export function roomRecordingKey(
+  workspaceId: string,
+  meetingId: string,
+  kind: 'mixed_audio' | 'participant_track',
+): string {
+  return meetingPrefix(workspaceId, meetingId) + kind + '/' + randomUUID();
+}
+
 /**
  * Outputs of a processing run (ADR 0004): `…/normalized/{runId}` and `…/peaks/{runId}`. Derived from
  * the run id rather than random, so a retried step overwrites its own objects instead of leaving

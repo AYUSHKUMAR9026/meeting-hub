@@ -19,6 +19,7 @@ import { analysisRoutes } from './http/routes/analysis';
 import { auditRoutes } from './http/routes/audit';
 import { authRoutes } from './http/routes/auth';
 import { meetingRoutes } from './http/routes/meetings';
+import { roomRoutes } from './http/routes/rooms';
 import { meRoutes } from './http/routes/me';
 import { peopleRoutes } from './http/routes/people';
 import { processingRoutes } from './http/routes/processing';
@@ -129,6 +130,7 @@ export async function buildApp(deps: ApiDeps): Promise<FastifyInstance> {
   await app.register(peopleRoutes, { deps });
   await app.register(auditRoutes, { deps });
   await app.register(meetingRoutes, { deps });
+  await app.register(roomRoutes, { deps });
   await app.register(processingRoutes, { deps });
   await app.register(transcriptionRoutes, { deps });
   await app.register(analysisRoutes, { deps });

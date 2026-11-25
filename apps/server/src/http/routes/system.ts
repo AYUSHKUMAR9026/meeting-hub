@@ -40,6 +40,17 @@ export const systemRoutes: FastifyPluginCallbackZod<{ deps: ApiDeps }> = (app, {
         redis: deps.redis,
         s3: deps.s3,
         bucket: deps.config.S3_BUCKET,
+        ...(deps.config.ROOM_PROVIDER === 'livekit' &&
+        (await deps.flags.enabledAnywhere('rooms.enabled'))
+          ? {
+              livekit: async () => {
+                const response = await fetch(deps.config.LIVEKIT_URL, {
+                  signal: AbortSignal.timeout(2000),
+                });
+                if (!response.ok) throw new Error('LiveKit unavailable');
+              },
+            }
+          : {}),
       });
       return reply.status(result.status === 'ready' ? 200 : 503).send(result);
     },

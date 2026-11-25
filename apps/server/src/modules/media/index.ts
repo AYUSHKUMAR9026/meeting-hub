@@ -41,7 +41,13 @@ export {
   type PeaksJson,
   toInt8,
 } from './peaks';
-export { meetingPrefix, normalizedAudioKey, originalRecordingKey, peaksKey } from './storage-keys';
+export {
+  meetingPrefix,
+  normalizedAudioKey,
+  originalRecordingKey,
+  peaksKey,
+  roomRecordingKey,
+} from './storage-keys';
 export { JOB_DIR_PREFIX, listJobDirs, sweepStaleJobDirs, withJobDir } from './temp-dirs';
 export {
   firstBatch,

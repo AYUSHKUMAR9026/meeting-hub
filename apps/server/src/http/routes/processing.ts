@@ -132,6 +132,10 @@ export const processingRoutes: FastifyPluginCallbackZod<{ deps: ApiDeps }> = (
           if (closed) return;
           try {
             send(await runs.getProcessing(actor, meetingId));
+            if (await deps.flags.isEnabled('rooms.enabled', { workspaceId: actor.workspaceId })) {
+              const room = await deps.rooms.view(actor, meetingId).catch(() => null);
+              if (room) res.write('event: room.updated\ndata: ' + JSON.stringify(room) + '\n\n');
+            }
           } catch (err) {
             if (isAppError(err) && err.status === 404) {
               res.write('event: meeting.gone\ndata: {}\n\n');

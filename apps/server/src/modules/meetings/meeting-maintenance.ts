@@ -20,6 +20,7 @@ export class MeetingMaintenance {
   constructor(
     private readonly deps: {
       repo: MeetingRepository;
+      stopRooms?: (meetingId: string) => Promise<void>;
       storage: ObjectStorage;
       audit: AuditService;
       logger: Logger;
@@ -80,6 +81,7 @@ export class MeetingMaintenance {
     const { repo, storage, audit, logger } = this.deps;
     const meeting = await repo.findDeleted(meetingId);
     if (!meeting) return { purged: false, deletedObjects: 0, abortedUploads: 0 };
+    await this.deps.stopRooms?.(meetingId);
     // Stop processing before sweeping storage: a running step notices within seconds and removes
     // what it wrote; the rows go with the meeting below.
     await this.deps.runs.cancelForMeeting(meeting.id, 'meeting_deleted');

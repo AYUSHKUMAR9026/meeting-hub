@@ -43,6 +43,16 @@ export const configSchema = z
     API_PORT: z.coerce.number().int().min(1).max(65535).default(4000),
     WEB_ORIGIN: z.url(),
     SHUTDOWN_TIMEOUT_MS: positiveInt.default(10_000),
+    ROOM_PROVIDER: z.enum(['livekit', 'fake']).default('fake'),
+    LIVEKIT_URL: z.url({ protocol: /^https?$/ }).default('http://localhost:7880'),
+    LIVEKIT_PUBLIC_URL: z.url({ protocol: /^wss?$/ }).default('ws://localhost:7880'),
+    LIVEKIT_API_KEY: z.string().min(1).optional(),
+    LIVEKIT_API_SECRET: z.string().min(32).optional(),
+    ROOM_MAX_PARTICIPANTS: positiveInt.default(12),
+    ROOM_MAX_MINUTES: positiveInt.default(60),
+    ROOM_EMPTY_TIMEOUT_SECONDS: positiveInt.default(60),
+    ROOM_WORKSPACE_LIMIT: positiveInt.default(3),
+    LIVEKIT_EGRESS_S3_ENDPOINT: z.url().optional(),
 
     DATABASE_URL: z.url({ protocol: /^postgres(ql)?$/, error: 'must be a postgres:// URL' }),
     DATABASE_POOL_MAX: positiveInt.default(10),
@@ -143,6 +153,13 @@ export const configSchema = z
     TRUST_PROXY_HOPS: z.coerce.number().int().min(0).max(10).default(1),
   })
   .superRefine((c, ctx) => {
+    if (c.ROOM_PROVIDER === 'livekit' && (!c.LIVEKIT_API_KEY || !c.LIVEKIT_API_SECRET)) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['ROOM_PROVIDER'],
+        message: 'LiveKit credentials are required',
+      });
+    }
     if (c.LLM_PROVIDER === 'anthropic' && !c.ANTHROPIC_API_KEY) {
       ctx.addIssue({
         code: 'custom',

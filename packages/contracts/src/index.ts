@@ -9,3 +9,4 @@ export * from './review';
 export * from './system';
 export * from './transcription';
 export * from './workspaces';
+export * from './rooms';

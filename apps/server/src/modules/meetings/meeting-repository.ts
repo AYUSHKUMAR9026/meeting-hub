@@ -84,6 +84,11 @@ const meetingColumns = {
   language: meetings.language,
   status: meetings.status,
   source: meetings.source,
+  roomStatus: meetings.roomStatus,
+  roomName: meetings.roomName,
+  roomStartedAt: meetings.roomStartedAt,
+  roomEndedAt: meetings.roomEndedAt,
+  recordingEnabled: meetings.recordingEnabled,
   createdBy: meetings.createdBy,
   createdAt: meetings.createdAt,
   updatedAt: meetings.updatedAt,
@@ -205,7 +210,7 @@ export class MeetingRepository {
         and(
           eq(recordings.workspaceId, workspaceId),
           eq(recordings.meetingId, meetingId),
-          eq(recordings.kind, 'original'),
+          inArray(recordings.kind, ['original', 'mixed_audio']),
         ),
       );
     return row;
@@ -341,7 +346,12 @@ export class MeetingRepository {
       this.db
         .select()
         .from(recordings)
-        .where(and(inArray(recordings.meetingId, ids), eq(recordings.kind, 'original'))),
+        .where(
+          and(
+            inArray(recordings.meetingId, ids),
+            inArray(recordings.kind, ['original', 'mixed_audio']),
+          ),
+        ),
     ]);
     return rows.map((row) => ({
       ...row,

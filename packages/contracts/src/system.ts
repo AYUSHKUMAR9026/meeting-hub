@@ -8,7 +8,7 @@ export const healthResponseSchema = z
   .meta({ id: 'HealthResponse' });
 export type HealthResponse = z.infer<typeof healthResponseSchema>;
 
-export const dependencyNames = ['postgres', 'redis', 's3'] as const;
+export const dependencyNames = ['postgres', 'redis', 's3', 'livekit'] as const;
 export const dependencyNameSchema = z.enum(dependencyNames);
 export type DependencyName = z.infer<typeof dependencyNameSchema>;
 
@@ -28,6 +28,7 @@ export const readyResponseSchema = z
       postgres: dependencyCheckSchema,
       redis: dependencyCheckSchema,
       s3: dependencyCheckSchema,
+      livekit: dependencyCheckSchema.optional(),
     }),
   })
   .meta({ id: 'ReadyResponse' });

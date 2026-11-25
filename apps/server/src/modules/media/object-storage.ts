@@ -1,6 +1,7 @@
 import {
   AbortMultipartUploadCommand,
   CompleteMultipartUploadCommand,
+  CopyObjectCommand,
   CreateMultipartUploadCommand,
   DeleteObjectCommand,
   DeleteObjectsCommand,
@@ -66,6 +67,15 @@ export function attachmentDisposition(fileName: string): string {
  * browsers use (it may point at a different, public endpoint); `s3` makes the server's own calls.
  */
 export class ObjectStorage {
+  async copyObject(source: string, destination: string): Promise<void> {
+    await this.s3.send(
+      new CopyObjectCommand({
+        Bucket: this.bucket,
+        Key: destination,
+        CopySource: encodeURIComponent(this.bucket + '/' + source),
+      }),
+    );
+  }
   constructor(
     private readonly s3: S3Client,
     private readonly signer: S3Client,

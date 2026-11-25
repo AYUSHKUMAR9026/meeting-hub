@@ -68,6 +68,7 @@ interface CaseRequest {
 }
 
 interface RouteSpec {
+  roleStatus?: Partial<Record<WorkspaceRole, number>>;
   /** Must match the route's own `config.access` (checked below), so the two can't drift. */
   access: 'public' | 'authenticated' | Action;
   success: number;
@@ -284,6 +285,41 @@ const invitationForCaller = ({ caller }: CaseContext) =>
 // --- the route table ------------------------------------------------------------------------------
 
 const ROUTES: Record<string, RouteSpec> = {
+  'POST /v1/rooms/webhook': {
+    access: 'public',
+    success: 401,
+    request: () => ({ url: '/v1/rooms/webhook', payload: {} }),
+  },
+  'GET /v1/meetings/:id/room': {
+    access: 'meeting.read',
+    success: 200,
+    request: async (ctx) => ({ url: `/v1/meetings/${await insertMeeting(ctx)}/room` }),
+  },
+  'POST /v1/meetings/:id/room/start': {
+    access: 'meeting.read',
+    success: 200,
+    request: async (ctx) => ({
+      url: `/v1/meetings/${await insertMeeting(ctx)}/room/start`,
+      payload: { recordingEnabled: false },
+    }),
+  },
+  'POST /v1/meetings/:id/room/end': {
+    access: 'meeting.read',
+    success: 200,
+    request: async (ctx) => ({
+      url: `/v1/meetings/${await insertMeeting(ctx)}/room/end`,
+      payload: {},
+    }),
+  },
+  'POST /v1/meetings/:id/room/join': {
+    access: 'meeting.read',
+    success: 409,
+    roleStatus: { member: 404, viewer: 404 },
+    request: async (ctx) => ({
+      url: `/v1/meetings/${await insertMeeting(ctx)}/room/join`,
+      payload: { consentAcknowledged: true },
+    }),
+  },
   'GET /v1/meetings/:id/export': {
     access: 'meeting.read',
     success: 200,
@@ -726,6 +762,7 @@ function expectedStatus(spec: RouteSpec, caller: Caller): number {
   if (caller === 'signed-out') return 401;
   if (spec.access === 'authenticated') return spec.success;
   if (caller === 'non-member') return 404;
+  if (spec.roleStatus?.[caller]) return spec.roleStatus[caller];
   return roleCan(caller, spec.access) ? spec.success : 403;
 }
 
@@ -734,8 +771,9 @@ const declaredKind = (access: RouteAccess | undefined) =>
 
 // The catalog is only known once the app is built, so build it before collecting tests.
 const t: TestApp = await createTestApp({
+  ROOM_WORKSPACE_LIMIT: '100',
   FEATURE_FLAGS_OVERRIDE:
-    'workspaces.invitations=true,people.directory=true,meetings.upload=true,pipeline.media=true,transcription.enabled=true,analysis.enabled=true,exports.enabled=true,sharing.enabled=true,review.enabled=true',
+    'workspaces.invitations=true,people.directory=true,meetings.upload=true,pipeline.media=true,transcription.enabled=true,analysis.enabled=true,exports.enabled=true,sharing.enabled=true,review.enabled=true,rooms.enabled=true',
 });
 const catalog = t.app.routeCatalog.filter((r) => r.url.startsWith('/v1/'));
 

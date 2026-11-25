@@ -21,6 +21,11 @@ export const clientVisibleFlags = (): FlagKey[] =>
     .map(([key]) => key);
 
 export const flagDefinitions = {
+  'rooms.enabled': {
+    description: 'Host and join live workspace meeting rooms.',
+    defaultEnabled: false,
+    clientVisible: true,
+  },
   'platform.heartbeat': {
     description: 'Run the maintenance heartbeat job in the worker.',
     defaultEnabled: true,

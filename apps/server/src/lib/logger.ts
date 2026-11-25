@@ -6,6 +6,10 @@ export type { Logger };
 
 /** Field names whose values must never reach logs (meeting content is sensitive). */
 const SENSITIVE_FIELDS = [
+  'token',
+  'joinToken',
+  'webhookBody',
+  'LIVEKIT_API_SECRET',
   'transcript',
   'transcriptText',
   'utterances',
