@@ -235,3 +235,15 @@ Both images run as the non-root `node` user. The server image includes Alpine's 
   `apps/web/.next` and start `pnpm dev` again.
 
 See [`CLAUDE.md`](CLAUDE.md) for conventions and [`docs/adr`](docs/adr) for design decisions.
+
+# Live meeting rooms
+
+Start the optional room infrastructure with `docker compose -f infra/docker-compose.yml --profile rooms up -d`.
+Use the LiveKit configuration in .env.example and enable `rooms.enabled=true` in FEATURE_FLAGS_OVERRIDE.
+Recording and document generation also require `pipeline.media=true,transcription.enabled=true,analysis.enabled=true`.
+The fake transcription and analysis providers produce development fixtures.
+The fake room provider supplies synthetic recordings for API tests. Select the livekit provider to hold browser calls.
+See [ADR 0008](docs/adr/0008-live-meeting-rooms.md) for consent, storage and network requirements.
+
+Run the optional real-media browser test with `E2E_ROOMS=1 pnpm --filter @meeting-hub/web exec playwright test e2e/rooms.spec.ts`.
+The manually dispatched LiveKit room browser workflow runs it with Chromium fake devices against real LiveKit and Egress.

@@ -205,3 +205,10 @@ resource)` and Better Auth's access-control roles are both derived from it. Add 
 
 Embeddings, semantic search, Q&A, Google Meet integration, 2FA/SSO, Postgres RLS (hardening),
 production email provider, and deployment. Do not create `packages/ai` or `evals/` until those phases start.
+
+## Live meeting rooms (ADR 0008)
+
+The rooms module owns room/session state and provider adapters. Keep join tokens and webhook bodies out of logs.
+Only consented identities may publish to a recorded session. Egress objects stay beneath the meeting prefix.
+Mixed audio emits recording.uploaded through the transactional outbox. Participant tracks remain stored for Phase 9.
+Gate room entry points with rooms.enabled. Keep synthetic room recordings confined to the fake provider.
