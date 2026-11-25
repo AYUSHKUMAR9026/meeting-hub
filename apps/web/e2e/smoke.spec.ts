@@ -216,6 +216,24 @@ test('sign up → verify → workspace → invite → accept → upload → revi
     .filter({ has: ownerPage.getByRole('heading', { name: 'Share next steps' }) });
   await trackedAction.getByRole('button', { name: 'Mark done' }).click();
   await expect(trackedAction.getByText('done', { exact: true })).toBeVisible();
+  // Progress uses the same current document scope, and its links initialize tracker filters.
+  const progressPage = await ownerPage.context().newPage();
+  const workspaceBase = new URL(ownerPage.url()).pathname.replace(/\/action-items.*$/, '');
+  await progressPage.goto(`${workspaceBase}/progress`);
+  await expect(progressPage.getByTestId('progress-done')).toContainText('1');
+  await expect(progressPage.getByTestId('progress-open')).toContainText('0');
+  await expect(progressPage.getByTestId('progress-completion-rate')).toContainText('100%');
+  await progressPage.getByText('View actions over time data table', { exact: true }).click();
+  await expect(progressPage.getByRole('table').first()).toContainText('Done');
+  await progressPage.locator('path.recharts-rectangle[fill="url(#done-progress)"]').first().click();
+  await expect(progressPage).toHaveURL(/action-items\?.*status=done/);
+  await expect(progressPage.getByLabel('Status')).toHaveValue('done');
+  await expect(
+    progressPage
+      .getByRole('listitem')
+      .filter({ has: progressPage.getByRole('heading', { name: 'Share next steps' }) }),
+  ).toContainText('done');
+  await progressPage.close();
   await trackedAction.getByRole('link', { name: 'Evidence at', exact: false }).click();
   await expect(ownerPage.getByTestId('transcript-segment').first()).toBeFocused();
   await expect
