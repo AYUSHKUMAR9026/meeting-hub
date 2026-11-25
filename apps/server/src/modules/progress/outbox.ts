@@ -9,7 +9,8 @@ const payload = z.object({ workspaceId: z.uuid() });
 export function progressOutboxHandler(): OutboxHandler {
   return {
     type: 'progress.changed',
-    flag: 'progress.enabled',
+    // Always drain notifications. Keeping them deferred while disabled can starve unrelated
+    // event types behind the dispatcher's bounded scan. Only snapshot aggregation is flag-gated.
     async handle(event, tx) {
       const { workspaceId } = payload.parse(event.payload);
       await tx.execute(sql`INSERT INTO progress_refresh_requests(workspace_id, available_at)

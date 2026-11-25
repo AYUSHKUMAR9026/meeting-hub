@@ -29,6 +29,7 @@ import { progressQuerySchema } from '@meeting-hub/contracts';
 
 import { localDate, shiftDate } from '../src/modules/progress/metrics';
 import { progressOutboxHandler, type ProgressService } from '../src/modules/progress';
+import { OutboxDispatcher } from '../src/modules/platform';
 import {
   addMember,
   call,
@@ -171,6 +172,30 @@ describe('workspace progress', () => {
           })
         ).statusCode,
       ).toBe(200);
+      const type = `test.progress.${randomUUID()}`;
+      await t.deps.db.db
+        .insert(domainEvents)
+        .values(Array.from({ length: 1050 }, () => ({ type, payload: { workspaceId } })));
+      const [followup] = await t.deps.db.db
+        .insert(domainEvents)
+        .values({ type: type + '.followup', payload: { workspaceId } })
+        .returning();
+      const dispatcher = new OutboxDispatcher({
+        db: t.deps.db.db,
+        flags: disabled.deps.flags,
+        logger: t.deps.logger,
+        handlers: [
+          { ...progressOutboxHandler(), type },
+          { type: type + '.followup', handle: () => Promise.resolve() },
+        ],
+      });
+      await dispatcher.pollOnce();
+      await dispatcher.pollOnce();
+      const [processed] = await t.deps.db.db
+        .select()
+        .from(domainEvents)
+        .where(eq(domainEvents.id, followup!.id));
+      expect(processed!.processedAt).not.toBeNull();
     } finally {
       await disabled.close();
     }

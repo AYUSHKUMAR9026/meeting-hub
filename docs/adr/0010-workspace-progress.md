@@ -67,8 +67,10 @@ use document creation time. Backfilled does not mean a complete event history.
 Database triggers write initial/status events in the item transaction, covering individual edits,
 bulk review, manual inserts and pipeline publications. DocumentService sets a transaction-local
 actor ID. Background writes have a null actor. Triggers also emit content-free `progress.changed`
-outbox events for item edits, current document publication and meeting changes. The flag-gated
-outbox consumer writes a refresh request once, eligible after five seconds; bursts coalesce without
+outbox events for item edits, current document publication and meeting changes. The outbox consumer
+always drains notifications into a refresh request, even while the feature is disabled: deferred
+notifications would otherwise starve later recording events behind the dispatcher's bounded scan.
+The flag gates aggregation, routes and UI. Requests are eligible after five seconds; bursts coalesce without
 indefinite postponement. The maintenance scheduler checks a fair keyset page of 100 workspaces per
 minute, refreshes dirty workspaces and creates an observation after local midnight. A complete
 rotation takes `ceil(workspaces / 100)` minutes. Restart resets the cursor; missing snapshots and
