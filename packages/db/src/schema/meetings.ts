@@ -14,7 +14,7 @@ import {
   uuid,
 } from 'drizzle-orm/pg-core';
 
-import { organization, user } from './auth';
+import { invitation, organization, user } from './auth';
 import { createdAt, id, timestamptz, updatedAt } from './columns';
 import { people } from './workspaces';
 
@@ -54,6 +54,16 @@ export const meetings = pgTable(
     workspaceId: uuid('workspace_id')
       .notNull()
       .references(() => organization.id, { onDelete: 'cascade' }),
+    resultPolicy: text('result_policy')
+      .$type<'legacy' | 'temporary'>()
+      .notNull()
+      .default('temporary'),
+    pdfState: text('pdf_state')
+      .$type<'pending' | 'ready' | 'failed'>()
+      .notNull()
+      .default('pending'),
+    pdfDirtyAt: timestamptz('pdf_dirty_at'),
+    transcriptPurgedAt: timestamptz('transcript_purged_at'),
     title: text('title').notNull(),
     occurredAt: timestamptz('occurred_at').notNull(),
     durationMs: integer('duration_ms'),
@@ -249,6 +259,8 @@ export const recordings = pgTable(
     workspaceId: uuid('workspace_id').notNull(),
     kind: text('kind').$type<RecordingKind>().notNull().default('original'),
     storageKey: text('storage_key').notNull(),
+    purgedAt: timestamptz('purged_at'),
+    purgeReason: text('purge_reason'),
     originalFilename: text('original_filename').notNull(),
     attendanceId: uuid('attendance_id'),
     startOffsetMs: integer('start_offset_ms'),
@@ -299,7 +311,9 @@ export const recordings = pgTable(
     uniqueIndex('recordings_workspace_id_idempotency_key_key')
       .on(t.workspaceId, t.idempotencyKey)
       .where(sql`${t.idempotencyKey} IS NOT NULL`),
-    uniqueIndex('recordings_storage_key_key').on(t.storageKey),
+    uniqueIndex('recordings_storage_key_key')
+      .on(t.storageKey)
+      .where(sql`${t.storageKey} <> ''`),
     // The stale-upload sweep looks for old in-flight uploads.
     index('recordings_uploading_created_at_idx')
       .on(t.createdAt)
@@ -319,3 +333,45 @@ export type NewMeeting = typeof meetings.$inferInsert;
 export type MeetingParticipantRow = typeof meetingParticipants.$inferSelect;
 export type RecordingRow = typeof recordings.$inferSelect;
 export type NewRecording = typeof recordings.$inferInsert;
+
+export const meetingInvitations = pgTable(
+  'meeting_invitations',
+  {
+    workspaceId: uuid('workspace_id').notNull(),
+    meetingId: uuid('meeting_id').notNull(),
+    invitationId: uuid('invitation_id')
+      .notNull()
+      .references(() => invitation.id, { onDelete: 'cascade' }),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.meetingId, t.invitationId] }),
+    foreignKey({
+      columns: [t.meetingId, t.workspaceId],
+      foreignColumns: [meetings.id, meetings.workspaceId],
+    }).onDelete('cascade'),
+  ],
+);
+
+export const roomMessages = pgTable(
+  'room_messages',
+  {
+    id: id(),
+    workspaceId: uuid('workspace_id').notNull(),
+    meetingId: uuid('meeting_id').notNull(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    clientId: text('client_id').notNull(),
+    text: text('text').notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    unique().on(t.meetingId, t.userId, t.clientId),
+    foreignKey({
+      columns: [t.meetingId, t.workspaceId],
+      foreignColumns: [meetings.id, meetings.workspaceId],
+    }).onDelete('cascade'),
+    index('room_messages_meeting_idx').on(t.workspaceId, t.meetingId, t.createdAt),
+  ],
+);
