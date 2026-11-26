@@ -252,15 +252,6 @@ it('deduplicates signed event delivery effects and purges live-room assets', asy
     event: 'participant_joined',
     createdAt: BigInt(Math.floor(Date.now() / 1000)),
     room: { name: session!.id },
-    ...(event === 'egress_ended'
-      ? {
-          egressInfo: {
-            roomName: session!.id,
-            egressId: 'missing-export',
-            status: 'EGRESS_FAILED',
-          },
-        }
-      : {}),
     participant: { identity: owner.userId },
   });
   const webhook = vi.spyOn(t.deps.rooms.provider, 'handleWebhook').mockResolvedValue(event);
