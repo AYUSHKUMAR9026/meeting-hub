@@ -83,7 +83,10 @@ test('member invitation and two-browser live meeting save a dated PDF without au
     await expect(host.getByTestId('meeting-status')).toHaveText('Ready', { timeout: 180000 });
     await expect(host.getByTestId('decision-pdf')).toBeVisible();
     const response = await host.request.get(
-      (await host.getByTestId('decision-pdf').getAttribute('src')) ?? '',
+      new URL(
+        (await host.getByTestId('decision-pdf').getAttribute('src')) ?? '',
+        host.url(),
+      ).toString(),
     );
     expect(response.ok()).toBeTruthy();
     expect(await pdfText(await response.body())).toContain('Review the agenda');
