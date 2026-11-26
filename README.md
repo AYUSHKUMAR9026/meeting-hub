@@ -330,3 +330,12 @@ the initial snapshot are marked as backfilled; legacy audits cannot reconstruct 
 time. History has workspace granularity; historical owner/meeting filters are unavailable. Missing
 observation dates are not fabricated. See [ADR 0010](docs/adr/0010-workspace-progress.md) for metrics,
 purge rules, query limits and the free MIT Recharts library choice.
+
+LiveKit sends signed webhooks to `http://host.docker.internal:4000/v1/rooms/webhook`.
+Compose maps that hostname through `extra_hosts: host-gateway`; the host API listens on
+`0.0.0.0:4000`. Container loopback cannot reach the host API. Redis uses `127.0.0.1`
+from host processes. Accepted webhooks log only signature verification, never the body.
+
+If Docker Desktop refuses the default gateway connection, set `LIVEKIT_HOST_GATEWAY`
+to the host LAN IPv4 address in `.env.local` and recreate LiveKit. The hostname stays
+`host.docker.internal`; never put container loopback in the webhook URL.
