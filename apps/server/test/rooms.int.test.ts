@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+import { AccessToken, WebhookReceiver } from 'livekit-server-sdk';
 import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, expect, it, vi } from 'vitest';
 import { WebhookEvent } from 'livekit-server-sdk';
@@ -250,6 +252,15 @@ it('deduplicates signed event delivery effects and purges live-room assets', asy
     event: 'participant_joined',
     createdAt: BigInt(Math.floor(Date.now() / 1000)),
     room: { name: session!.id },
+    ...(event === 'egress_ended'
+      ? {
+          egressInfo: {
+            roomName: session!.id,
+            egressId: 'missing-export',
+            status: 'EGRESS_FAILED',
+          },
+        }
+      : {}),
     participant: { identity: owner.userId },
   });
   const webhook = vi.spyOn(t.deps.rooms.provider, 'handleWebhook').mockResolvedValue(event);
@@ -363,3 +374,65 @@ it('enforces the workspace room cap and the timeout sweeper', async () => {
   await t.deps.rooms.sweep();
   expect((await t.deps.rooms.view(actor, created[0]!.id)).status).toBe('ended');
 });
+
+it.each([true, false])(
+  'accepts signed room and egress events without attendance (recording=%s)',
+  async (enabled) => {
+    const [m] = await t.deps.db.db
+      .insert(meetings)
+      .values({
+        workspaceId,
+        title: 'Signed room',
+        occurredAt: new Date(),
+        createdBy: owner.userId,
+      })
+      .returning();
+    const actor = { workspaceId, userId: owner.userId, role: 'owner' as const };
+    await t.deps.rooms.start(actor, m!.id, enabled);
+    const [session] = await t.deps.db.db
+      .select()
+      .from(roomSessions)
+      .where(eq(roomSessions.meetingId, m!.id));
+    const receiver = new WebhookReceiver('regression-key', 'regression-secret');
+    const verify = vi
+      .spyOn(t.deps.rooms.provider, 'handleWebhook')
+      .mockImplementation((body, auth) => receiver.receive(body, auth));
+    try {
+      for (const event of ['egress_ended', 'room_finished']) {
+        const body = JSON.stringify({
+          event,
+          id: randomUUID(),
+          createdAt: String(Math.floor(Date.now() / 1000)),
+          room: { name: session!.id },
+          ...(event === 'egress_ended'
+            ? {
+                egressInfo: {
+                  roomName: session!.id,
+                  egressId: 'missing-export',
+                  status: 'EGRESS_FAILED',
+                },
+              }
+            : {}),
+        });
+        const token = await new AccessToken('regression-key', 'regression-secret', {
+          sha256: createHash('sha256').update(body).digest('base64'),
+        }).toJwt();
+        const post = (authorization: string) =>
+          t.app.inject({
+            method: 'POST',
+            url: '/v1/rooms/webhook',
+            headers: { 'content-type': 'application/webhook+json', authorization },
+            payload: body,
+          });
+        expect((await post('invalid')).statusCode).toBe(401);
+        expect((await post(token)).statusCode).toBe(200);
+        expect((await post(token)).statusCode).toBe(200);
+      }
+      const view = await t.deps.rooms.view(actor, m!.id);
+      expect(view.status).toBe('ended');
+      expect(view.recordingStatus).toBe(enabled ? 'failed' : 'off');
+    } finally {
+      verify.mockRestore();
+    }
+  },
+);
