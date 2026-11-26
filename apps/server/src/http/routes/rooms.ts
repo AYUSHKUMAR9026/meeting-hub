@@ -94,7 +94,7 @@ export const roomRoutes: FastifyPluginCallbackZod<{ deps: ApiDeps }> = (app, { d
           req.headers.authorization ?? '',
           (workspaceId) => deps.flags.isEnabled('rooms.enabled', { workspaceId }),
         );
-        app.log.info({ signatureVerified: true, statusCode: 200 }, 'LiveKit webhook accepted');
+        deps.logger.info({ signatureVerified: true, statusCode: 200 }, 'LiveKit webhook accepted');
         return reply.status(200).send();
       },
     );
