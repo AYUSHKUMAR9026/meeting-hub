@@ -15,6 +15,8 @@ import { problems, WORKSPACE_ERRORS } from './problems';
 
 export const roomRoutes: FastifyPluginCallbackZod<{ deps: ApiDeps }> = (app, { deps }, done) => {
   app.addHook('onSend', (_req, reply, payload, sent) => {
+    if (_req.url === '/v1/rooms/webhook')
+      deps.logger.info({ statusCode: reply.statusCode }, 'LiveKit webhook response');
     reply.header('Cache-Control', 'no-store');
     sent(null, payload);
   });
