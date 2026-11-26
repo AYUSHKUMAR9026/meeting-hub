@@ -75,7 +75,7 @@ export default function MembersPage() {
       {can('invitation.read') && (
         <Card>
           <CardHeader>
-            <CardTitle>Pending invitations</CardTitle>
+            <CardTitle>Invitations</CardTitle>
           </CardHeader>
           <CardContent>
             {invitations.state.status === 'loading' && <LoadingRows />}
@@ -101,6 +101,11 @@ export default function MembersPage() {
 
 function InviteCard({ onInvited }: { onInvited: () => void }) {
   const workspace = useWorkspace();
+  const meetingOptions = useApiQuery('invite-meetings:' + workspace.id, () =>
+    api.GET('/v1/workspaces/{wid}/meetings', {
+      params: { path: { wid: workspace.id }, query: { limit: 100 } },
+    }),
+  );
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
@@ -113,7 +118,11 @@ function InviteCard({ onInvited }: { onInvited: () => void }) {
     const email = formValue(form, 'email');
     const { error: apiError } = await api.POST('/v1/workspaces/{wid}/invitations', {
       params: { path: { wid: workspace.id } },
-      body: { email, role: formValue(form, 'role') as WorkspaceRole },
+      body: {
+        email,
+        role: formValue(form, 'role') as WorkspaceRole,
+        meetingIds: form.getAll('meetingIds').map(String),
+      },
     });
     setPending(false);
     if (apiError) {
@@ -146,6 +155,17 @@ function InviteCard({ onInvited }: { onInvited: () => void }) {
               ))}
             </NativeSelect>
           </div>
+          <fieldset className="grid gap-1">
+            <legend>Also invite to meetings (optional)</legend>
+            {meetingOptions.state.status === 'ok' &&
+              meetingOptions.state.data.meetings
+                .filter((m) => m.roomStatus === 'live' || m.roomStatus === 'scheduled')
+                .map((m) => (
+                  <label key={m.id}>
+                    <input type="checkbox" name="meetingIds" value={m.id} /> {m.title}
+                  </label>
+                ))}
+          </fieldset>
           <Button type="submit" disabled={pending}>
             {pending ? 'Sending…' : 'Send invitation'}
           </Button>
@@ -257,7 +277,7 @@ function PendingInvitations({
   invitations,
   onChanged,
 }: {
-  invitations: { id: string; email: string; role: string; expiresAt: string }[];
+  invitations: { id: string; email: string; role: string; expiresAt: string; status: string }[];
   onChanged: () => void;
 }) {
   const workspace = useWorkspace();
@@ -290,13 +310,18 @@ function PendingInvitations({
       <TableBody>
         {invitations.map((invitation) => (
           <TableRow key={invitation.id}>
-            <TableCell>{invitation.email}</TableCell>
+            <TableCell>
+              {invitation.email}{' '}
+              <Badge variant="secondary">
+                {invitation.status === 'rejected' ? 'declined' : invitation.status}
+              </Badge>
+            </TableCell>
             <TableCell>
               <Badge variant="outline">{invitation.role}</Badge>
             </TableCell>
             <TableCell>{new Date(invitation.expiresAt).toLocaleDateString()}</TableCell>
             <TableCell className="text-right">
-              {can('invitation.cancel') && (
+              {invitation.status === 'pending' && can('invitation.cancel') && (
                 <Button
                   variant="ghost"
                   size="sm"

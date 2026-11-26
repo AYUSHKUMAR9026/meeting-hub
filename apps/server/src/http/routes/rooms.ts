@@ -1,5 +1,8 @@
+import { z } from 'zod';
 import {
   meetingParamsSchema,
+  roomMessageRequestSchema,
+  roomMessageListSchema,
   roomStartSchema,
   roomJoinSchema,
   roomTokenSchema,
@@ -49,6 +52,32 @@ export const roomRoutes: FastifyPluginCallbackZod<{ deps: ApiDeps }> = (app, { d
   );
   app.post('/v1/meetings/:id/room/end', { config, schema }, (req) =>
     deps.rooms.end(workspaceActorOf(req), req.params.id),
+  );
+  app.get(
+    '/v1/meetings/:id/room/chat',
+    {
+      config,
+      schema: {
+        params: meetingParamsSchema,
+        response: { 200: roomMessageListSchema, ...problems(...WORKSPACE_ERRORS) },
+      },
+    },
+    (req) => deps.rooms.messages(workspaceActorOf(req), req.params.id),
+  );
+  app.post(
+    '/v1/meetings/:id/room/chat',
+    {
+      config,
+      schema: {
+        params: meetingParamsSchema,
+        body: roomMessageRequestSchema,
+        response: { 204: z.null(), ...problems(...WORKSPACE_ERRORS) },
+      },
+    },
+    async (req, reply) => {
+      await deps.rooms.saveMessage(workspaceActorOf(req), req.params.id, req.body);
+      return reply.code(204).send(null);
+    },
   );
   app.register((webhook, _options, registered) => {
     webhook.addContentTypeParser(

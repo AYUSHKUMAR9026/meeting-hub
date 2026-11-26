@@ -34,7 +34,7 @@ describe('permission matrix', () => {
   it('grants exactly these actions per role', () => {
     expect(Object.fromEntries(workspaceRoles.map((r) => [r, permissionsFor(r)]))).toEqual({
       owner: actions,
-      admin: actions.filter((a) => a !== 'workspace.delete'),
+      admin: actions.filter((a) => a !== 'workspace.delete' && a !== 'workspace.purge_content'),
       member: [
         'workspace.read',
         'member.read',

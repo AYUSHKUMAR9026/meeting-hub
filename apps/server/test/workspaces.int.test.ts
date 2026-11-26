@@ -42,6 +42,25 @@ describe('workspaces, members and invitations', () => {
   afterAll(() => t?.close());
 
   describe('creating a workspace', () => {
+    it('stores the PostgreSQL time zone name when the browser sends Asia/Calcutta', async () => {
+      const res = await call(t, owner, {
+        method: 'POST',
+        url: '/v1/workspaces',
+        payload: { name: 'India Workspace', timezone: 'Asia/Calcutta' },
+      });
+      expect(res.statusCode).toBe(201);
+      const workspace = res.json<{ id: string; settings: { timezone: string } }>();
+      expect(workspace.settings.timezone).toBe('Asia/Kolkata');
+
+      const updated = await call(t, owner, {
+        method: 'PATCH',
+        url: `/v1/workspaces/${workspace.id}`,
+        payload: { settings: { timezone: 'Asia/Calcutta' } },
+      });
+      expect(updated.statusCode).toBe(200);
+      expect(updated.json()).toMatchObject({ settings: { timezone: 'Asia/Kolkata' } });
+    });
+
     it('makes the creator owner, with default settings and a slug from the name', async () => {
       const res = await call(t, owner, { method: 'GET', url: `/v1/workspaces/${workspaceId}` });
       expect(res.statusCode).toBe(200);

@@ -12,6 +12,7 @@ export interface MailMessage {
 
 /** Outgoing email. SMTP today (Mailpit locally); a production provider comes later. */
 export interface Mailer {
+  verify?(): Promise<unknown>;
   send(message: MailMessage): Promise<void>;
   close(): void;
 }
@@ -30,9 +31,16 @@ export class SmtpMailer implements Mailer {
       host: config.SMTP_HOST,
       port: config.SMTP_PORT,
       secure: config.SMTP_SECURE,
+      connectionTimeout: 2000,
+      greetingTimeout: 2000,
+      socketTimeout: 2000,
       ...(config.SMTP_USER ? { auth: { user: config.SMTP_USER, pass: config.SMTP_PASSWORD } } : {}),
     });
     this.from = config.MAIL_FROM;
+  }
+
+  verify() {
+    return this.transport.verify();
   }
 
   async send(message: MailMessage): Promise<void> {

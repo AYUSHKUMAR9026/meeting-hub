@@ -1,4 +1,5 @@
 // Public API of the workspaces module. A workspace is a Better Auth "organization" (ADR 0002).
+import type { Mailer } from '../../lib/mailer';
 import type { Database } from '../../lib/db';
 import type { AuditService } from '../audit';
 import type { Auth } from '../auth';
@@ -26,6 +27,8 @@ export {
 } from './workspace-service';
 
 export function createWorkspaceService(deps: {
+  mailer?: Mailer;
+  webOrigin?: string;
   db: Database;
   auth: Auth;
   people: PeopleService;

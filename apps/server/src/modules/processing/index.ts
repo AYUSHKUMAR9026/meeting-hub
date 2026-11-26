@@ -58,6 +58,7 @@ export { normalizedFileName } from './steps/prepare-media';
 export { ProcessingSweeper, type SweepResult, TIMEOUT_GRACE_MS } from './sweeper';
 
 export interface ProcessingDeps {
+  settleResult?: (workspaceId: string, meetingId: string) => Promise<void>;
   db: Database;
   storage: ObjectStorage;
   audit: AuditService;
@@ -107,6 +108,7 @@ export function createProcessing(deps: ProcessingDeps): Processing {
     deps.analysisStep,
   ]);
   const shared = {
+    ...(deps.settleResult ? { settleResult: deps.settleResult } : {}),
     repo,
     registry,
     queue: deps.queue,

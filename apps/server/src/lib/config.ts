@@ -79,6 +79,7 @@ export const configSchema = z
       .default(15 * 60),
     UPLOAD_URL_BATCH_SIZE: positiveInt.max(100).default(10),
     MAX_UPLOAD_BYTES: positiveInt.max(5 * 1024 ** 4).default(2 * 1024 * MiB),
+    RECORDING_TEMP_TTL_HOURS: positiveInt.max(48).default(48),
     UPLOAD_STALE_AFTER_HOURS: positiveInt.max(24 * 30).default(24),
     DOWNLOAD_URL_TTL_SECONDS: positiveInt
       .min(10)
@@ -185,7 +186,7 @@ export const configSchema = z
       ['groq', 'GROQ_API_KEY'],
       ['gemini', 'GEMINI_API_KEY'],
     ] as const) {
-      if (selected.includes(provider) && !c[key])
+      if (c.NODE_ENV !== 'development' && selected.includes(provider) && !c[key])
         ctx.addIssue({
           code: 'custom',
           path: [key],
@@ -198,7 +199,11 @@ export const configSchema = z
         path: ['LLM_FALLBACK_PROVIDER'],
         message: 'must differ from the primary provider',
       });
-    if (c.ROOM_PROVIDER === 'livekit' && (!c.LIVEKIT_API_KEY || !c.LIVEKIT_API_SECRET)) {
+    if (
+      c.NODE_ENV !== 'development' &&
+      c.ROOM_PROVIDER === 'livekit' &&
+      (!c.LIVEKIT_API_KEY || !c.LIVEKIT_API_SECRET)
+    ) {
       ctx.addIssue({
         code: 'custom',
         path: ['ROOM_PROVIDER'],
@@ -267,7 +272,7 @@ export function loadDotEnv(startDir: string = process.cwd()): void {
   let dir = startDir;
   for (;;) {
     if (existsSync(join(dir, 'pnpm-workspace.yaml'))) {
-      const envFile = join(dir, '.env');
+      const envFile = join(dir, existsSync(join(dir, '.env.local')) ? '.env.local' : '.env');
       if (existsSync(envFile)) process.loadEnvFile(envFile);
       return;
     }

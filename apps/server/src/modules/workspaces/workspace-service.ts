@@ -1,9 +1,11 @@
+import type { Mailer } from '../../lib/mailer';
 import { randomBytes } from 'node:crypto';
 
 import { ConflictError, NotFoundError } from '../../lib/errors';
 import type { AuditService, RequestOrigin } from '../audit';
 import {
   assertNoViolation,
+  assertCanModifyMeeting,
   type Auth,
   authorize,
   callAuth,
@@ -44,6 +46,7 @@ export interface InvitationDetails {
   expiresAt: Date;
   workspaceName: string;
   inviterEmail: string;
+  meetings: { id: string; title: string; dateTime: string; joinUrl: string }[];
 }
 
 /** The caller's identity for Better Auth calls (it re-reads the session from these headers). */
@@ -79,6 +82,8 @@ const notFound = () => new NotFoundError('Workspace not found');
 export class WorkspaceService {
   constructor(
     private readonly deps: {
+      mailer?: Mailer;
+      webOrigin?: string;
       auth: Auth;
       repo: WorkspaceRepository;
       people: PeopleService;
@@ -167,15 +172,34 @@ export class WorkspaceService {
       Object.entries(patch.settings ?? {}).filter(([, v]) => v !== undefined),
     ) as Partial<WorkspaceSettings>;
     const previousSettings =
-      settings.externalAiEnabled === undefined ? null : await repo.getSettings(actor.workspaceId);
+      settings.externalAiEnabled === undefined && settings.contentRetention === undefined
+        ? null
+        : await repo.getSettings(actor.workspaceId);
     if (Object.keys(settings).length > 0) await repo.updateSettings(actor.workspaceId, settings);
-    if (previousSettings && previousSettings.externalAiEnabled !== settings.externalAiEnabled)
+    if (
+      previousSettings &&
+      settings.externalAiEnabled !== undefined &&
+      previousSettings.externalAiEnabled !== settings.externalAiEnabled
+    )
       await audit.record({
         action: 'workspace.external_ai_toggled',
         workspaceId: actor.workspaceId,
         actorUserId: actor.userId,
         target: { type: 'workspace', id: actor.workspaceId },
         metadata: { enabled: settings.externalAiEnabled },
+        origin: caller.origin,
+      });
+
+    if (
+      previousSettings &&
+      settings.contentRetention !== undefined &&
+      previousSettings.contentRetention !== settings.contentRetention
+    )
+      await audit.record({
+        action: 'workspace.content_retention_changed',
+        workspaceId: actor.workspaceId,
+        actorUserId: actor.userId,
+        metadata: { from: previousSettings.contentRetention, to: settings.contentRetention },
         origin: caller.origin,
       });
 
@@ -294,7 +318,7 @@ export class WorkspaceService {
 
   async invite(
     actor: WorkspaceActor,
-    input: { email: string; role: WorkspaceRole },
+    input: { email: string; role: WorkspaceRole; meetingIds?: string[] | undefined },
     caller: CallerContext,
   ): Promise<InvitationView> {
     authorize(actor, 'invitation.create');
@@ -306,7 +330,11 @@ export class WorkspaceService {
         ownerCount: 0,
       }),
     );
-    const { auth, audit } = this.deps;
+    const { auth, audit, repo } = this.deps;
+    const meetingIds = [...new Set(input.meetingIds ?? [])];
+    const invited = await repo.invitedMeetings(actor.workspaceId, meetingIds);
+    if (invited.length !== meetingIds.length) throw new NotFoundError('Meeting not found');
+    for (const meeting of invited) assertCanModifyMeeting(actor, 'meeting.update', meeting);
     const email = input.email.trim().toLowerCase();
     const created = await callAuth(() =>
       auth.api.createInvitation({
@@ -314,6 +342,30 @@ export class WorkspaceService {
         headers: caller.headers,
       }),
     );
+    await repo.linkMeetingInvitations(actor.workspaceId, created.id, meetingIds);
+    if (invited.length && this.deps.mailer) {
+      const workspace = await this.get(actor);
+      const when = new Intl.DateTimeFormat('en-GB', {
+        timeZone: workspace.settings.timezone,
+        dateStyle: 'full',
+        timeStyle: 'long',
+      });
+      await this.deps.mailer.send({
+        to: email,
+        subject: 'Meeting invitation: ' + invited.map((m) => m.title).join(', '),
+        text:
+          invited
+            .map(
+              (m) => `${m.title}
+${when.format(m.occurredAt)} (${workspace.settings.timezone})
+Join: ${this.deps.webOrigin}/w/${workspace.slug}/m/${m.id}/room`,
+            )
+            .join('\n\n') +
+          `
+
+Accept project invitation: ${this.deps.webOrigin}/accept-invitation/${created.id}`,
+      });
+    }
     await audit.record({
       action: 'member.invited',
       workspaceId: actor.workspaceId,
@@ -371,7 +423,27 @@ export class WorkspaceService {
       this.deps.auth.api.getInvitation({ query: { id: invitationId }, headers: caller.headers }),
     );
     await this.assertInvitationsEnabled(found.organizationId);
+    const settings = await this.deps.repo.getSettings(found.organizationId);
+    const project = await this.deps.repo.get(found.organizationId);
+    const linkedMeetings = await this.deps.repo.meetingsForInvitation(
+      found.organizationId,
+      invitationId,
+    );
     return {
+      meetings: linkedMeetings.map((m) => ({
+        id: m.id,
+        title: m.title,
+        dateTime:
+          new Intl.DateTimeFormat('en-GB', {
+            timeZone: settings.timezone,
+            dateStyle: 'full',
+            timeStyle: 'long',
+          }).format(m.occurredAt) +
+          ' (' +
+          settings.timezone +
+          ')',
+        joinUrl: `/w/${project!.slug}/m/${m.id}/room`,
+      })),
       id: found.id,
       email: found.email,
       role: found.role ?? 'member',
@@ -380,6 +452,23 @@ export class WorkspaceService {
       workspaceName: found.organizationName,
       inviterEmail: found.inviterEmail,
     };
+  }
+
+  async declineInvitation(user: CurrentUser, invitationId: string, caller: CallerContext) {
+    const details = await callAuth(() =>
+      this.deps.auth.api.getInvitation({ query: { id: invitationId }, headers: caller.headers }),
+    );
+    await this.assertInvitationsEnabled(details.organizationId);
+    await callAuth(() =>
+      this.deps.auth.api.rejectInvitation({ body: { invitationId }, headers: caller.headers }),
+    );
+    await this.deps.audit.record({
+      action: 'invitation.declined',
+      workspaceId: details.organizationId,
+      actorUserId: user.id,
+      target: { type: 'invitation', id: details.id },
+      origin: caller.origin,
+    });
   }
 
   async acceptInvitation(
@@ -400,6 +489,7 @@ export class WorkspaceService {
     const workspaceId = accepted.member.organizationId;
 
     await people.ensureForMember(workspaceId, user);
+    await repo.acceptMeetingInvitations(workspaceId, invitationId, user.id);
     await audit.record({
       action: 'member.joined',
       workspaceId,

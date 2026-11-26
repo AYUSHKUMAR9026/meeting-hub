@@ -77,6 +77,11 @@ export class GroqTranscriptionProvider implements TranscriptionProvider {
     audio: SpeechAudio,
     options: DirectTranscriptionOptions,
   ): Promise<CompletedTranscript> {
+    if (!this.options.key)
+      throw new PermanentError(
+        'AI_NOT_CONFIGURED',
+        'Configure the transcription provider key in System readiness.',
+      );
     const combined: TranscriptSegment[] = [];
     let language = options.language;
     for (const [index, chunk] of planSpeechChunks(

@@ -1,61 +1,63 @@
 'use client';
-
 import Link from 'next/link';
-
 import { useWorkspace } from '@/components/app/workspace-context';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
 import type { Meeting } from '@/lib/api/client';
 import { formatInZone } from '@/lib/time-zone';
-
 import { MeetingStatusBadge } from './meeting-status-badge';
 
-/** Meetings with title, time (in the workspace's zone), participants and status. */
+/** Shared meeting cards on the project dashboard and Meetings page. */
 export function MeetingTable({ meetings }: { meetings: Meeting[] }) {
   const workspace = useWorkspace();
-  const tz = workspace.settings.timezone;
   return (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead>Title</TableHead>
-          <TableHead>When</TableHead>
-          <TableHead>Participants</TableHead>
-          <TableHead className="text-right">Status</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {meetings.map((m) => (
-          <TableRow key={m.id} data-testid={`meeting-row-${m.id}`}>
-            <TableCell className="font-medium">
+    <ul className="grid gap-4 md:grid-cols-2" aria-label="Meetings">
+      {meetings.map((m) => (
+        <li
+          key={m.id}
+          data-testid={`meeting-row-${m.id}`}
+          className="grid gap-3 rounded-xl border bg-card p-5"
+        >
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="font-semibold">
               <Link href={`/w/${workspace.slug}/m/${m.id}`} className="hover:underline">
                 {m.title}
               </Link>
-            </TableCell>
-            <TableCell className="text-muted-foreground">
-              {formatInZone(m.occurredAt, tz)}
-            </TableCell>
-            <TableCell className="text-muted-foreground">
-              {m.participants.length
-                ? m.participants
-                    .slice(0, 3)
-                    .map((p) => p.displayName)
-                    .join(', ') +
-                  (m.participants.length > 3 ? ` +${m.participants.length - 3}` : '')
-                : '—'}
-            </TableCell>
-            <TableCell className="text-right">
-              <MeetingStatusBadge status={m.status} />
-            </TableCell>
-          </TableRow>
-        ))}
-      </TableBody>
-    </Table>
+            </h2>
+            {m.roomStatus === 'live' ? (
+              <Badge>Live</Badge>
+            ) : m.roomStatus === 'scheduled' ? (
+              <Badge variant="secondary">Scheduled</Badge>
+            ) : (
+              <MeetingStatusBadge status={m.pdfState === 'ready' ? 'ready' : m.status} />
+            )}
+          </div>
+          <time dateTime={m.occurredAt} className="text-sm text-muted-foreground">
+            {formatInZone(m.occurredAt, workspace.settings.timezone)}
+          </time>
+          <p className="text-sm">
+            {m.participants.length
+              ? m.participants.map((p) => p.displayName).join(', ')
+              : 'No participants listed'}
+          </p>
+          <div className="flex gap-4 text-sm">
+            {m.roomStatus === 'live' && (
+              <Link className="font-medium underline" href={`/w/${workspace.slug}/m/${m.id}/room`}>
+                Join meeting
+              </Link>
+            )}
+            {m.pdfState === 'ready' && (
+              <Link className="font-medium underline" href={`/w/${workspace.slug}/m/${m.id}`}>
+                View PDF
+              </Link>
+            )}
+            {m.pdfState === 'failed' && (
+              <Link className="underline" href={`/w/${workspace.slug}/m/${m.id}`}>
+                PDF failed. Retry
+              </Link>
+            )}
+          </div>
+        </li>
+      ))}
+    </ul>
   );
 }

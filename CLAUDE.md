@@ -169,6 +169,7 @@ resource)` and Better Auth's access-control roles are both derived from it. Add 
 
 ## Git
 
+- Create a feature branch before committing; merge it into `main` after required checks pass.
 - Conventional commits (`feat(scope):`, `fix:`, `chore:`, `test:`, `docs:`, `build:`), small and logical.
 - Never commit `.env` or real secrets. Local dev credentials live only in `.env.example` / `docker-compose.yml`.
 - Never run Prettier on generated files (`openapi.json`, `schema.d.ts`, migration snapshots). Every `format` script
@@ -224,7 +225,7 @@ production email provider, and deployment. Do not create `packages/ai` or `evals
 
 The rooms module owns room/session state and provider adapters. Keep join tokens and webhook bodies out of logs.
 Only consented identities may publish to a recorded session. Egress objects stay beneath the meeting prefix.
-Mixed audio emits recording.uploaded through the transactional outbox. Participant tracks remain stored for Phase 9.
+Mixed audio emits recording.uploaded through the transactional outbox. For new meetings, participant tracks are temporary processing input (ADR 0011).
 Gate room entry points with rooms.enabled. Keep synthetic room recordings confined to the fake provider.
 
 ## Free AI and track speakers (ADR 0009)
@@ -236,3 +237,26 @@ Gate room entry points with rooms.enabled. Keep synthetic room recordings confin
 - Save quota retry times in Postgres and release the worker. Quota waits do not exhaust normal attempts, and recovered jobs must honor the saved retry time. Drop uncited items; repaired extraction must remain visibly low confidence.
 - Preserve migration 0007's selective attendance SET NULL and migration 0008's selective speaker/action identity SET NULL clauses when regenerating migrations. Null only optional identity columns, never tenant/revision columns.
 - `pnpm check:live <file> [--show]` is a manual, real-key check outside the database, never a CI job. Do not claim real-provider quality or real-microphone verification from mocked HTTP or fake-device browser tests.
+
+## Saved decision PDFs and temporary input (ADR 0011, Phases 8.5/8.6)
+
+- Phase 11 remains on hold. `pnpm dev:full` owns local full enablement and the demo seed.
+- The 8.6 amendment wins over older recording/playback rules. New audio/peaks use `temp/` storage
+  keys. Purge immediately after committed transcription or permanent failure; quota/transient waits
+  retain input until the hard TTL. Keep purged provenance rows with no usable object keys. Sweep
+  retention independently of LiveKit reachability. Delete both temp and permanent prefixes on purge.
+- The results module owns immutable `document_files` and retention. Item/publication triggers mark a
+  durable dirty timestamp; render after a quiet period. Verify stored PDF bytes with GET/hash before
+  deleting transcript text. Regenerate PDFs from structured data after edits and retain prior files.
+- `pdf_only` is the workspace default. Preserve speaker/time citation snapshots and owner identities,
+  then delete transcript/segment/speaker/checkpoint rows after verified PDF storage. Document source
+  transcript UUIDs remain provenance without requiring retained text. Never purge legacy meetings
+  automatically. Owner bulk purge requires a matching count/size preview and typed confirmation.
+- All saved file routes are workspace-authorized; never expose temporary media URLs/downloads.
+  PDF-only transcript/search/export/share/re-analysis return stable RFC 7807 errors. A retained
+  transcript supports analysis-only regeneration without audio. Item editing/review always works.
+- Reuse Phase 7's renderer, Phase 8's LiveKit controls and data channel, and the existing outbox.
+  Persist chat only as the authenticated sender, idempotently; keep chat/document/transcript text
+  out of logs, errors, audits and queue payloads. Retention audits report counts/reasons only.
+- New public APIs require contracts, regenerated OpenAPI/types and authorization matrix entries.
+  Local fake-provider tests do not establish real provider or microphone quality.

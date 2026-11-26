@@ -2,6 +2,7 @@
 // ffmpeg-based probing/normalization. No domain rules here; meetings and processing decide who may
 // do what with which file.
 export {
+  mixSpeechAudio,
   prepareSpeechAudio,
   renderSpeechChunk,
   planSpeechChunks,
@@ -55,6 +56,8 @@ export {
   toInt8,
 } from './peaks';
 export {
+  temporaryMeetingPrefix,
+  decisionPdfKey,
   meetingPrefix,
   normalizedAudioKey,
   originalRecordingKey,

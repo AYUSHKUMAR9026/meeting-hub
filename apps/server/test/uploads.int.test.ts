@@ -146,7 +146,7 @@ describe('multipart upload', () => {
     // Storage key: ws/{wid}/meetings/{mid}/original/{uuid} — never the file name.
     const row = await recordingRow(upload.uploadId);
     expect(row!.storageKey).toMatch(
-      new RegExp(`^ws/${ws}/meetings/${meeting.id}/original/[0-9a-f-]{36}$`),
+      new RegExp(`^temp/ws/${ws}/meetings/${meeting.id}/original/[0-9a-f-]{36}$`),
     );
     expect(row).toMatchObject({ consentConfirmedBy: member.userId, contentType: 'audio/wav' });
     expect(row!.consentConfirmedAt).toBeInstanceOf(Date);
@@ -399,7 +399,7 @@ describe('deleting a meeting', () => {
       ],
     });
     await uploadRecording(t, owner, meeting.id, bytes(5 * MiB + 10));
-    const prefix = `ws/${ws}/meetings/${meeting.id}/`;
+    const prefix = `temp/ws/${ws}/meetings/${meeting.id}/`;
     expect(await listKeys(prefix)).toHaveLength(1);
 
     const res = await call(t, owner, { method: 'DELETE', url: `/v1/meetings/${meeting.id}` });

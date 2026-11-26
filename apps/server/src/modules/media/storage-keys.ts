@@ -19,7 +19,7 @@ export function meetingPrefix(workspaceId: string, meetingId: string): string {
  * user input; the original file name is kept in the database only (ADR 0003).
  */
 export function originalRecordingKey(workspaceId: string, meetingId: string): string {
-  return `${meetingPrefix(workspaceId, meetingId)}original/${randomUUID()}`;
+  return `${temporaryMeetingPrefix(workspaceId, meetingId)}original/${randomUUID()}`;
 }
 
 export function roomRecordingKey(
@@ -27,7 +27,7 @@ export function roomRecordingKey(
   meetingId: string,
   kind: 'mixed_audio' | 'participant_track',
 ): string {
-  return meetingPrefix(workspaceId, meetingId) + kind + '/' + randomUUID();
+  return temporaryMeetingPrefix(workspaceId, meetingId) + kind + '/' + randomUUID();
 }
 
 /**
@@ -37,10 +37,18 @@ export function roomRecordingKey(
  */
 export function normalizedAudioKey(workspaceId: string, meetingId: string, runId: string): string {
   assertUuid(runId, 'runId');
-  return `${meetingPrefix(workspaceId, meetingId)}normalized/${runId}`;
+  return `${temporaryMeetingPrefix(workspaceId, meetingId)}normalized/${runId}`;
 }
 
 export function peaksKey(workspaceId: string, meetingId: string, runId: string): string {
   assertUuid(runId, 'runId');
-  return `${meetingPrefix(workspaceId, meetingId)}peaks/${runId}`;
+  return `${temporaryMeetingPrefix(workspaceId, meetingId)}peaks/${runId}`;
+}
+
+export function temporaryMeetingPrefix(workspaceId: string, meetingId: string): string {
+  return 'temp/' + meetingPrefix(workspaceId, meetingId);
+}
+export function decisionPdfKey(workspaceId: string, meetingId: string, fileId: string): string {
+  assertUuid(fileId, 'fileId');
+  return meetingPrefix(workspaceId, meetingId) + 'pdf/' + fileId;
 }

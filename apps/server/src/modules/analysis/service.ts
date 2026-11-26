@@ -40,7 +40,7 @@ type Mutation = Add | Patch | Delete;
 
 export class DocumentService {
   constructor(
-    private readonly db: Database,
+    private readonly db: Database | Transaction,
     private readonly audit: AuditService,
   ) {}
 
@@ -124,7 +124,7 @@ export class DocumentService {
           item: actionItems,
           ownerName: sql<
             string | null
-          >`coalesce(${people.displayName}, ${transcriptSpeakers.displayName}, ${transcriptSpeakers.label})`,
+          >`coalesce(${people.displayName}, ${transcriptSpeakers.displayName}, ${transcriptSpeakers.label}, ${actionItems.ownerLabel})`,
         })
         .from(actionItems)
         .leftJoin(
@@ -152,12 +152,13 @@ export class DocumentService {
       db
         .select({
           itemId: evidence.itemId,
-          segmentId: evidence.segmentId,
-          idx: transcriptSegments.idx,
-          startMs: transcriptSegments.startMs,
+          segmentId: sql<string>`coalesce(${evidence.segmentId}, ${evidence.id})`,
+          idx: sql<number>`coalesce(${evidence.citationIdx}, ${transcriptSegments.idx})`,
+          startMs: sql<number>`coalesce(${evidence.citationStartMs}, ${transcriptSegments.startMs})`,
+          speaker: sql<string>`coalesce(${evidence.citationSpeaker}, (SELECT coalesce(sp.display_name, sp.label) FROM transcript_speakers sp WHERE sp.id = ${transcriptSegments.speakerId}), 'Speaker')`,
         })
         .from(evidence)
-        .innerJoin(
+        .leftJoin(
           transcriptSegments,
           and(
             eq(transcriptSegments.id, evidence.segmentId),
@@ -231,7 +232,8 @@ export class DocumentService {
             eq(meetings.workspaceId, workspaceId),
             isNull(meetings.deletedAt),
           ),
-        );
+        )
+        .for('update');
       if (!meeting) throw new NotFoundError('Meeting not found');
       assertCanModifyMeeting(actor, 'meeting.update', meeting);
       const [document] = await tx
@@ -294,7 +296,8 @@ export class DocumentService {
             eq(meetings.workspaceId, workspaceId),
             isNull(meetings.deletedAt),
           ),
-        );
+        )
+        .for('update');
       if (!meeting) throw new NotFoundError('Meeting not found');
       assertCanModifyMeeting(actor, 'meeting.update', meeting);
 
@@ -448,7 +451,7 @@ export class DocumentService {
           inArray(transcriptSegments.id, segmentIds),
         ),
       );
-    if (found.length !== segmentIds.length || !found.length)
+    if (found.length !== segmentIds.length)
       throw new BadRequestError(
         'Citations must refer to segments from this document’s transcript.',
       );
@@ -462,6 +465,7 @@ export class DocumentService {
           eq(evidence.itemId, scope.itemId),
         ),
       );
-    await tx.insert(evidence).values(segmentIds.map((segmentId) => ({ ...scope, segmentId })));
+    if (segmentIds.length)
+      await tx.insert(evidence).values(segmentIds.map((segmentId) => ({ ...scope, segmentId })));
   }
 }

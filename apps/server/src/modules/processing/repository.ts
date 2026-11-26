@@ -119,6 +119,14 @@ export class ProcessingRepository {
     }
   }
 
+  async lockMeeting(tx: Transaction, run: RunRecord) {
+    await tx
+      .select({ id: meetings.id })
+      .from(meetings)
+      .where(and(eq(meetings.id, run.meetingId), eq(meetings.workspaceId, run.workspaceId)))
+      .for('update');
+  }
+
   // --- reads ----------------------------------------------------------------------------------------
 
   async findRun(runId: string, db: Executor = this.db): Promise<RunRecord | undefined> {
@@ -194,10 +202,15 @@ export class ProcessingRepository {
           eq(recordings.workspaceId, workspaceId),
           eq(recordings.meetingId, meetingId),
           kind === 'original'
-            ? inArray(recordings.kind, ['original', 'mixed_audio'])
+            ? inArray(recordings.kind, ['original', 'mixed_audio', 'participant_track'])
             : eq(recordings.kind, kind),
         ),
-      );
+      )
+      .orderBy(
+        sql`CASE WHEN ${recordings.kind} IN ('original','mixed_audio') THEN 0 ELSE 1 END`,
+        asc(recordings.createdAt),
+      )
+      .limit(1);
     return row;
   }
 
@@ -478,7 +491,16 @@ export class ProcessingRepository {
       .update(processingRuns)
       .set({ status: 'completed', currentStep: null, finishedAt: now, updatedAt: now })
       .where(eq(processingRuns.id, run.id));
-    await setMeetingStatus(tx, run.meetingId, 'ready', now);
+    const [meeting] = await tx
+      .select({ policy: meetings.resultPolicy })
+      .from(meetings)
+      .where(eq(meetings.id, run.meetingId));
+    await setMeetingStatus(
+      tx,
+      run.meetingId,
+      meeting?.policy === 'temporary' && run.pipelineVersion >= 3 ? 'processing' : 'ready',
+      now,
+    );
   }
 
   /** Content-free progress for the running step (no-op once it's no longer running). */

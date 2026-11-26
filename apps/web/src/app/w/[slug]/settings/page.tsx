@@ -1,5 +1,7 @@
 'use client';
 
+import { ContentPurge } from '@/components/meetings/content-purge';
+import { normalizeTimezone } from '@meeting-hub/contracts';
 import { useRouter } from 'next/navigation';
 import { type FormEvent, useMemo, useState } from 'react';
 import { toast } from 'sonner';
@@ -21,7 +23,10 @@ export default function GeneralSettingsPage() {
   const editable = can('workspace.update');
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
-  const timeZones = useMemo(() => ['UTC', ...Intl.supportedValuesOf('timeZone')], []);
+  const timeZones = useMemo(
+    () => ['UTC', ...Intl.supportedValuesOf('timeZone').map(normalizeTimezone)],
+    [],
+  );
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -33,6 +38,10 @@ export default function GeneralSettingsPage() {
       body: {
         name: formValue(form, 'name'),
         settings: {
+          contentRetention:
+            formValue(form, 'contentRetention') === 'keep_transcript'
+              ? 'keep_transcript'
+              : 'pdf_only',
           externalAiEnabled: form.has('externalAiEnabled'),
           timezone: formValue(form, 'timezone'),
           retentionDays: Number(form.get('retentionDays')),
@@ -69,6 +78,7 @@ export default function GeneralSettingsPage() {
         </CardDescription>
       </CardHeader>
       <CardContent>
+        <ContentPurge />
         <form onSubmit={(e) => void onSubmit(e)} className="grid max-w-lg gap-4">
           <fieldset disabled={!editable || pending} className="grid gap-4">
             <Label>
@@ -80,6 +90,19 @@ export default function GeneralSettingsPage() {
               Allow external AI processing
             </Label>
             <AiDisclosure />
+            <Label htmlFor="contentRetention">Content retention</Label>
+            <NativeSelect
+              id="contentRetention"
+              name="contentRetention"
+              defaultValue={workspace.settings.contentRetention ?? 'pdf_only'}
+            >
+              <option value="pdf_only">PDF and extracted items only</option>
+              <option value="keep_transcript">Also keep transcript text</option>
+            </NativeSelect>
+            <p className="text-sm text-muted-foreground">
+              Audio is always temporary. Changing this setting does not purge existing meetings.
+              Previously deleted content cannot be recovered.
+            </p>
             <FormField
               id="name"
               label="Name"

@@ -5,7 +5,11 @@ export const workspaceRoleSchema = z
   .meta({ id: 'WorkspaceRole' });
 export type WorkspaceRole = z.infer<typeof workspaceRoleSchema>;
 
-const timeZones = new Set(['UTC', ...Intl.supportedValuesOf('timeZone')]);
+/** ICU can return this older alias even when PostgreSQL only ships the current name. */
+export const normalizeTimezone = (timezone: string): string =>
+  timezone === 'Asia/Calcutta' ? 'Asia/Kolkata' : timezone;
+
+const timeZones = new Set(['UTC', 'Asia/Kolkata', ...Intl.supportedValuesOf('timeZone')]);
 
 export const timezoneSchema = z
   .string()
@@ -39,6 +43,7 @@ export const workspaceListSchema = z
 
 export const workspaceSettingsSchema = z
   .object({
+    contentRetention: z.enum(['pdf_only', 'keep_transcript']).optional(),
     timezone: timezoneSchema,
     retentionDays: z.int().min(1).max(3650),
     sharingEnabled: z.boolean().optional(),
@@ -131,7 +136,11 @@ export const invitationListSchema = z
   .meta({ id: 'InvitationList' });
 
 export const createInvitationRequestSchema = z
-  .object({ email: z.email(), role: workspaceRoleSchema.default('member') })
+  .object({
+    meetingIds: z.array(z.uuid()).max(50).optional(),
+    email: z.email(),
+    role: workspaceRoleSchema.default('member'),
+  })
   .meta({ id: 'CreateInvitationRequest' });
 
 export const invitationParamsSchema = z.object({ wid: z.uuid(), id: z.uuid() });
@@ -147,6 +156,9 @@ export const invitationDetailsSchema = z
     expiresAt: z.iso.datetime(),
     workspaceName: z.string(),
     inviterEmail: z.email(),
+    meetings: z.array(
+      z.object({ id: z.uuid(), title: z.string(), dateTime: z.string(), joinUrl: z.string() }),
+    ),
   })
   .meta({ id: 'InvitationDetails' });
 export type InvitationDetails = z.infer<typeof invitationDetailsSchema>;

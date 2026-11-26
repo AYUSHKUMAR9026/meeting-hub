@@ -1,8 +1,9 @@
+import { pdfText } from '../../server/test/support/export-readers';
 import { readFile } from 'node:fs/promises';
 
 import { type Browser, expect, type Page, test } from '@playwright/test';
 
-import { WAV_SAMPLE_RATE, wavFixture } from './fixtures';
+import { wavFixture } from './fixtures';
 import { linkFromEmail } from './mailpit';
 
 // Test-only credentials for throwaway local/CI accounts.
@@ -14,9 +15,6 @@ const workspaceName = `E2E Workspace ${run}`;
 
 // ~11 MiB of 16-bit mono PCM: about 131 s of audio.
 const wavBytes = 11 * 1024 * 1024;
-const wavSeconds = (wavBytes - 44) / 2 / WAV_SAMPLE_RATE;
-const formatSeconds = (s: number) =>
-  `${Math.floor(Math.round(s) / 60)}:${String(Math.round(s) % 60).padStart(2, '0')}`;
 
 async function signUp(page: Page, user: { name: string; email: string }) {
   await page.getByLabel('Name').fill(user.name);
@@ -90,9 +88,15 @@ test('sign up → verify → workspace → invite → accept → upload → revi
 
   // 6. Create a meeting with the invitee as participant and upload a recording straight to
   //    storage (~11 MiB → 3 parts of 5 MiB when the API runs with UPLOAD_PART_SIZE_BYTES=5 MiB).
+  const mediaRequests: string[] = [];
+  ownerPage.on('request', (r) => {
+    if (/\/v1\/meetings\/[^/]+\/(media|recording)(?:\?|$)/.test(r.url()))
+      mediaRequests.push(r.url());
+  });
   const meetingTitle = `E2E sync ${run}`;
   await ownerPage.getByRole('link', { name: 'Meetings' }).click();
   await ownerPage.getByRole('link', { name: 'New meeting' }).first().click();
+  await ownerPage.getByRole('button', { name: 'Upload a recording', exact: true }).click();
   await ownerPage.getByLabel('Title').fill(meetingTitle);
   await ownerPage.getByRole('checkbox', { name: new RegExp(invitee.name) }).check();
   await ownerPage.getByLabel('Recording file').setInputFiles({
@@ -106,7 +110,7 @@ test('sign up → verify → workspace → invite → accept → upload → revi
 
   await expect(ownerPage).toHaveURL(/\/m\/[0-9a-f-]{36}$/, { timeout: 60_000 });
   await expect(ownerPage.getByRole('heading', { name: meetingTitle })).toBeVisible();
-  await expect(ownerPage.getByTestId('recording-card')).toContainText('e2e-sync.wav');
+  await expect(ownerPage.getByTestId('recording-card')).toHaveCount(0);
   await expect(ownerPage.getByLabel('Participants')).toContainText(invitee.name);
 
   // 7. Processing starts by itself (outbox → worker) and the page follows it live, without a
@@ -118,68 +122,22 @@ test('sign up → verify → workspace → invite → accept → upload → revi
   await expect(panel).toHaveAttribute('data-run-status', 'completed');
   await expect(panel.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '100');
 
-  // 8. The processed audio plays in the browser and reports the recording's duration.
-  const audio = ownerPage.getByTestId('meeting-audio');
-  await expect
-    .poll(() => audio.evaluate((el: HTMLAudioElement) => el.duration), { timeout: 30_000 })
-    .toBeGreaterThan(wavSeconds - 1);
-  expect(await audio.evaluate((el: HTMLAudioElement) => el.duration)).toBeLessThan(wavSeconds + 1);
-  await expect(ownerPage.getByTestId('audio-duration')).toHaveText(formatSeconds(wavSeconds));
-  await audio.evaluate((el: HTMLAudioElement) => {
-    el.muted = true;
-    return el.play();
-  });
-  await expect
-    .poll(() => audio.evaluate((el: HTMLAudioElement) => el.currentTime), { timeout: 10_000 })
-    .toBeGreaterThan(0.2);
-
-  // 9. The fake transcript labels both speakers and selecting a segment seeks the audio.
+  // Audio is never exposed. The saved PDF is the default view and opens successfully.
+  await expect(ownerPage.getByTestId('meeting-audio')).toHaveCount(0);
+  const meetingPageUrl = ownerPage.url();
+  const pdf = ownerPage.getByTestId('decision-pdf');
+  await expect(pdf).toBeVisible({ timeout: 120000 });
+  const pdfBytes = await ownerPage.request.get((await pdf.getAttribute('src')) ?? '');
+  expect(pdfBytes.ok()).toBeTruthy();
+  expect((await pdfBytes.body()).subarray(0, 5).toString()).toBe('%PDF-');
+  expect(await pdfText(await pdfBytes.body())).toContain('Review the agenda');
+  expect(mediaRequests).toEqual([]);
+  await ownerPage.getByRole('button', { name: 'Summary', exact: true }).click();
   const summary = ownerPage.getByTestId('summary-panel');
   await expect(summary.getByTestId('decision').getByRole('heading')).toHaveText(
     'Review the agenda',
   );
-  const action = summary.getByTestId('action-item');
-  await expect(action.getByRole('heading')).toHaveText('Share next steps');
-  await audio.evaluate((element: HTMLAudioElement) => element.pause());
-  await action.getByRole('button', { name: /Open evidence at/ }).click();
-  const cited = ownerPage.getByTestId('transcript-segment').first();
-  await expect(cited).toBeFocused();
-  const citedStart = Number(await cited.getAttribute('data-start-ms')) / 1000;
-  expect(citedStart).toBeGreaterThan(0);
-  await expect
-    .poll(() => audio.evaluate((element: HTMLAudioElement) => element.currentTime))
-    .toBeCloseTo(citedStart, 1);
-  await ownerPage.getByRole('button', { name: 'Transcript', exact: true }).click();
-  const transcript = ownerPage.getByTestId('transcript-panel');
-  const segments = transcript.getByRole('list', { name: 'Transcript segments' });
-  await expect(segments.getByText('Speaker', { exact: true })).toHaveCount(2);
-  const cue = transcript.getByTestId('transcript-segment').nth(1);
-  const start = Number(await cue.getAttribute('data-start-ms')) / 1000;
-  expect(start).toBeGreaterThan(0);
-  await audio.evaluate((el: HTMLAudioElement) => el.pause());
-  await cue.click();
-  await expect
-    .poll(() => audio.evaluate((el: HTMLAudioElement) => el.currentTime))
-    .toBeCloseTo(start, 1);
-  await expect(cue).toHaveAttribute('aria-current', 'true');
-  const waveform = ownerPage.getByRole('img', { name: 'Audio waveform' });
-  await expect(waveform).toBeVisible();
-  await expect
-    .poll(() =>
-      waveform.evaluate((canvas: HTMLCanvasElement) =>
-        canvas
-          .getContext('2d')
-          ?.getImageData(0, 0, canvas.width, canvas.height)
-          .data.some((alpha, index) => index % 4 === 3 && alpha > 0),
-      ),
-    )
-    .toBe(true);
-  await transcript.getByRole('searchbox', { name: 'Search transcript' }).fill('agenda');
-  await transcript.getByRole('button', { name: 'Search', exact: true }).click();
-  await expect(transcript.getByTestId('transcript-segment')).toHaveCount(1);
-  await expect(transcript.getByTestId('transcript-segment')).toContainText('agenda');
-  await transcript.getByRole('button', { name: 'Clear', exact: true }).click();
-  await expect(transcript.getByTestId('transcript-segment')).toHaveCount(2);
+  await expect(ownerPage.getByRole('button', { name: 'Transcript', exact: true })).toHaveCount(0);
 
   // 10. Download the document and share it with a signed-out visitor.
   const downloadEvent = ownerPage.waitForEvent('download');
@@ -234,12 +192,7 @@ test('sign up → verify → workspace → invite → accept → upload → revi
       .filter({ has: progressPage.getByRole('heading', { name: 'Share next steps' }) }),
   ).toContainText('done');
   await progressPage.close();
-  await trackedAction.getByRole('link', { name: 'Evidence at', exact: false }).click();
-  await expect(ownerPage.getByTestId('transcript-segment').first()).toBeFocused();
-  await expect
-    .poll(() => audio.evaluate((element: HTMLAudioElement) => element.currentTime))
-    .toBeCloseTo(citedStart, 1);
-
+  await ownerPage.goto(meetingPageUrl);
   // 12. Delete it: gone from the list right away (storage is purged by the worker's job).
   await ownerPage.getByRole('button', { name: 'Delete' }).click();
   await ownerPage.getByRole('button', { name: 'Delete meeting' }).click();

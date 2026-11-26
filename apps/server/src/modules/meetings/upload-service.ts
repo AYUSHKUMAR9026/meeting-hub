@@ -365,6 +365,13 @@ export class UploadService {
     origin: RequestOrigin,
   ): Promise<{ recording: Recording; downloadUrl: string; downloadUrlExpiresAt: Date }> {
     authorize(actor, 'recording.download');
+    const visible = await this.deps.repo.get(actor.workspaceId, meetingId);
+    if (!visible) throw meetingNotFound();
+    if (visible.resultPolicy === 'temporary')
+      throw new ConflictError(
+        'AUDIO_TEMPORARY',
+        'Audio is temporary processing input. Open the decision PDF instead.',
+      );
     const meeting = await this.deps.repo.get(actor.workspaceId, meetingId);
     if (!meeting) throw meetingNotFound();
     const recording = meeting.recording;

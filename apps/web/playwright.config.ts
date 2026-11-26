@@ -1,3 +1,5 @@
+import { existsSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { defineConfig, devices } from '@playwright/test';
 
 /**
@@ -6,6 +8,9 @@ import { defineConfig, devices } from '@playwright/test';
  * Needs `pnpm infra:up && pnpm db:migrate` first.
  * Owns the API and worker to guarantee the fake provider. Locally it can reuse the web server.
  */
+const localEnv = fileURLToPath(new URL('../../.env.local', import.meta.url));
+if (existsSync(localEnv)) process.loadEnvFile(localEnv);
+const reuseFull = process.env.E2E_REUSE_FULL === '1';
 const isCI = Boolean(process.env.CI);
 const repoRoot = '../..';
 const transcriptionEnv = {
@@ -16,8 +21,8 @@ const transcriptionEnv = {
     ? {
         LIVEKIT_API_KEY: 'meetinghubdev',
         LIVEKIT_API_SECRET: 'meeting-hub-livekit-development-secret-only',
-        LIVEKIT_URL: 'http://localhost:7880',
-        LIVEKIT_PUBLIC_URL: 'ws://localhost:7880',
+        LIVEKIT_URL: 'http://127.0.0.1:7880',
+        LIVEKIT_PUBLIC_URL: 'ws://127.0.0.1:7880',
         LIVEKIT_EGRESS_S3_ENDPOINT: 'http://garage:3900',
         ROOM_EMPTY_TIMEOUT_SECONDS: '300',
       }
@@ -45,32 +50,34 @@ export default defineConfig({
     trace: 'retain-on-failure',
   },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
-  webServer: [
-    {
-      command: 'pnpm --filter @meeting-hub/server exec tsx src/api.ts',
-      cwd: repoRoot,
-      // The smoke test uploads ~11 MiB; 5 MiB parts (the S3 minimum) make that a 3-part upload.
-      env: { ...transcriptionEnv, UPLOAD_PART_SIZE_BYTES: String(5 * 1024 * 1024) },
-      url: 'http://localhost:4000/health',
-      reuseExistingServer: false,
-      timeout: 120_000,
-    },
-    {
-      // Processes uploads (outbox → prepare_media with ffmpeg); needs ffmpeg on PATH.
-      command: 'pnpm --filter @meeting-hub/server exec tsx src/worker.ts',
-      cwd: repoRoot,
-      env: transcriptionEnv,
-      wait: { stdout: /processing worker started/ },
-      timeout: 120_000,
-    },
-    {
-      command: isCI
-        ? 'pnpm --filter @meeting-hub/web build && pnpm --filter @meeting-hub/web start'
-        : 'pnpm --filter @meeting-hub/web dev',
-      cwd: repoRoot,
-      url: 'http://localhost:3000/sign-in',
-      reuseExistingServer: !isCI,
-      timeout: 300_000,
-    },
-  ],
+  webServer: reuseFull
+    ? []
+    : [
+        {
+          command: 'pnpm --filter @meeting-hub/server exec tsx src/api.ts',
+          cwd: repoRoot,
+          // The smoke test uploads ~11 MiB; 5 MiB parts (the S3 minimum) make that a 3-part upload.
+          env: { ...transcriptionEnv, UPLOAD_PART_SIZE_BYTES: String(5 * 1024 * 1024) },
+          url: 'http://localhost:4000/health',
+          reuseExistingServer: false,
+          timeout: 120_000,
+        },
+        {
+          // Processes uploads (outbox → prepare_media with ffmpeg); needs ffmpeg on PATH.
+          command: 'pnpm --filter @meeting-hub/server exec tsx src/worker.ts',
+          cwd: repoRoot,
+          env: transcriptionEnv,
+          wait: { stdout: /processing worker started/ },
+          timeout: 120_000,
+        },
+        {
+          command: isCI
+            ? 'pnpm --filter @meeting-hub/web build && pnpm --filter @meeting-hub/web start'
+            : 'pnpm --filter @meeting-hub/web dev',
+          cwd: repoRoot,
+          url: 'http://localhost:3000/sign-in',
+          reuseExistingServer: !isCI,
+          timeout: 300_000,
+        },
+      ],
 });

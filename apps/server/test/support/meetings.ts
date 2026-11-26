@@ -1,6 +1,7 @@
 /** Helpers for meeting and upload tests: create meetings, and upload parts like a browser would. */
 import { randomUUID } from 'node:crypto';
 
+import { eq, meetings } from '@meeting-hub/db';
 import { expect } from 'vitest';
 
 import { call, type Session, type TestApp, WEB_ORIGIN } from './harness';
@@ -38,7 +39,13 @@ export async function createMeeting(
     payload: { title: 'Weekly sync', occurredAt: '2026-10-01T09:00:00Z', ...body },
   });
   expect(res.statusCode, res.body).toBe(201);
-  return res.json<MeetingBody>();
+  const meeting = res.json<MeetingBody>();
+  // These helpers exercise the pre-8.6 stored-media paths; result-flow tests opt in explicitly.
+  await t.deps.db.db
+    .update(meetings)
+    .set({ resultPolicy: 'legacy' })
+    .where(eq(meetings.id, meeting.id));
+  return meeting;
 }
 
 export function startUpload(

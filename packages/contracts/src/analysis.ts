@@ -4,7 +4,12 @@ const summary = z
   .object({ paragraph: z.string(), bullets: z.array(z.string()) })
   .meta({ id: 'MeetingSummary' });
 const citation = z
-  .object({ segmentId: z.uuid(), idx: z.int().nonnegative(), startMs: z.int().nonnegative() })
+  .object({
+    segmentId: z.uuid(),
+    speaker: z.string().optional(),
+    idx: z.int().nonnegative(),
+    startMs: z.int().nonnegative(),
+  })
   .meta({ id: 'DocumentCitation' });
 const title = z.string().trim().min(1).max(180);
 const description = z.string().trim().min(1).max(2000);
@@ -12,7 +17,7 @@ const rationale = z.string().trim().max(1000).nullable();
 const decisionStatus = z.enum(['proposed', 'confirmed', 'rejected']);
 const actionStatus = z.enum(['open', 'done', 'rejected']);
 const dueDate = z.iso.date().nullable();
-const segmentIds = z.array(z.uuid()).min(1).max(50);
+const segmentIds = z.array(z.uuid()).max(50);
 const fields = { title, description };
 const itemDetails = {
   id: z.uuid(),

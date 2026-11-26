@@ -2,7 +2,7 @@ import { createReadStream } from 'node:fs';
 import { stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import { PermanentError } from '../../lib/errors';
-import { speechPcmArgs, speechChunkArgs } from './ffmpeg/args';
+import { mixSpeechArgs, speechPcmArgs, speechChunkArgs } from './ffmpeg/args';
 import { runProcess } from './ffmpeg/process';
 
 export interface SpeechRange {
@@ -24,6 +24,31 @@ export interface SpeechTools {
   ffmpegPath: string;
   threads: number;
   maxDurationSeconds: number;
+}
+
+export async function mixSpeechAudio(
+  tracks: { path: string; offsetMs: number }[],
+  dir: string,
+  tools: SpeechTools,
+  signal: AbortSignal,
+) {
+  const path = join(dir, 'quota-fallback.wav');
+  const mixed = await runProcess(
+    tools.ffmpegPath,
+    mixSpeechArgs({
+      tracks,
+      outputPath: path,
+      threads: tools.threads,
+      maxSeconds: tools.maxDurationSeconds,
+    }),
+    { signal, timeoutMs: 600000 },
+  );
+  if (mixed.exitCode !== 0)
+    throw new PermanentError(
+      'TRANSCRIPTION_MIX_FAILED',
+      'Could not prepare fallback meeting audio.',
+    );
+  return prepareSpeechAudio(path, dir, tools, signal);
 }
 
 export function speechRanges(

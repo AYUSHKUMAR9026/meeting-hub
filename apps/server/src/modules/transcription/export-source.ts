@@ -28,7 +28,7 @@ export const contentTooLarge = () =>
   });
 
 export async function readTranscriptSource(
-  db: Database,
+  db: Pick<Database, 'select'>,
   scope: {
     workspaceId: string;
     meetingId: string;

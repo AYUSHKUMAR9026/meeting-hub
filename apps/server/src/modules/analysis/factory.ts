@@ -1,3 +1,4 @@
+import { PermanentError } from '../../lib/errors';
 import type { Config } from '../../lib/config';
 import type { Redis } from '../../lib/redis';
 import { RedisQuotaLimiter } from '../../lib/ai-quota';
@@ -6,6 +7,18 @@ import { GeminiLlmProvider, GroqLlmProvider, FallbackLlmProvider } from './free-
 
 export function configuredLlm(config: Config, redis: Redis): LlmProvider {
   const make = (name: Config['LLM_PROVIDER']): LlmProvider => {
+    if ((name === 'gemini' && !config.GEMINI_API_KEY) || (name === 'groq' && !config.GROQ_API_KEY))
+      return {
+        model: name,
+        external: true,
+        generateStructured: () =>
+          Promise.reject(
+            new PermanentError(
+              'AI_NOT_CONFIGURED',
+              'Configure the AI provider key in System readiness.',
+            ),
+          ),
+      };
     switch (name) {
       case 'gemini':
         return new GeminiLlmProvider({

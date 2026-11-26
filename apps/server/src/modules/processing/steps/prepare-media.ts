@@ -128,7 +128,11 @@ export function prepareMediaStep(options: PrepareMediaOptions): StepDefinition {
           );
           ctx.progress(1, 'uploading');
 
-          const durationMs = info.durationMs ?? normalized.durationMs;
+          const meeting = await repo.findVisibleMeeting(run.workspaceId, run.meetingId);
+          const durationMs =
+            original.kind === 'participant_track'
+              ? Math.max(meeting?.durationMs ?? 0, info.durationMs ?? normalized.durationMs)
+              : (info.durationMs ?? normalized.durationMs);
           return {
             metadata: {
               format: info.formatName,
@@ -153,7 +157,10 @@ export function prepareMediaStep(options: PrepareMediaOptions): StepDefinition {
                 contentType: NORMALIZED_AUDIO.contentType,
                 sizeBytes: audio.sizeBytes,
                 sha256: audio.sha256,
-                durationMs: normalized.output.durationMs ?? normalized.durationMs,
+                durationMs:
+                  original.kind === 'participant_track'
+                    ? durationMs
+                    : (normalized.output.durationMs ?? normalized.durationMs),
                 codec: normalized.output.codec,
                 sampleRate: normalized.output.sampleRate,
                 channels: normalized.output.channels,

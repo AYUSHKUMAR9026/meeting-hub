@@ -21,6 +21,7 @@ import type { QuotaLimiter } from '../../lib/ai-quota';
 import { ProviderRetryError, speechBuckets } from '../../lib/ai-quota';
 import { PermanentError } from '../../lib/errors';
 import {
+  mixSpeechAudio,
   prepareSpeechAudio,
   planSpeechChunks,
   windowRms,
@@ -91,7 +92,7 @@ export async function transcribeTracks(
     .where(and(eq(recordings.id, run.recordingId), eq(recordings.workspaceId, run.workspaceId)));
   let fallbackReason: string | null = null;
   const exports =
-    perTrack && source?.kind === 'mixed_audio'
+    perTrack && (source?.kind === 'mixed_audio' || source?.kind === 'participant_track')
       ? await db
           .select()
           .from(roomExports)
@@ -106,7 +107,7 @@ export async function transcribeTracks(
   if (exports.some((item) => ['pending', 'active'].includes(item.state)))
     throw new ProviderRetryError(65000, true, true);
   const tracks =
-    perTrack && source?.kind === 'mixed_audio'
+    perTrack && (source?.kind === 'mixed_audio' || source?.kind === 'participant_track')
       ? await db
           .select({
             recording: recordings,
@@ -139,7 +140,7 @@ export async function transcribeTracks(
       : [];
   if (
     perTrack &&
-    source?.kind === 'mixed_audio' &&
+    (source?.kind === 'mixed_audio' || source?.kind === 'participant_track') &&
     (!tracks.length || exports.some((item) => item.state === 'failed'))
   )
     fallbackReason = 'participant_audio_unavailable';
@@ -263,22 +264,21 @@ export async function transcribeTracks(
       audio: SpeechAudio;
       speaker: AttendanceSpeaker;
     }[] = [];
-    if (!fallbackReason)
-      for (const track of tracks) {
-        request.signal.throwIfAborted();
-        const audio = await download(track.recording, join(dir, track.recording.id));
-        if (provider.name === 'fake' || audio.ranges.length)
-          prepared.push({
-            record: track.recording,
-            audio,
-            speaker: {
-              label: `Attendance ${track.recording.attendanceId}`,
-              displayName: track.name ?? track.personName ?? 'Participant',
-              personId: track.personId,
-              userId: track.userId,
-            },
-          });
-      }
+    for (const track of tracks) {
+      request.signal.throwIfAborted();
+      const audio = await download(track.recording, join(dir, track.recording.id));
+      if (provider.name === 'fake' || audio.ranges.length)
+        prepared.push({
+          record: track.recording,
+          audio,
+          speaker: {
+            label: `Attendance ${track.recording.attendanceId}`,
+            displayName: track.name ?? track.personName ?? 'Participant',
+            personId: track.personId,
+            userId: track.userId,
+          },
+        });
+    }
     const seconds = estimateSpeechSeconds(
       prepared.map((p) => p.audio.ranges.reduce((sum, r) => sum + r.endMs - r.startMs, 0)),
       prepared.reduce((sum, p) => sum + planSpeechChunks(p.audio.ranges).length, 0),
@@ -372,7 +372,15 @@ export async function transcribeTracks(
       };
     }
     if (!provider.transcribe) return null;
-    const audio = await download(normalized, join(dir, 'mixed'));
+    const audio =
+      source?.kind === 'participant_track' && prepared.length
+        ? await mixSpeechAudio(
+            prepared.map((p) => ({ path: p.audio.path, offsetMs: p.record.startOffsetMs ?? 0 })),
+            dir,
+            options.tools,
+            request.signal,
+          )
+        : await download(normalized, join(dir, 'mixed'));
     const result = await call(normalized, audio);
     return {
       result: {
