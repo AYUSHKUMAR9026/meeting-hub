@@ -1,7 +1,7 @@
 import type { Mailer } from '../../lib/mailer';
 import { randomBytes } from 'node:crypto';
 
-import { ConflictError, NotFoundError } from '../../lib/errors';
+import { BadRequestError, ConflictError, NotFoundError } from '../../lib/errors';
 import type { AuditService, RequestOrigin } from '../audit';
 import {
   assertNoViolation,
@@ -457,7 +457,10 @@ Accept project invitation: ${this.deps.webOrigin}/accept-invitation/${created.id
   async declineInvitation(user: CurrentUser, invitationId: string, caller: CallerContext) {
     const details = await callAuth(() =>
       this.deps.auth.api.getInvitation({ query: { id: invitationId }, headers: caller.headers }),
-    );
+    ).catch((error: unknown) => {
+      if (error instanceof BadRequestError) throw new NotFoundError('Invitation not found');
+      throw error;
+    });
     await this.assertInvitationsEnabled(details.organizationId);
     await callAuth(() =>
       this.deps.auth.api.rejectInvitation({ body: { invitationId }, headers: caller.headers }),
