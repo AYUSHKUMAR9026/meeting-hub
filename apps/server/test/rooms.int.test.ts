@@ -405,9 +405,9 @@ it.each([true, false])(
               }
             : {}),
         });
-        const token = await new AccessToken('regression-key', 'regression-secret', {
-          sha256: createHash('sha256').update(body).digest('base64'),
-        }).toJwt();
+        const signer = new AccessToken('regression-key', 'regression-secret');
+        signer.sha256 = createHash('sha256').update(body).digest('base64');
+        const token = await signer.toJwt();
         const post = (authorization: string) =>
           t.app.inject({
             method: 'POST',
