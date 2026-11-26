@@ -30,6 +30,7 @@ export interface MaintenanceDeps {
   meetings: MeetingMaintenance;
   sweeper: ProcessingSweeper;
   sweepIntervalMs: number;
+  results?: { sweep(): Promise<unknown> };
   rooms?: { sweep(): Promise<void> };
   progress?: { sweep(flags: FeatureFlagService): Promise<void> };
   /** BullMQ key prefix (tests isolate queues with their own). */
@@ -75,6 +76,7 @@ export async function startMaintenance(deps: MaintenanceDeps): Promise<Maintenan
         const result = await deps.sweeper.sweep();
         if (result.enqueued || result.timedOut)
           logger.warn(result, 'processing sweep repaired runs');
+        await deps.results?.sweep();
         await deps.rooms?.sweep();
         return result;
       }

@@ -1,5 +1,5 @@
 'use client';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Room, DisconnectReason } from 'livekit-client';
 import { useParams, useRouter } from 'next/navigation';
 import {
@@ -12,6 +12,7 @@ import '@livekit/components-styles';
 import { api, problemMessage } from '@/lib/api/client';
 import { Button } from '@/components/ui/button';
 import { useCurrentUser } from '@/components/app/workspace-context';
+import { RoomExtras } from '@/components/meetings/room-extras';
 import { AiDisclosure } from '@/components/meetings/ai-disclosure';
 
 export default function RoomPage() {
@@ -24,7 +25,13 @@ export default function RoomPage() {
   const [choices, setChoices] = useState<LocalUserChoices>();
   const [join, setJoin] = useState<{ url: string; token: string }>();
   const [error, setError] = useState('');
-  const back = useCallback(() => router.replace(`/w/${slug}/m/${id}`), [router, slug, id]);
+  const leaving = useRef(false);
+  const back = useCallback(() => {
+    if (leaving.current) return;
+    leaving.current = true;
+    setJoin(undefined);
+    router.replace(`/w/${slug}/m/${id}`);
+  }, [router, slug, id]);
   const liveRoom = useMemo(
     () =>
       new Room({
@@ -41,7 +48,7 @@ export default function RoomPage() {
         setHost(r.data.canHost);
         if (r.data.recordingStatus === 'failed')
           setError('Recording failed. This call is not being fully saved.');
-        if (r.data.status === 'ended') router.replace(`/w/${slug}/m/${id}`);
+        if (r.data.status === 'ended') back();
       } else setError(problemMessage(r.error));
     };
     void load().catch(() => setError('Connection interrupted. Reconnecting…'));
@@ -50,7 +57,7 @@ export default function RoomPage() {
       2000,
     );
     return () => clearInterval(timer);
-  }, [id, slug, router]);
+  }, [id, back]);
   const connect = async (local: LocalUserChoices) => {
     const r = await api.POST('/v1/meetings/{id}/room/join', {
       params: { path: { id } },
@@ -67,7 +74,7 @@ export default function RoomPage() {
       <AiDisclosure />
       <p>
         {recording
-          ? 'Audio is recorded for the transcript and meeting document. Each participant’s audio track is also saved.'
+          ? 'Audio tracks are temporary input for the decision PDF and are deleted after transcription.'
           : 'Recording is off for this meeting.'}
       </p>
       {error && <p role="alert">{error}</p>}
@@ -101,8 +108,9 @@ export default function RoomPage() {
             } else back();
           }}
           data-lk-theme="default"
-          style={{ height: '75vh' }}
+          style={{ height: '75vh', display: 'grid', gridTemplateRows: 'auto minmax(0, 1fr)' }}
         >
+          <RoomExtras meetingId={id} />
           <VideoConference />
         </LiveKitRoom>
       )}

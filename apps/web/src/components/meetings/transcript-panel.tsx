@@ -116,7 +116,7 @@ function TranscriptResults({
   meetingId: string;
   query: string;
   positionMs: number;
-  onSeek: (positionMs: number) => void;
+  onSeek?: ((positionMs: number) => void) | undefined;
   reload: () => void;
   citation?: CitationTarget | undefined;
 }) {
@@ -209,7 +209,8 @@ function TranscriptResults({
               <li key={segment.id}>
                 <button
                   type="button"
-                  onClick={() => onSeek(segment.startMs)}
+                  disabled={!onSeek}
+                  onClick={() => onSeek?.(segment.startMs)}
                   aria-current={active ? 'true' : undefined}
                   id={'transcript-' + segment.id}
                   data-testid="transcript-segment"
@@ -255,7 +256,7 @@ type TranscriptPanelProps = {
   processing: boolean;
   failed: boolean;
   positionMs: number;
-  onSeek: (positionMs: number) => void;
+  onSeek?: ((positionMs: number) => void) | undefined;
 };
 
 function TranscriptPageResults({

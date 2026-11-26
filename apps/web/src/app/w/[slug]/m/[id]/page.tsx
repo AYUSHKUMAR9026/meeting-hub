@@ -1,4 +1,6 @@
 'use client';
+import { SavedChat } from '@/components/meetings/saved-chat';
+import { DecisionPdf } from '@/components/meetings/decision-pdf';
 import { RoomControls } from '@/components/meetings/room-controls';
 import { MeetingProgress } from '@/components/meetings/meeting-progress';
 
@@ -91,8 +93,8 @@ function MeetingDetail({ meeting, onChanged }: { meeting: Meeting; onChanged: ()
     }
   });
   const [positionMs, setPositionMs] = useState(linkedCitation?.startMs ?? 0);
-  const [tab, setTab] = useState<'summary' | 'transcript'>(
-    linkedCitation ? 'transcript' : 'summary',
+  const [tab, setTab] = useState<'document' | 'summary' | 'transcript'>(
+    linkedCitation && meeting.resultPolicy === 'legacy' ? 'transcript' : 'document',
   );
   const [citation, setCitation] = useState<CitationTarget | undefined>(linkedCitation);
   const [editing, setEditing] = useState(false);
@@ -111,13 +113,19 @@ function MeetingDetail({ meeting, onChanged }: { meeting: Meeting; onChanged: ()
   const mediaStep = run?.steps.find((step) => step.name === 'prepare_media');
   const transcriptStep = run?.steps.find((step) => step.name === 'transcribe');
   const analysisStep = run?.steps.find((step) => step.name === 'analyze');
+  const transcriptAllowed =
+    !meeting.transcriptPurged &&
+    (meeting.resultPolicy === 'legacy' ||
+      workspace.settings.contentRetention === 'keep_transcript');
   const playable =
-    status === 'partially_ready' ||
-    (analysisStep !== undefined && mediaStep?.status === 'skipped') ||
-    (status === 'ready' && run?.status === 'completed') ||
-    (transcriptStep &&
-      (mediaStep?.status === 'succeeded' || mediaStep?.status === 'skipped') &&
-      transcriptStep.status !== 'skipped');
+    meeting.resultPolicy === 'legacy' &&
+    recording?.status !== 'deleted' &&
+    (status === 'partially_ready' ||
+      (analysisStep !== undefined && mediaStep?.status === 'skipped') ||
+      (status === 'ready' && run?.status === 'completed') ||
+      (transcriptStep &&
+        (mediaStep?.status === 'succeeded' || mediaStep?.status === 'skipped') &&
+        transcriptStep.status !== 'skipped'));
   useEffect(() => {
     if (live && live.data.meetingStatus !== meeting.status) onChanged();
   }, [live, meeting.status, onChanged]);
@@ -229,55 +237,58 @@ function MeetingDetail({ meeting, onChanged }: { meeting: Meeting; onChanged: ()
         />
       )}
 
-      {recording && recording.status !== 'failed' && (
-        <Card data-testid="recording-card">
-          <CardHeader>
-            <CardTitle>Recording</CardTitle>
-          </CardHeader>
-          <CardContent className="grid gap-3">
-            <div className="flex flex-wrap items-center gap-3">
-              <FileAudioIcon className="size-5 text-muted-foreground" />
-              <div className="min-w-0">
-                <p className="truncate text-sm font-medium">{recording.fileName}</p>
-                <p className="text-xs text-muted-foreground">
-                  {formatBytes(recording.sizeBytes)} · {recording.contentType}
-                </p>
-              </div>
-              <Badge variant={recording.status === 'uploaded' ? 'default' : 'secondary'}>
-                {recording.status === 'uploaded' ? 'Uploaded' : 'Upload in progress'}
-              </Badge>
-              {perms.canDownload && recording.status === 'uploaded' && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="ml-auto"
-                  onClick={() => void download()}
-                >
-                  <DownloadIcon /> Download original
-                </Button>
-              )}
-            </div>
-            {recording.status === 'uploaded' && !run && (
-              <p className="text-sm text-muted-foreground" data-testid="processing-pending">
-                {perms.pipelineEnabled
-                  ? 'Processing will start in a moment.'
-                  : 'Processing is not enabled for this workspace yet.'}
-              </p>
-            )}
-            {recording.status === 'uploading' && (
-              <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-                An upload was started but hasn&apos;t finished. If it was interrupted, cancel it and
-                upload again.
-                {perms.canUpload && (
-                  <Button variant="outline" size="sm" onClick={() => void cancelStaleUpload()}>
-                    Cancel upload
+      {meeting.resultPolicy === 'legacy' &&
+        recording &&
+        recording.status !== 'failed' &&
+        recording.status !== 'deleted' && (
+          <Card data-testid="recording-card">
+            <CardHeader>
+              <CardTitle>Recording</CardTitle>
+            </CardHeader>
+            <CardContent className="grid gap-3">
+              <div className="flex flex-wrap items-center gap-3">
+                <FileAudioIcon className="size-5 text-muted-foreground" />
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium">{recording.fileName}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {formatBytes(recording.sizeBytes)} · {recording.contentType}
+                  </p>
+                </div>
+                <Badge variant={recording.status === 'uploaded' ? 'default' : 'secondary'}>
+                  {recording.status === 'uploaded' ? 'Uploaded' : 'Upload in progress'}
+                </Badge>
+                {perms.canDownload && recording.status === 'uploaded' && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="ml-auto"
+                    onClick={() => void download()}
+                  >
+                    <DownloadIcon /> Download original
                   </Button>
                 )}
               </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
+              {recording.status === 'uploaded' && !run && (
+                <p className="text-sm text-muted-foreground" data-testid="processing-pending">
+                  {perms.pipelineEnabled
+                    ? 'Processing will start in a moment.'
+                    : 'Processing is not enabled for this workspace yet.'}
+                </p>
+              )}
+              {recording.status === 'uploading' && (
+                <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+                  An upload was started but hasn&apos;t finished. If it was interrupted, cancel it
+                  and upload again.
+                  {perms.canUpload && (
+                    <Button variant="outline" size="sm" onClick={() => void cancelStaleUpload()}>
+                      Cancel upload
+                    </Button>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
       {run && (
         <ProcessingPanel
@@ -285,8 +296,16 @@ function MeetingDetail({ meeting, onChanged }: { meeting: Meeting; onChanged: ()
           run={run}
           live={live?.live ?? false}
           canReprocess={perms.canReprocess}
-          canRetranscribe={transcriptionEnabled && Boolean(playable)}
+          canRestart={
+            perms.canReprocess &&
+            meeting.resultPolicy === 'legacy' &&
+            recording?.status !== 'deleted'
+          }
+          canRetranscribe={
+            meeting.resultPolicy === 'legacy' && transcriptionEnabled && Boolean(playable)
+          }
           canAnalyze={
+            transcriptAllowed &&
             analysisEnabled &&
             (transcriptStep?.status === 'succeeded' ||
               (analysisStep !== undefined && mediaStep?.status === 'skipped'))
@@ -295,6 +314,15 @@ function MeetingDetail({ meeting, onChanged }: { meeting: Meeting; onChanged: ()
         />
       )}
 
+      {tab === 'document' && <DecisionPdf meetingId={meeting.id} />}
+      {meeting.resultPolicy === 'temporary' && (
+        <p className="text-sm text-muted-foreground">
+          Audio is temporary processing input and is deleted after transcription. Re-transcription
+          requires a new upload.{' '}
+          {!transcriptAllowed &&
+            'This workspace retains the PDF and extracted items only; transcript access and re-analysis are disabled.'}
+        </p>
+      )}
       {playable && (
         <AudioPlayer
           key={mediaStep?.status === 'skipped' ? meeting.id : run?.id}
@@ -305,53 +333,67 @@ function MeetingDetail({ meeting, onChanged }: { meeting: Meeting; onChanged: ()
           initialPositionMs={linkedCitation?.startMs}
         />
       )}
-      {recording?.status === 'uploaded' && (
+      {(recording?.status === 'uploaded' || status === 'ready' || status === 'partially_ready') && (
         <MeetingReviewActions
           meetingId={meeting.id}
           canEdit={perms.canEdit}
+          transcriptAllowed={transcriptAllowed}
           revision={run?.id + ':' + status}
         />
       )}
-      {analysisEnabled && recording?.status === 'uploaded' && (
-        <div className="flex gap-2" aria-label="Meeting details">
-          <Button
-            variant={tab === 'summary' ? 'default' : 'outline'}
-            aria-pressed={tab === 'summary'}
-            onClick={() => setTab('summary')}
-          >
-            Summary
-          </Button>
-          {(transcriptionEnabled || citation) && (
+      {analysisEnabled &&
+        (recording?.status === 'uploaded' ||
+          status === 'ready' ||
+          status === 'partially_ready') && (
+          <div className="flex gap-2" aria-label="Meeting details">
             <Button
-              variant={tab === 'transcript' ? 'default' : 'outline'}
-              aria-pressed={tab === 'transcript'}
-              onClick={() => {
-                setCitation(undefined);
-                setTab('transcript');
-              }}
+              variant={tab === 'document' ? 'default' : 'outline'}
+              onClick={() => setTab('document')}
             >
-              Transcript
+              Document
             </Button>
-          )}
-        </div>
-      )}
-      {analysisEnabled && recording?.status === 'uploaded' && tab === 'summary' && (
-        <SummaryPanel
-          meetingId={meeting.id}
-          revision={analysisStep?.status === 'succeeded' ? (run?.id ?? '') : ''}
-          canEdit={perms.canEdit}
-          review={reviewEnabled}
-          active={run?.pipelineVersion === 3 && status === 'processing'}
-          failed={analysisStep?.status === 'failed'}
-          onCitation={(target) => {
-            setCitation(target);
-            setTab('transcript');
-            audio.current?.seek(target.startMs);
-          }}
-        />
-      )}
-      {(transcriptionEnabled || citation) &&
-        recording?.status === 'uploaded' &&
+            <Button
+              variant={tab === 'summary' ? 'default' : 'outline'}
+              aria-pressed={tab === 'summary'}
+              onClick={() => setTab('summary')}
+            >
+              Summary
+            </Button>
+            {transcriptAllowed && (transcriptionEnabled || citation) && (
+              <Button
+                variant={tab === 'transcript' ? 'default' : 'outline'}
+                aria-pressed={tab === 'transcript'}
+                onClick={() => {
+                  setCitation(undefined);
+                  setTab('transcript');
+                }}
+              >
+                Transcript
+              </Button>
+            )}
+          </div>
+        )}
+      {analysisEnabled &&
+        (recording?.status === 'uploaded' || status === 'ready' || status === 'partially_ready') &&
+        tab === 'summary' && (
+          <SummaryPanel
+            meetingId={meeting.id}
+            revision={analysisStep?.status === 'succeeded' ? (run?.id ?? '') : ''}
+            canEdit={perms.canEdit}
+            review={reviewEnabled}
+            citationsInteractive={transcriptAllowed && meeting.resultPolicy === 'legacy'}
+            active={run?.pipelineVersion === 3 && status === 'processing'}
+            failed={analysisStep?.status === 'failed'}
+            onCitation={(target) => {
+              setCitation(target);
+              setTab('transcript');
+              audio.current?.seek(target.startMs);
+            }}
+          />
+        )}
+      {transcriptAllowed &&
+        (transcriptionEnabled || citation) &&
+        (recording?.status === 'uploaded' || status === 'ready' || status === 'partially_ready') &&
         (!analysisEnabled || tab === 'transcript') && (
           <TranscriptPanel
             meetingId={meeting.id}
@@ -364,10 +406,13 @@ function MeetingDetail({ meeting, onChanged }: { meeting: Meeting; onChanged: ()
             citation={citation}
             failed={transcriptStep?.status === 'failed'}
             positionMs={positionMs}
-            onSeek={(ms) => audio.current?.seek(ms)}
+            onSeek={meeting.resultPolicy === 'legacy' ? (ms) => audio.current?.seek(ms) : undefined}
           />
         )}
 
+      {meeting.roomStatus === 'ended' && workspace.features.includes('rooms.enabled') && (
+        <SavedChat meetingId={meeting.id} />
+      )}
       {perms.canUpload && meeting.status === 'awaiting_upload' && (
         <RecordingUploadCard meetingId={meeting.id} onUploaded={onChanged} />
       )}

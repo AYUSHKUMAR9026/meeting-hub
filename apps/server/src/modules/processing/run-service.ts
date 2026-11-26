@@ -1,3 +1,4 @@
+import { assertAudioAllowed, assertTranscriptAllowed } from '../results';
 import {
   and,
   eq,
@@ -168,8 +169,11 @@ export class RunService implements ProcessingCanceller {
     const { repo } = this.deps;
     const meeting = await repo.findVisibleMeeting(actor.workspaceId, meetingId);
     if (!meeting) throw meetingNotFound();
+    if (fromStep === 'analyze')
+      await assertTranscriptAllowed(this.deps.db, actor.workspaceId, meetingId);
+    else await assertAudioAllowed(this.deps.db, actor.workspaceId, meetingId);
     const original = await repo.findRecording(actor.workspaceId, meetingId, 'original');
-    if (original?.status !== 'uploaded') {
+    if (!original || (fromStep !== 'analyze' && original.status !== 'uploaded')) {
       throw new ConflictError('RECORDING_NOT_UPLOADED', 'This meeting has no uploaded recording');
     }
     let pipelineVersion = await this.pipelineVersion(actor.workspaceId);
@@ -202,6 +206,7 @@ export class RunService implements ProcessingCanceller {
           'TRANSCRIPTION_DISABLED',
           'Transcription is not enabled for this workspace.',
         );
+      await assertAudioAllowed(this.deps.db, actor.workspaceId, meetingId);
       const normalized = await repo.findRecording(actor.workspaceId, meetingId, 'normalized');
       if (normalized?.status !== 'uploaded' || !normalized.durationMs)
         throw new ConflictError(
@@ -247,6 +252,7 @@ export class RunService implements ProcessingCanceller {
     authorize(actor, 'meeting.read');
     const { repo, storage, mediaUrlTtlSeconds } = this.deps;
     if (!(await repo.findVisibleMeeting(actor.workspaceId, meetingId))) throw meetingNotFound();
+    await assertAudioAllowed(this.deps.db, actor.workspaceId, meetingId);
     const normalized = await repo.findRecording(actor.workspaceId, meetingId, 'normalized');
     if (normalized?.status !== 'uploaded') {
       throw new NotFoundError('This meeting has no processed audio yet');

@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm';
 import {
+  bigint,
   boolean,
   check,
   date,
@@ -17,7 +18,7 @@ import {
 import { createdAt, id, timestamptz } from './columns';
 import { meetings } from './meetings';
 import { processingRuns } from './processing';
-import { transcripts, transcriptSegments, transcriptSpeakers } from './transcription';
+import { transcriptSegments, transcriptSpeakers } from './transcription';
 import { people } from './workspaces';
 
 export interface DocumentSummary {
@@ -62,11 +63,6 @@ export const meetingDocuments = pgTable(
       name: 'meeting_documents_run_fk',
       columns: [t.processingRunId, t.meetingId, t.workspaceId],
       foreignColumns: [processingRuns.id, processingRuns.meetingId, processingRuns.workspaceId],
-    }).onDelete('cascade'),
-    foreignKey({
-      name: 'meeting_documents_transcript_fk',
-      columns: [t.transcriptId, t.meetingId, t.workspaceId],
-      foreignColumns: [transcripts.id, transcripts.meetingId, transcripts.workspaceId],
     }).onDelete('cascade'),
     check(
       'meeting_documents_status_check',
@@ -126,6 +122,8 @@ export const actionItems = pgTable(
   'action_items',
   {
     ...itemColumns(),
+    ownerReferenceId: uuid('owner_reference_id'),
+    ownerLabel: text('owner_label'),
     ownerSpeakerId: uuid('owner_speaker_id'),
     ownerPersonId: uuid('owner_person_id'),
     dueDate: date('due_date'),
@@ -182,7 +180,10 @@ export const evidence = pgTable(
     transcriptId: uuid('transcript_id').notNull(),
     itemType: text('item_type').$type<'decision' | 'action_item'>().notNull(),
     itemId: uuid('item_id').notNull(),
-    segmentId: uuid('segment_id').notNull(),
+    segmentId: uuid('segment_id'),
+    citationStartMs: integer('citation_start_ms'),
+    citationIdx: integer('citation_idx'),
+    citationSpeaker: text('citation_speaker'),
     decisionId: uuid('decision_id').generatedAlwaysAs(
       sql`CASE WHEN item_type = 'decision' THEN item_id END`,
     ),
@@ -222,7 +223,35 @@ export const evidence = pgTable(
         transcriptSegments.transcriptId,
         transcriptSegments.workspaceId,
       ],
-    }).onDelete('cascade'),
+    }).onDelete('set null'),
     check('evidence_item_type_check', sql`${t.itemType} IN ('decision', 'action_item')`),
+  ],
+);
+
+/** Immutable saved PDF versions. A new file is added for every successful regeneration. */
+export const documentFiles = pgTable(
+  'document_files',
+  {
+    id: id(),
+    workspaceId: uuid('workspace_id').notNull(),
+    meetingId: uuid('meeting_id').notNull(),
+    revisionId: uuid('revision_id').notNull(),
+    kind: text('kind').$type<'pdf'>().notNull().default('pdf'),
+    storageKey: text('storage_key').notNull().unique(),
+    size: bigint('size', { mode: 'number' }).notNull(),
+    generatedAt: timestamptz('generated_at').notNull().defaultNow(),
+    locale: text('locale').notNull().default('en'),
+    meetingDateTime: text('meeting_date_time').notNull(),
+  },
+  (t) => [
+    foreignKey({
+      columns: [t.meetingId, t.workspaceId],
+      foreignColumns: [meetings.id, meetings.workspaceId],
+    }).onDelete('cascade'),
+    foreignKey({
+      columns: [t.revisionId, t.workspaceId],
+      foreignColumns: [meetingDocuments.id, meetingDocuments.workspaceId],
+    }).onDelete('cascade'),
+    index('document_files_meeting_idx').on(t.workspaceId, t.meetingId, t.generatedAt.desc()),
   ],
 );

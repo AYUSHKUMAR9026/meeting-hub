@@ -41,13 +41,17 @@ export class LiveKitProvider implements RoomProvider {
 
   constructor(private readonly config: Config) {
     const { LIVEKIT_URL: url, LIVEKIT_API_KEY: key, LIVEKIT_API_SECRET: secret } = config;
-    if (!key || !secret) throw new Error('Missing live room credentials');
-    this.service = new RoomServiceClient(url, key, secret);
-    this.egress = new EgressClient(url, key, secret);
-    this.receiver = new WebhookReceiver(key, secret);
+    // Development may boot without credentials to expose System readiness. Room entry still fails.
+    const clientKey = key ?? 'unconfigured';
+    const clientSecret = secret ?? 'unconfigured';
+    this.service = new RoomServiceClient(url, clientKey, clientSecret);
+    this.egress = new EgressClient(url, clientKey, clientSecret);
+    this.receiver = new WebhookReceiver(clientKey, clientSecret);
   }
 
   async createRoom(name: string) {
+    if (!this.config.LIVEKIT_API_KEY || !this.config.LIVEKIT_API_SECRET)
+      throw new Error('LiveKit is not configured');
     await this.service.createRoom({
       name,
       maxParticipants: this.config.ROOM_MAX_PARTICIPANTS,

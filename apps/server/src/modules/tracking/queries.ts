@@ -46,9 +46,14 @@ export function actionFilters(
     query.ownerPersonId
       ? sql`coalesce(${actionItems.ownerPersonId}, (SELECT s.person_id FROM transcript_speakers s WHERE s.id = ${actionItems.ownerSpeakerId} AND s.workspace_id = ${actionItems.workspaceId})) = ${query.ownerPersonId}`
       : undefined,
-    query.ownerSpeakerId ? eq(actionItems.ownerSpeakerId, query.ownerSpeakerId) : undefined,
+    query.ownerSpeakerId
+      ? eq(
+          sql`coalesce(${actionItems.ownerSpeakerId}, ${actionItems.ownerReferenceId})`,
+          query.ownerSpeakerId,
+        )
+      : undefined,
     query.unassigned
-      ? sql`${actionItems.ownerPersonId} IS NULL AND ${actionItems.ownerSpeakerId} IS NULL`
+      ? sql`${actionItems.ownerPersonId} IS NULL AND ${actionItems.ownerSpeakerId} IS NULL AND ${actionItems.ownerReferenceId} IS NULL`
       : undefined,
     myPersonId ? eq(actionItems.ownerPersonId, myPersonId) : undefined,
     query.dueFrom ? gte(actionItems.dueDate, query.dueFrom) : undefined,

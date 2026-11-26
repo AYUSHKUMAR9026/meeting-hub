@@ -70,6 +70,7 @@ export function ProcessingPanel({
   run,
   live,
   canReprocess,
+  canRestart = canReprocess,
   canRetranscribe,
   canAnalyze,
   onReprocessed,
@@ -77,6 +78,7 @@ export function ProcessingPanel({
   meetingId: string;
   run: ProcessingRun;
   live: boolean;
+  canRestart?: boolean;
   canReprocess: boolean;
   canRetranscribe: boolean;
   canAnalyze: boolean;
@@ -160,7 +162,7 @@ export function ProcessingPanel({
               Retry transcription
             </Button>
           )}
-          {canReprocess && !active && (
+          {canRestart && !active && (
             <Button
               variant="outline"
               size="sm"

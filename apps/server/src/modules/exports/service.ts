@@ -1,3 +1,4 @@
+import { assertTranscriptAllowed } from '../results';
 import { Readable } from 'node:stream';
 
 import type { Database } from '../../lib/db';
@@ -39,6 +40,8 @@ export class ExportService {
     includeTranscript: boolean,
     origin: RequestOrigin,
   ) {
+    if (includeTranscript || format === 'txt' || format === 'srt')
+      await assertTranscriptAllowed(this.deps.db, actor.workspaceId, meetingId);
     const deadline = performance.now() + TIMEOUT_MS;
     const signal = AbortSignal.timeout(TIMEOUT_MS);
     let output: { title: string; bytes: Buffer };

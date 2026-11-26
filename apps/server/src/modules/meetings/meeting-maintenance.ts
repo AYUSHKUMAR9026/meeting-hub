@@ -1,6 +1,6 @@
 import type { Logger } from '../../lib/logger';
 import type { AuditService } from '../audit';
-import { meetingPrefix, type ObjectStorage } from '../media';
+import { temporaryMeetingPrefix, meetingPrefix, type ObjectStorage } from '../media';
 import type { MeetingRepository } from './meeting-repository';
 import type { RunCanceller } from './meeting-service';
 
@@ -93,9 +93,12 @@ export class MeetingMaintenance {
         abortedUploads += 1;
       }
     }
-    const deletedObjects = await storage.deletePrefix(
-      meetingPrefix(meeting.workspaceId, meeting.id),
+    const temporaryDeleted = await storage.deletePrefix(
+      temporaryMeetingPrefix(meeting.workspaceId, meeting.id),
     );
+    const deletedObjects =
+      temporaryDeleted +
+      (await storage.deletePrefix(meetingPrefix(meeting.workspaceId, meeting.id)));
     // Transcript and document revisions, evidence, and share links cascade with the meeting row.
     const purged = await repo.purge(meeting.id);
     if (purged) {

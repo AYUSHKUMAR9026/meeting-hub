@@ -18,6 +18,7 @@ import {
   type NewRecording,
   or,
   people,
+  sql,
   type RecordingRow,
   recordings,
 } from '@meeting-hub/db';
@@ -49,6 +50,7 @@ export interface MeetingListOptions {
 }
 
 export interface MeetingInput {
+  mode?: 'upload' | 'start' | 'schedule' | undefined;
   title: string;
   occurredAt: Date;
   participantIds: string[];
@@ -76,6 +78,10 @@ const visible = (workspaceId: string) =>
   and(eq(meetings.workspaceId, workspaceId), isNull(meetings.deletedAt));
 
 const meetingColumns = {
+  resultPolicy: meetings.resultPolicy,
+  pdfState: meetings.pdfState,
+  pdfDirtyAt: meetings.pdfDirtyAt,
+  transcriptPurgedAt: meetings.transcriptPurgedAt,
   id: meetings.id,
   workspaceId: meetings.workspaceId,
   title: meetings.title,
@@ -120,9 +126,25 @@ export class MeetingRepository {
       await assertParticipants(tx, workspaceId, input.participantIds);
       const [row] = await tx
         .insert(meetings)
-        .values({ workspaceId, title: input.title, occurredAt: input.occurredAt, createdBy })
+        .values({
+          workspaceId,
+          title: input.title,
+          occurredAt: input.occurredAt,
+          createdBy,
+          ...(input.mode && input.mode !== 'upload'
+            ? { source: 'live', roomStatus: 'scheduled' as const }
+            : {}),
+        })
         .returning({ id: meetings.id });
-      await insertParticipants(tx, workspaceId, row!.id, input.participantIds);
+      let participantIds = input.participantIds;
+      if (input.mode && input.mode !== 'upload') {
+        const [host] = await tx
+          .select({ id: people.id })
+          .from(people)
+          .where(and(eq(people.workspaceId, workspaceId), eq(people.userId, createdBy)));
+        if (host) participantIds = [...new Set([...participantIds, host.id])];
+      }
+      await insertParticipants(tx, workspaceId, row!.id, participantIds);
       return row!.id;
     });
   }
@@ -174,6 +196,7 @@ export class MeetingRepository {
       const [row] = await tx
         .update(meetings)
         .set({
+          pdfDirtyAt: sql`CASE WHEN ${meetings.pdfState} IN ('ready','failed') THEN now() ELSE ${meetings.pdfDirtyAt} END`,
           ...(patch.title !== undefined ? { title: patch.title } : {}),
           ...(patch.occurredAt !== undefined ? { occurredAt: patch.occurredAt } : {}),
           updatedAt: new Date(),

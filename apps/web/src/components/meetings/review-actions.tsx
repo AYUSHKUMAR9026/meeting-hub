@@ -24,10 +24,12 @@ export function MeetingReviewActions({
   meetingId,
   canEdit,
   revision,
+  transcriptAllowed = true,
 }: {
   meetingId: string;
   canEdit: boolean;
   revision: string;
+  transcriptAllowed?: boolean;
 }) {
   const workspace = useWorkspace();
   const exportsEnabled = workspace.features.includes('exports.enabled');
@@ -38,6 +40,7 @@ export function MeetingReviewActions({
     <ReviewDownloads
       meetingId={meetingId}
       revision={revision}
+      transcriptAllowed={transcriptAllowed}
       exportsEnabled={exportsEnabled}
       sharingEnabled={Boolean(sharingEnabled && canEdit)}
     />
@@ -49,11 +52,13 @@ function ReviewDownloads({
   revision,
   exportsEnabled,
   sharingEnabled,
+  transcriptAllowed,
 }: {
   meetingId: string;
   revision: string;
   exportsEnabled: boolean;
   sharingEnabled: boolean;
+  transcriptAllowed: boolean;
 }) {
   const path = { id: meetingId };
   const doc = useApiQuery(meetingId + ':review-document:' + revision, () =>
@@ -62,7 +67,7 @@ function ReviewDownloads({
   const transcript = useApiQuery<TranscriptPage>(
     meetingId + ':review-transcript:' + revision,
     () =>
-      exportsEnabled
+      exportsEnabled && transcriptAllowed
         ? api.GET('/v1/meetings/{id}/transcript', { params: { path } })
         : Promise.resolve({ response: new Response() }),
   );
@@ -170,12 +175,26 @@ function ReviewDownloads({
           </CardContent>
         </Card>
       )}
-      {sharingEnabled && <ShareLinks meetingId={meetingId} documentReady={documentReady} />}
+      {sharingEnabled && (
+        <ShareLinks
+          meetingId={meetingId}
+          documentReady={documentReady}
+          transcriptAllowed={transcriptAllowed}
+        />
+      )}
     </div>
   );
 }
 
-function ShareLinks({ meetingId, documentReady }: { meetingId: string; documentReady: boolean }) {
+function ShareLinks({
+  meetingId,
+  documentReady,
+  transcriptAllowed,
+}: {
+  meetingId: string;
+  documentReady: boolean;
+  transcriptAllowed: boolean;
+}) {
   const [url, setUrl] = useState<string>();
   const [creating, setCreating] = useState(false);
   const [revoking, setRevoking] = useState<string>();
@@ -244,7 +263,9 @@ function ShareLinks({ meetingId, documentReady }: { meetingId: string; documentR
               <Label htmlFor="share-scope">Whoever has the link can view</Label>
               <NativeSelect name="scope" id="share-scope" defaultValue="document">
                 <option value="document">Document only</option>
-                <option value="document_and_transcript">Document and transcript</option>
+                {transcriptAllowed && (
+                  <option value="document_and_transcript">Document and transcript</option>
+                )}
               </NativeSelect>
             </div>
             <FormField

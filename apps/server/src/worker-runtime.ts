@@ -1,3 +1,4 @@
+import { ResultService, resultOutboxHandler } from './modules/results';
 /**
  * The worker process, composed (ADR 0004): maintenance jobs, the processing step workers, the
  * outbox dispatcher and the processing sweeper. worker.ts runs it; integration tests run it too.
@@ -80,9 +81,20 @@ export async function startWorkerRuntime(
       ...(options.llm ? { llm: options.llm } : {}),
     },
   );
-  const rooms = new RoomService(db.db, config, storage, audit, async (id) => {
-    await redis.publish('meeting-hub:processing:meeting:' + id, JSON.stringify({ meetingId: id }));
-  });
+  const rooms = new RoomService(
+    db.db,
+    config,
+    storage,
+    audit,
+    async (id) => {
+      await redis.publish(
+        'meeting-hub:processing:meeting:' + id,
+        JSON.stringify({ meetingId: id }),
+      );
+    },
+    undefined,
+    (wid) => flags.isEnabled('transcription.per_track_speakers', { workspaceId: wid }),
+  );
   const meetings = createMeetingMaintenance({
     stopRooms: (id) => rooms.stopForDeletion(id),
     db: db.db,
@@ -92,11 +104,29 @@ export async function startWorkerRuntime(
     runs: processing.runs,
     staleAfterHours: config.UPLOAD_STALE_AFTER_HOURS,
   });
+  const results = new ResultService({
+    db: db.db,
+    storage,
+    audit,
+    logger,
+    ttlHours: config.RECORDING_TEMP_TTL_HOURS,
+    maxBytes: config.EXPORT_MAX_BYTES,
+    changed: async (id) => {
+      await redis.publish(
+        'meeting-hub:processing:meeting:' + id,
+        JSON.stringify({ meetingId: id }),
+      );
+    },
+  });
   const dispatcher = new OutboxDispatcher({
     db: db.db,
     flags,
     logger: logger.child({ module: 'outbox' }),
-    handlers: [...processing.runs.outboxHandlers(), progressOutboxHandler()],
+    handlers: [
+      ...processing.runs.outboxHandlers(),
+      progressOutboxHandler(),
+      resultOutboxHandler(results),
+    ],
   });
 
   await redis.connect();
@@ -135,6 +165,7 @@ export async function startWorkerRuntime(
         flags,
         meetings,
         sweeper: processing.sweeper,
+        results,
         rooms,
         progress: new ProgressService(db.db),
         sweepIntervalMs: config.PROCESSING_SWEEP_INTERVAL_MS,

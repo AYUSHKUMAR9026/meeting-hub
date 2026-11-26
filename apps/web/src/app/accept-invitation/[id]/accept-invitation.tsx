@@ -73,6 +73,30 @@ export function AcceptInvitation({ id, email }: { id: string; email: string }) {
         <strong>{invitation.inviterEmail}</strong> invited you to join{' '}
         <strong>{invitation.workspaceName}</strong> as <strong>{invitation.role}</strong>.
       </p>
+      {invitation.meetings.map((m) => (
+        <article key={m.id} className="rounded border p-3">
+          <strong>{m.title}</strong>
+          <p>{m.dateTime}</p>
+          <p>You will be added to this meeting when you accept.</p>
+        </article>
+      ))}
+      <p>Invitation status: {invitation.status === 'rejected' ? 'declined' : invitation.status}</p>
+      <Button
+        variant="outline"
+        disabled={pending || invitation.status !== 'pending'}
+        onClick={() => {
+          setPending(true);
+          void api.POST('/v1/invitations/{id}/decline', { params: { path: { id } } }).then((r) => {
+            if (r.response.ok) router.push('/');
+            else {
+              setError(problemMessage(r.error));
+              setPending(false);
+            }
+          });
+        }}
+      >
+        Decline invitation
+      </Button>
       <FormError message={error} />
       <Button onClick={() => void accept()} disabled={pending}>
         {pending ? 'Joining…' : `Join ${invitation.workspaceName}`}

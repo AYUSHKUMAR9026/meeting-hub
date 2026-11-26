@@ -1,3 +1,6 @@
+-- ICU/browser aliases may be absent from PostgreSQL's installed time zone data.
+UPDATE "workspace_settings" SET "timezone" = 'Asia/Kolkata' WHERE "timezone" = 'Asia/Calcutta';
+--> statement-breakpoint
 CREATE TABLE "item_status_events" (
 	"id" uuid PRIMARY KEY DEFAULT uuidv7() NOT NULL,
 	"workspace_id" uuid NOT NULL,

@@ -1,3 +1,4 @@
+import { legacyReviewFixture } from './support/legacy-review-fixture';
 import {
   actionItems,
   and,
@@ -14,7 +15,6 @@ import {
   runMigrations,
   defaultMigrationsFolder,
   organization,
-  workspaceSettings,
   user,
   decisions,
   domainEvents,
@@ -97,10 +97,11 @@ describe('workspace progress', () => {
         .values({ name: 'Legacy', slug: name })
         .returning();
       const wid = ws!.id;
-      await client.db
-        .insert(workspaceSettings)
-        .values({ workspaceId: wid, timezone: 'America/New_York' });
-      const fixture = await reviewFixture(
+      await client.pool.query(
+        "INSERT INTO workspace_settings (workspace_id, timezone) VALUES ($1, 'America/New_York')",
+        [wid],
+      );
+      const fixture = await legacyReviewFixture(
         { ...t, deps: { ...t.deps, db: client } },
         wid,
         owner.userId,

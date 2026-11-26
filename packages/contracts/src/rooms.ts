@@ -13,3 +13,20 @@ export const roomViewSchema = z.object({
 });
 
 export type RoomView = z.infer<typeof roomViewSchema>;
+
+export const roomMessageRequestSchema = z
+  .object({ clientId: z.string().min(1).max(200), text: z.string().trim().min(1).max(4000) })
+  .meta({ id: 'RoomMessageRequest' });
+export const roomMessageListSchema = z
+  .object({
+    messages: z.array(
+      z.object({
+        id: z.uuid(),
+        userId: z.uuid(),
+        name: z.string(),
+        text: z.string(),
+        createdAt: z.iso.datetime(),
+      }),
+    ),
+  })
+  .meta({ id: 'RoomMessageList' });

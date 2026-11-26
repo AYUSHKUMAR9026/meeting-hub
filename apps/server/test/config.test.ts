@@ -29,15 +29,15 @@ function issuesFor(env: Record<string, string>): string[] {
 describe('loadConfig', () => {
   it('requires keys only for selected external providers and their fallback', () => {
     expect(loadConfig(validEnv).GROQ_API_KEY).toBeUndefined();
-    expect(issuesFor({ ...validEnv, TRANSCRIPTION_PROVIDER: 'groq' })).toContain(
-      'GROQ_API_KEY: required for the groq provider',
-    );
-    expect(issuesFor({ ...validEnv, LLM_PROVIDER: 'gemini' })).toContain(
+    expect(
+      issuesFor({ ...validEnv, NODE_ENV: 'production', TRANSCRIPTION_PROVIDER: 'groq' }),
+    ).toContain('GROQ_API_KEY: required for the groq provider');
+    expect(issuesFor({ ...validEnv, NODE_ENV: 'production', LLM_PROVIDER: 'gemini' })).toContain(
       'GEMINI_API_KEY: required for the gemini provider',
     );
-    expect(issuesFor({ ...validEnv, LLM_FALLBACK_PROVIDER: 'groq' })).toContain(
-      'GROQ_API_KEY: required for the groq provider',
-    );
+    expect(
+      issuesFor({ ...validEnv, NODE_ENV: 'production', LLM_FALLBACK_PROVIDER: 'groq' }),
+    ).toContain('GROQ_API_KEY: required for the groq provider');
     expect(
       loadConfig({
         ...validEnv,

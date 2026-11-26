@@ -101,7 +101,7 @@ export class TrackerService {
         ownerPersonId: actionItems.ownerPersonId,
         ownerName: sql<
           string | null
-        >`coalesce(${people.displayName}, ${transcriptSpeakers.displayName}, ${transcriptSpeakers.label})`,
+        >`coalesce(${people.displayName}, ${transcriptSpeakers.displayName}, ${transcriptSpeakers.label}, ${actionItems.ownerLabel})`,
       })
       .from(actionItems)
       .innerJoin(meetingDocuments, documentJoin(actionItems))
@@ -147,11 +147,11 @@ export class TrackerService {
       ? await this.db
           .select({
             itemId: evidence.itemId,
-            segmentId: evidence.segmentId,
-            startMs: transcriptSegments.startMs,
+            segmentId: sql<string>`coalesce(${evidence.segmentId}, ${evidence.id})`,
+            startMs: sql<number>`coalesce(${evidence.citationStartMs}, ${transcriptSegments.startMs})`,
           })
           .from(evidence)
-          .innerJoin(
+          .leftJoin(
             transcriptSegments,
             and(
               eq(transcriptSegments.id, evidence.segmentId),

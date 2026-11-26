@@ -74,6 +74,6 @@ s3_put cors "<CORSConfiguration><CORSRule>${ORIGINS}<AllowedMethod>PUT</AllowedM
 
 # Backstop for abandoned uploads; the media.abort-stale-uploads job is the guarantee.
 echo "garage-init: aborting incomplete multipart uploads after 1 day"
-s3_put lifecycle "<LifecycleConfiguration><Rule><ID>abort-incomplete-multipart-uploads</ID><Status>Enabled</Status><Filter></Filter><AbortIncompleteMultipartUpload><DaysAfterInitiation>1</DaysAfterInitiation></AbortIncompleteMultipartUpload></Rule></LifecycleConfiguration>"
+s3_put lifecycle "<LifecycleConfiguration><Rule><ID>abort-incomplete-multipart-uploads</ID><Status>Enabled</Status><Filter></Filter><AbortIncompleteMultipartUpload><DaysAfterInitiation>1</DaysAfterInitiation></AbortIncompleteMultipartUpload></Rule><Rule><ID>expire-temporary-audio</ID><Status>Enabled</Status><Filter><Prefix>temp/</Prefix></Filter><Expiration><Days>2</Days></Expiration></Rule></LifecycleConfiguration>"
 
 echo "garage-init: done (bucket=${S3_BUCKET})"

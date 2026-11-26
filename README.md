@@ -1,15 +1,11 @@
 # Meeting Hub
 
-AI meeting-intelligence platform: upload recordings, get transcripts with speakers, and a persistent,
-evidence-linked ledger of decisions and action items across meetings.
+Hold project meetings in Meeting Hub or upload a recording, then open the automatically saved,
+dated decision PDF. Review decisions and action items across meetings and track project progress.
+Audio is temporary processing input. By default, only PDFs and extracted structured content remain.
 
-> **Status: Phase 7 — document review, export and sharing.** Meeting recordings go straight from the
-> browser to object storage. The worker normalizes and validates audio with ffmpeg (Phase 4).
-> When transcription is enabled, the worker then produces speaker-labelled, searchable segments
-> and the meeting page syncs them with audio playback and a waveform (ADR 0005). With analysis
-> enabled, the Summary tab adds decisions and action items with citations to those segments (ADR 0006). Workspaces can enable document exports, public share
-> links, and decision and action item trackers (ADR 0007). Workspace progress charts and meeting
-> recaps use the current documents while preserving earlier observations (ADR 0010).
+**Status: Phases 8.5/8.6 product flow, building on Phases 1?10. Deployment remains on hold.**
+See [ADR 0011](docs/adr/0011-pdf-and-flow.md) for the authoritative storage and retention rules.
 
 ## Prerequisites
 
@@ -24,30 +20,86 @@ evidence-linked ledger of decisions and action items across meetings.
   - **macOS:** `brew install ffmpeg` · **Debian/Ubuntu:** `sudo apt-get install ffmpeg`
   - Check: `ffmpeg -version && ffprobe -version`
 
-## Setup
+## Run everything locally
 
-```bash
-git clone <repo-url> meeting-hub && cd meeting-hub
-pnpm install
-cp .env.example .env        # local-dev defaults; works as-is
-pnpm infra:up               # Postgres+pgvector, Redis, Garage S3 (+ bucket), Mailpit
-pnpm db:migrate
-pnpm dev                    # web :3000, api :4000, worker
-```
+1. Install the prerequisites above, start Docker, then run:
 
-Open <http://localhost:3000>, create an account, and click the verification link in **Mailpit**
-(<http://localhost:8025>) — every email the app sends lands there. After verifying you're asked to create a
-workspace; invite a teammate from **Settings → Members** (their invitation is in Mailpit too). Under **Meetings → New
-meeting**, add a title, participants and an audio/video file and upload it; the bytes go from the browser straight to
-Garage, never through the API. As soon as the upload completes the **worker** (part of `pnpm dev`) starts a processing
-run; the meeting page shows its progress live and, when the meeting is **Ready**, plays the processed audio. Owners and
-admins can **Reprocess** a meeting. Deleting a meeting hides it at once, cancels its processing and purges its files.
-<http://localhost:3000/status> shows PostgreSQL, Redis and S3 health.
+   ```bash
+   pnpm install
+   pnpm dev:full
+   ```
+
+   The launcher creates `.env.local` from [`.env.local.example`](.env.local.example) if needed.
+   It starts Postgres, Redis, Garage, Mailpit, LiveKit and Egress, applies migrations, seeds a demo
+   project, and starts web/API/worker. All product flags are enabled without manual flag editing.
+   Local fake AI needs no keys and makes no external AI requests. LiveKit runs real browser rooms.
+   Allow about a minute for the initial container health checks.
+
+2. Open <http://localhost:3000/sign-in>. Demo accounts are `owner@meeting-hub.local`,
+   `alex@meeting-hub.local` and `sam@meeting-hub.local`, all with local-only password
+   `meeting-hub-demo-2026`. The seed is idempotent and refuses production execution. Open the demo
+   project: its participant picker already has three members. Use separate browser profiles or
+   an incognito window for the second participant.
+
+3. Open **Settings ? System readiness** as owner/admin. It explains disabled flags, missing keys,
+   external-AI consent, LiveKit and SMTP problems without showing secrets. Readiness links directly
+   to settings for UI-fixable problems. Environment changes require a server restart.
+
+4. In **Meetings ? New meeting**, choose **Start a meeting now** or **Schedule a meeting**. Select
+   members and optionally enter invitation emails. Acknowledge the recording/AI notice. Start now
+   opens the room immediately; scheduling keeps a dated meeting with a later Start action.
+   The secondary **Upload a recording** path accepts existing audio/video as temporary input.
+
+5. Open the Mailpit address printed by the launcher (usually <http://localhost:8025>). If another
+   project owns its ports, the launcher chooses free ports and saves them in ignored `.env.local`.
+   Invitees sign up/sign in, verify their email, then accept the project invitation. Acceptance adds
+   them to the linked meetings. Members can also be invited from **Settings ? Members**, with an
+   optional selection of scheduled/live meetings. Pending, accepted and declined states are shown.
+
+6. Join from two browsers, acknowledge the notice, check devices in pre-join, and join the room.
+   Mute, camera, screen share, chat, participants and leave controls are available. The host chooses
+   **End for everyone**. The worker transcribes and analyzes, deletes temporary audio, then saves
+   and verifies a PDF. The first PDF is finalized directly after analysis; maintenance repairs interrupted finalization.
+   The dated meeting card becomes Ready and offers **View PDF**. The Document tab has the embedded
+   PDF, download, print and prior versions; the Summary tab retains editable items.
+
+7. Edit/confirm/reject an item. After a five-second quiet period, the maintenance worker stores a
+   new PDF version. Previous versions remain available. PDF failures show Retry PDF and preserve
+   structured content and transcript input until PDF storage succeeds.
+
+Audio is deleted after successful transcription or permanent failure. Retry/quota waits keep input
+for at most `RECORDING_TEMP_TTL_HOURS` (default/max 48). A sweep repairs missed purges and S3 has a
+`temp/` lifecycle safety net. New meetings never expose an audio player, waveform, original download
+or media URL. Re-transcription requires another upload. Workspace `contentRetention` defaults to
+`pdf_only`: after verified PDF storage, transcript rows/text/checkpoints are deleted while structured
+summary, decisions/actions and speaker/timestamp citations remain. `keep_transcript` also retains
+transcript text, includes its PDF appendix and supports analysis-only regeneration without audio.
+
+Existing meetings are preserved. Owners can use **Settings ? Purge stored recordings/transcripts**,
+review counts and bytes, and type the requested confirmation. These actions and retention changes
+are audited without content. Changing settings does not recover deleted content. See the
+[privacy notice template](docs/privacy-template.md) before publishing an installation.
+
+### Real-key mode (free quotas only)
+
+Copy/edit ignored `.env.local`: select `TRANSCRIPTION_PROVIDER=groq`, `LLM_PROVIDER=gemini`, and set
+`GROQ_API_KEY` and `GEMINI_API_KEY` for free-tier accounts with billing disabled. Restart
+`pnpm dev:full`; as owner/admin review the named-provider disclosure and enable **Allow external AI
+processing** in Settings. Never place keys in browser environment variables. Quota exhaustion defers
+processing; it does not buy capacity or silently switch to a paid adapter. Provider-side retention
+is outside Meeting Hub's control. Fake-provider checks do not establish real-model accuracy.
+
+For the original minimal development setup, use `.env.example`, `pnpm infra:up`, `pnpm db:migrate`
+and `pnpm dev`. It preserves safe default-off product flags. `.env.local`, when present, takes
+precedence over `.env` for server/database commands. <http://localhost:3000/status> shows base
+infrastructure health.
 
 ## Commands
 
 | Command                                         | What it does                                                         |
 | ----------------------------------------------- | -------------------------------------------------------------------- |
+| `pnpm dev:full`                                 | Full enabled stack, migrations and demo seed                         |
+| `pnpm db:seed`                                  | Idempotent local demo seed                                           |
 | `pnpm dev`                                      | Web, API and worker with hot reload                                  |
 | `pnpm build`                                    | Production builds (server bundle, Next.js standalone)                |
 | `pnpm lint`                                     | ESLint (incl. module-boundary rules)                                 |
@@ -253,7 +305,7 @@ The manually dispatched LiveKit room browser workflow runs it with Chromium fake
 
 Use free-tier Groq and Google AI Studio projects with billing disabled. Add server-side `GROQ_API_KEY` and `GEMINI_API_KEY` to local `.env`, select `TRANSCRIPTION_PROVIDER=groq` and `LLM_PROVIDER=gemini`, and optionally set `LLM_FALLBACK_PROVIDER=groq`. No browser environment variable contains a key. AssemblyAI and Anthropic require explicit selection; they are never automatic fallbacks. Keyless development and CI use fake providers.
 
-As an owner/admin, open workspace **Settings**, review the provider disclosure, and enable **Allow external AI processing**. It defaults off. Audio stays playable if external processing is disabled or fails. Fake local providers do not send data and are exempt from this external-processing gate.
+As an owner/admin, open workspace **Settings**, review the provider disclosure, and enable **Allow external AI processing**. It defaults off. Audio remains temporary while processing is deferred, bounded by its 48-hour TTL. Fake local providers do not send data and are exempt from this external-processing gate.
 
 Enable `pipeline.media=true,transcription.enabled=true,analysis.enabled=true,transcription.per_track_speakers=true` for live speaker attribution (and `rooms.enabled=true` for calls). Participant microphone tracks are transcribed independently and labelled from attendance, including display names and directory/user links. Uploaded recordings use one generic speaker label. No diarization is used. Quota pressure falls back to the mixed recording and shows a notice; exhausted free quota defers work with an estimated retry time. Repaired extraction has a low-confidence badge.
 
@@ -278,3 +330,12 @@ the initial snapshot are marked as backfilled; legacy audits cannot reconstruct 
 time. History has workspace granularity; historical owner/meeting filters are unavailable. Missing
 observation dates are not fabricated. See [ADR 0010](docs/adr/0010-workspace-progress.md) for metrics,
 purge rules, query limits and the free MIT Recharts library choice.
+
+LiveKit sends signed webhooks to `http://host.docker.internal:4000/v1/rooms/webhook`.
+Compose maps that hostname through `extra_hosts: host-gateway`; the host API listens on
+`0.0.0.0:4000`. Container loopback cannot reach the host API. Redis uses `127.0.0.1`
+from host processes. Accepted webhooks log only signature verification, never the body.
+
+If Docker Desktop refuses the default gateway connection, set `LIVEKIT_HOST_GATEWAY`
+to the host LAN IPv4 address in `.env.local` and recreate LiveKit. The hostname stays
+`host.docker.internal`; never put container loopback in the webhook URL.

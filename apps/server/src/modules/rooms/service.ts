@@ -16,6 +16,8 @@ import {
   roomWebhookReceipts,
   recordings,
   domainEvents,
+  roomMessages,
+  asc,
 } from '@meeting-hub/db';
 import type { Database } from '../../lib/db';
 import type { Config } from '../../lib/config';
@@ -37,6 +39,8 @@ export class RoomService {
     private audit: AuditService,
     private changed: (id: string) => Promise<void>,
     provider?: RoomProvider,
+    private readonly perTrackEnabled: (workspaceId: string) => Promise<boolean> = () =>
+      Promise.resolve(false),
   ) {
     this.provider =
       provider ??
@@ -106,9 +110,61 @@ export class RoomService {
       recordingStatus: meeting.recordingEnabled
         ? failed
           ? 'failed'
-          : (mix?.state ?? (meeting.roomStatus === 'ended' ? 'failed' : 'pending'))
+          : (mix?.state ??
+            (exports.length && exports.every((e) => e.state === 'done')
+              ? 'done'
+              : meeting.pdfState === 'ready'
+                ? 'done'
+                : meeting.roomStatus === 'ended' && !exports.length
+                  ? 'failed'
+                  : 'pending'))
         : ('off' as const),
     };
+  }
+
+  async messages(actor: WorkspaceActor, id: string) {
+    await this.access(actor, id, 'view');
+    const rows = await this.db
+      .select({
+        id: roomMessages.id,
+        userId: roomMessages.userId,
+        name: user.name,
+        text: roomMessages.text,
+        createdAt: roomMessages.createdAt,
+      })
+      .from(roomMessages)
+      .innerJoin(user, eq(user.id, roomMessages.userId))
+      .where(and(eq(roomMessages.workspaceId, actor.workspaceId), eq(roomMessages.meetingId, id)))
+      .orderBy(asc(roomMessages.createdAt))
+      .limit(1000);
+    return { messages: rows.map((r) => ({ ...r, createdAt: r.createdAt.toISOString() })) };
+  }
+
+  async saveMessage(actor: WorkspaceActor, id: string, input: { clientId: string; text: string }) {
+    const { meeting } = await this.access(actor, id, 'join');
+    if (meeting.roomStatus !== 'live')
+      throw new ConflictError('ROOM_ENDED', 'Chat is read-only after the meeting ends.');
+    const [attendance] = await this.db
+      .select()
+      .from(roomAttendance)
+      .where(
+        and(
+          eq(roomAttendance.workspaceId, actor.workspaceId),
+          eq(roomAttendance.meetingId, id),
+          eq(roomAttendance.userId, actor.userId),
+          isNull(roomAttendance.leftAt),
+        ),
+      )
+      .limit(1);
+    if (!attendance) throw new NotFoundError();
+    try {
+      await this.db
+        .insert(roomMessages)
+        .values({ workspaceId: actor.workspaceId, meetingId: id, userId: actor.userId, ...input })
+        .onConflictDoNothing();
+    } catch {
+      throw new Error('Could not save meeting chat.');
+    }
   }
 
   async start(actor: WorkspaceActor, id: string, enabled: boolean) {
@@ -207,6 +263,7 @@ export class RoomService {
         .update(roomExports)
         .set({ state: 'failed' })
         .where(eq(roomExports.id, record.id));
+      if (attendanceId) await this.capture(session, 'mixed', null);
     }
   }
 
@@ -259,7 +316,12 @@ export class RoomService {
       .from(user)
       .where(eq(user.id, actor.userId));
     if (!profile) throw new NotFoundError();
-    if (meeting.recordingEnabled && att.consentAcknowledgedAt) await this.capture(s, 'mixed', null);
+    if (
+      meeting.recordingEnabled &&
+      att.consentAcknowledgedAt &&
+      !(await this.perTrackEnabled(actor.workspaceId))
+    )
+      await this.capture(s, 'mixed', null);
     if (
       this.provider instanceof FakeRoomProvider &&
       meeting.recordingEnabled &&
@@ -312,7 +374,11 @@ export class RoomService {
       if (!changed.length) return;
       await tx
         .update(meetings)
-        .set({ roomStatus: 'ended', roomEndedAt: endedAt })
+        .set({
+          roomStatus: 'ended',
+          roomEndedAt: endedAt,
+          durationMs: Math.max(0, endedAt.getTime() - s.startedAt.getTime()),
+        })
         .where(eq(meetings.id, s.meetingId));
       await tx
         .update(roomAttendance)
@@ -332,6 +398,7 @@ export class RoomService {
       .from(roomExports)
       .where(and(eq(roomExports.sessionId, s.id), eq(roomExports.state, 'active')));
     for (const item of exports) await this.reconcile(item, s);
+    await this.startTrackProcessing(s);
     await this.changed(s.meetingId);
   }
 
@@ -393,6 +460,21 @@ export class RoomService {
         .where(and(eq(meetings.id, s.meetingId), isNull(meetings.deletedAt)))
         .for('update');
       if (!m) return;
+      const [purged] = await tx
+        .select({ id: recordings.id })
+        .from(recordings)
+        .where(
+          and(
+            eq(recordings.workspaceId, s.workspaceId),
+            eq(recordings.meetingId, s.meetingId),
+            isNotNull(recordings.purgedAt),
+          ),
+        )
+        .limit(1);
+      if (purged) {
+        await this.storage.deleteObjects([item.storageKey, item.storageKey + '.ogg']);
+        return;
+      }
       const inserted = await tx
         .insert(recordings)
         .values({
@@ -549,7 +631,57 @@ export class RoomService {
       .where(
         and(isNotNull(roomSessions.endedAt), inArray(roomExports.state, ['active', 'pending'])),
       );
-    for (const { item, s } of pending) await this.reconcile(item, s);
+    for (const { item, s } of pending) {
+      await this.reconcile(item, s);
+      await this.startTrackProcessing(s);
+    }
+  }
+
+  private async startTrackProcessing(s: Session) {
+    if (!(await this.perTrackEnabled(s.workspaceId))) return;
+    await this.db.transaction(async (tx) => {
+      const [meeting] = await tx
+        .select()
+        .from(meetings)
+        .where(
+          and(
+            eq(meetings.id, s.meetingId),
+            eq(meetings.workspaceId, s.workspaceId),
+            isNull(meetings.deletedAt),
+          ),
+        )
+        .for('update');
+      if (!meeting || meeting.roomStatus !== 'ended' || meeting.status !== 'awaiting_upload')
+        return;
+      const exports = await tx
+        .select()
+        .from(roomExports)
+        .where(
+          and(eq(roomExports.meetingId, s.meetingId), eq(roomExports.workspaceId, s.workspaceId)),
+        );
+      if (
+        exports.some((e) => e.sourceId === 'mixed' || e.state === 'active' || e.state === 'pending')
+      )
+        return;
+      const [track] = await tx
+        .select()
+        .from(recordings)
+        .where(
+          and(
+            eq(recordings.workspaceId, s.workspaceId),
+            eq(recordings.meetingId, s.meetingId),
+            eq(recordings.kind, 'participant_track'),
+            eq(recordings.status, 'uploaded'),
+          ),
+        )
+        .limit(1);
+      if (!track) return;
+      await tx.update(meetings).set({ status: 'uploaded' }).where(eq(meetings.id, s.meetingId));
+      await tx.insert(domainEvents).values({
+        type: 'recording.uploaded',
+        payload: { workspaceId: s.workspaceId, meetingId: s.meetingId, recordingId: track.id },
+      });
+    });
   }
 
   async stopForDeletion(meetingId: string) {

@@ -130,6 +130,7 @@ async function insertMeeting({ ws, caller }: CaseContext): Promise<string> {
   const [row] = await t.deps.db.db
     .insert(meetings)
     .values({
+      resultPolicy: 'legacy',
       workspaceId: ws.id,
       title: 'Matrix meeting',
       occurredAt: new Date(),
@@ -285,6 +286,55 @@ const invitationForCaller = ({ caller }: CaseContext) =>
 // --- the route table ------------------------------------------------------------------------------
 
 const ROUTES: Record<string, RouteSpec> = {
+  'GET /v1/meetings/:id/room/chat': {
+    access: 'meeting.read',
+    success: 200,
+    request: async (ctx) => ({ url: `/v1/meetings/${await insertMeeting(ctx)}/room/chat` }),
+  },
+  'POST /v1/meetings/:id/room/chat': {
+    access: 'meeting.read',
+    success: 409,
+    roleStatus: { member: 404, viewer: 404 },
+    request: async (ctx) => ({
+      url: `/v1/meetings/${await insertMeeting(ctx)}/room/chat`,
+      payload: { clientId: 'matrix', text: 'Message' },
+    }),
+  },
+
+  'GET /v1/workspaces/:wid/readiness': {
+    access: 'workspace.update',
+    success: 200,
+    request: ({ ws }) => ({ url: `/v1/workspaces/${ws.id}/readiness` }),
+  },
+  'POST /v1/workspaces/:wid/content/purge': {
+    access: 'workspace.purge_content',
+    success: 200,
+    request: ({ ws }) => ({
+      url: `/v1/workspaces/${ws.id}/content/purge`,
+      payload: { kind: 'recordings', dryRun: true },
+    }),
+  },
+  'GET /v1/meetings/:id/result': {
+    access: 'meeting.read',
+    success: 200,
+    request: async (ctx) => ({ url: `/v1/meetings/${await insertMeeting(ctx)}/result` }),
+  },
+  'GET /v1/meetings/:id/pdf': {
+    access: 'meeting.read',
+    success: 404,
+    request: async (ctx) => ({ url: `/v1/meetings/${await insertMeeting(ctx)}/pdf` }),
+  },
+  'POST /v1/meetings/:id/pdf/retry': {
+    access: 'processing.reprocess',
+    success: 204,
+    request: async (ctx) => ({ url: `/v1/meetings/${await insertMeeting(ctx)}/pdf/retry` }),
+  },
+  'POST /v1/invitations/:id/decline': {
+    access: 'authenticated',
+    success: 404,
+    request: () => ({ url: `/v1/invitations/${randomUUID()}/decline` }),
+  },
+
   ...Object.fromEntries(
     ['summary', 'timeseries', 'owners', 'meetings', 'export'].map((endpoint) => [
       `GET /v1/workspaces/:wid/progress/${endpoint}`,

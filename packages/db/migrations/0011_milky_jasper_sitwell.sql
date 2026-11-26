@@ -1,0 +1,1 @@
+ALTER TABLE "action_items" ADD COLUMN "owner_reference_id" uuid;

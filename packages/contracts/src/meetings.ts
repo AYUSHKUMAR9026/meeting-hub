@@ -51,6 +51,10 @@ export const meetingSchema = z
     language: z.string().nullable(),
     status: meetingStatusSchema,
     source: z.string(),
+    resultPolicy: z.enum(['legacy', 'temporary']),
+    pdfState: z.enum(['pending', 'ready', 'failed']),
+    roomStatus: z.enum(['none', 'scheduled', 'live', 'ended']),
+    transcriptPurged: z.boolean(),
     createdBy: z.uuid().nullable().describe('User who created the meeting (null if deleted)'),
     participants: z.array(meetingParticipantSchema),
     recording: recordingSummarySchema.nullable().describe('The original recording, if any'),
@@ -89,6 +93,7 @@ const participantIdsSchema = z
 
 export const createMeetingRequestSchema = z
   .object({
+    mode: z.enum(['upload', 'start', 'schedule']).optional(),
     title: titleSchema,
     occurredAt: z.iso.datetime({ offset: true }),
     participantIds: participantIdsSchema.default([]),

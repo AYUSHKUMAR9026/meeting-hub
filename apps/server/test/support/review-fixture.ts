@@ -24,6 +24,7 @@ export async function reviewFixture(t: TestApp, workspaceId: string, creatorId: 
       workspaceId,
       createdBy: creatorId,
       occurredAt: new Date('2026-11-22T15:00:00Z'),
+      resultPolicy: 'legacy',
       title: 'Roadmap <review> & café',
       status: 'ready',
     })

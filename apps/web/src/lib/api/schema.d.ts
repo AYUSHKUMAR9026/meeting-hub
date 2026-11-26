@@ -1277,6 +1277,95 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/invitations/{id}/decline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description No content */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/workspaces/{wid}/people": {
         parameters: {
             query?: never;
@@ -3137,6 +3226,174 @@ export interface paths {
                 };
                 /** @description Default Response */
                 409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/meetings/{id}/room/chat": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["RoomMessageList"];
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["RoomMessageRequestInput"];
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                404: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -5468,6 +5725,466 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/meetings/{id}/result": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SavedMeetingResult"];
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/meetings/{id}/pdf": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    fileId?: string;
+                    download?: "true" | "false";
+                };
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/pdf": string;
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/meetings/{id}/pdf/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/workspaces/{wid}/content/purge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    wid: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["ContentPurgeRequestInput"];
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ContentPurgeResponse"];
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/workspaces/{wid}/readiness": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    wid: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SystemReadiness"];
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Default Response */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Problem"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/workspaces/{wid}/progress/summary": {
         parameters: {
             query?: never;
@@ -6060,6 +6777,7 @@ export interface components {
         DocumentCitationInput: {
             /** Format: uuid */
             segmentId: string;
+            speaker?: string;
             idx: number;
             startMs: number;
         };
@@ -6234,6 +6952,13 @@ export interface components {
             language: string | null;
             status: components["schemas"]["MeetingStatusInput"];
             source: string;
+            /** @enum {string} */
+            resultPolicy: "legacy" | "temporary";
+            /** @enum {string} */
+            pdfState: "pending" | "ready" | "failed";
+            /** @enum {string} */
+            roomStatus: "none" | "scheduled" | "live" | "ended";
+            transcriptPurged: boolean;
             /** @description User who created the meeting (null if deleted) */
             createdBy: string | null;
             participants: components["schemas"]["MeetingParticipantInput"][];
@@ -6250,6 +6975,8 @@ export interface components {
             nextCursor: string | null;
         };
         CreateMeetingRequestInput: {
+            /** @enum {string} */
+            mode?: "upload" | "start" | "schedule";
             title: string;
             /** Format: date-time */
             occurredAt: string;
@@ -6672,6 +7399,8 @@ export interface components {
             workspaces: components["schemas"]["WorkspaceSummaryInput"][];
         };
         WorkspaceSettingsInput: {
+            /** @enum {string} */
+            contentRetention?: "pdf_only" | "keep_transcript";
             /** @description IANA time zone */
             timezone: string;
             retentionDays: number;
@@ -6706,6 +7435,8 @@ export interface components {
         UpdateWorkspaceRequestInput: {
             name?: string;
             settings?: {
+                /** @enum {string} */
+                contentRetention?: "pdf_only" | "keep_transcript";
                 /** @description IANA time zone */
                 timezone?: string;
                 retentionDays?: number;
@@ -6750,6 +7481,7 @@ export interface components {
             invitations: components["schemas"]["InvitationInput"][];
         };
         CreateInvitationRequestInput: {
+            meetingIds?: string[];
             /** Format: email */
             email: string;
             /** @default member */
@@ -6767,9 +7499,32 @@ export interface components {
             workspaceName: string;
             /** Format: email */
             inviterEmail: string;
+            meetings: {
+                /** Format: uuid */
+                id: string;
+                title: string;
+                dateTime: string;
+                joinUrl: string;
+            }[];
         };
         AcceptInvitationResponseInput: {
             workspace: components["schemas"]["WorkspaceSummaryInput"];
+        };
+        RoomMessageRequestInput: {
+            clientId: string;
+            text: string;
+        };
+        RoomMessageListInput: {
+            messages: {
+                /** Format: uuid */
+                id: string;
+                /** Format: uuid */
+                userId: string;
+                name: string;
+                text: string;
+                /** Format: date-time */
+                createdAt: string;
+            }[];
         };
         ProgressTotalsInput: {
             open: number;
@@ -6870,6 +7625,46 @@ export interface components {
             }[];
             truncated: boolean;
         };
+        SavedMeetingResultInput: {
+            /** @enum {string} */
+            state: "pending" | "ready" | "failed";
+            pending: boolean;
+            transcriptPurged: boolean;
+            temporaryAudio: boolean;
+            files: {
+                /** Format: uuid */
+                id: string;
+                /** Format: uuid */
+                revisionId: string;
+                size: number;
+                /** Format: date-time */
+                generatedAt: string;
+                locale: string;
+                meetingDateTime: string;
+            }[];
+        };
+        SystemReadinessInput: {
+            features: {
+                name: string;
+                /** @enum {string} */
+                state: "ready" | "off" | "misconfigured";
+                reason: string;
+                fix: ("settings" | "environment") | null;
+            }[];
+        };
+        ContentPurgeRequestInput: {
+            /** @enum {string} */
+            kind: "recordings" | "transcripts";
+            dryRun: boolean;
+            confirmation?: string;
+            expectedCount?: number;
+            expectedBytes?: number;
+        };
+        ContentPurgeResponseInput: {
+            count: number;
+            bytes: number;
+            purged: boolean;
+        };
         MeetingSummary: {
             paragraph: string;
             bullets: string[];
@@ -6877,6 +7672,7 @@ export interface components {
         DocumentCitation: {
             /** Format: uuid */
             segmentId: string;
+            speaker?: string;
             idx: number;
             startMs: number;
         };
@@ -7051,6 +7847,13 @@ export interface components {
             language: string | null;
             status: components["schemas"]["MeetingStatus"];
             source: string;
+            /** @enum {string} */
+            resultPolicy: "legacy" | "temporary";
+            /** @enum {string} */
+            pdfState: "pending" | "ready" | "failed";
+            /** @enum {string} */
+            roomStatus: "none" | "scheduled" | "live" | "ended";
+            transcriptPurged: boolean;
             /** @description User who created the meeting (null if deleted) */
             createdBy: string | null;
             participants: components["schemas"]["MeetingParticipant"][];
@@ -7067,6 +7870,8 @@ export interface components {
             nextCursor: string | null;
         };
         CreateMeetingRequest: {
+            /** @enum {string} */
+            mode?: "upload" | "start" | "schedule";
             title: string;
             /** Format: date-time */
             occurredAt: string;
@@ -7489,6 +8294,8 @@ export interface components {
             workspaces: components["schemas"]["WorkspaceSummary"][];
         };
         WorkspaceSettings: {
+            /** @enum {string} */
+            contentRetention?: "pdf_only" | "keep_transcript";
             /** @description IANA time zone */
             timezone: string;
             retentionDays: number;
@@ -7523,6 +8330,8 @@ export interface components {
         UpdateWorkspaceRequest: {
             name?: string;
             settings?: {
+                /** @enum {string} */
+                contentRetention?: "pdf_only" | "keep_transcript";
                 /** @description IANA time zone */
                 timezone?: string;
                 retentionDays?: number;
@@ -7567,6 +8376,7 @@ export interface components {
             invitations: components["schemas"]["Invitation"][];
         };
         CreateInvitationRequest: {
+            meetingIds?: string[];
             /** Format: email */
             email: string;
             /** @default member */
@@ -7584,9 +8394,32 @@ export interface components {
             workspaceName: string;
             /** Format: email */
             inviterEmail: string;
+            meetings: {
+                /** Format: uuid */
+                id: string;
+                title: string;
+                dateTime: string;
+                joinUrl: string;
+            }[];
         };
         AcceptInvitationResponse: {
             workspace: components["schemas"]["WorkspaceSummary"];
+        };
+        RoomMessageRequest: {
+            clientId: string;
+            text: string;
+        };
+        RoomMessageList: {
+            messages: {
+                /** Format: uuid */
+                id: string;
+                /** Format: uuid */
+                userId: string;
+                name: string;
+                text: string;
+                /** Format: date-time */
+                createdAt: string;
+            }[];
         };
         ProgressTotals: {
             open: number;
@@ -7686,6 +8519,46 @@ export interface components {
                 dueDate: string | null;
             }[];
             truncated: boolean;
+        };
+        SavedMeetingResult: {
+            /** @enum {string} */
+            state: "pending" | "ready" | "failed";
+            pending: boolean;
+            transcriptPurged: boolean;
+            temporaryAudio: boolean;
+            files: {
+                /** Format: uuid */
+                id: string;
+                /** Format: uuid */
+                revisionId: string;
+                size: number;
+                /** Format: date-time */
+                generatedAt: string;
+                locale: string;
+                meetingDateTime: string;
+            }[];
+        };
+        SystemReadiness: {
+            features: {
+                name: string;
+                /** @enum {string} */
+                state: "ready" | "off" | "misconfigured";
+                reason: string;
+                fix: ("settings" | "environment") | null;
+            }[];
+        };
+        ContentPurgeRequest: {
+            /** @enum {string} */
+            kind: "recordings" | "transcripts";
+            dryRun: boolean;
+            confirmation?: string;
+            expectedCount?: number;
+            expectedBytes?: number;
+        };
+        ContentPurgeResponse: {
+            count: number;
+            bytes: number;
+            purged: boolean;
         };
     };
     responses: never;

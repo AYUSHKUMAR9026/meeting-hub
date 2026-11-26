@@ -273,17 +273,17 @@ export class ProgressService {
         tx,
         sql`WITH a AS (${actions(actor.workspaceId, q, timezone)}), owned AS (
         SELECT a.*, coalesce(a.owner_person_id, s.person_id) AS person_id,
-        coalesce(p.display_name, s.display_name, s.label, 'Unassigned') AS owner_name
+        coalesce(p.display_name, s.display_name, s.label, a.owner_label, 'Unassigned') AS owner_name
         FROM a LEFT JOIN transcript_speakers s ON s.id = a.owner_speaker_id AND s.workspace_id = a.workspace_id
         LEFT JOIN people p ON p.id = coalesce(a.owner_person_id, s.person_id) AND p.workspace_id = a.workspace_id
-      ) SELECT coalesce(person_id::text, owner_speaker_id::text, 'unassigned') AS key,
+      ) SELECT coalesce(person_id::text, owner_speaker_id::text, owner_reference_id::text, 'unassigned') AS key,
         min(owner_name) AS name, person_id AS "ownerPersonId",
-        CASE WHEN person_id IS NULL THEN owner_speaker_id ELSE NULL END AS "ownerSpeakerId",
+        CASE WHEN person_id IS NULL THEN coalesce(owner_speaker_id, owner_reference_id) ELSE NULL END AS "ownerSpeakerId",
         count(*) FILTER (WHERE status = 'open')::int AS open, count(*) FILTER (WHERE status = 'done')::int AS done,
         count(*) FILTER (WHERE status = 'open' AND due_date < ${today}::date)::int AS overdue
         FROM owned WHERE status <> 'rejected'
-        GROUP BY person_id, CASE WHEN person_id IS NULL THEN owner_speaker_id ELSE NULL END,
-        coalesce(person_id::text, owner_speaker_id::text, 'unassigned') ORDER BY key LIMIT 1001`,
+        GROUP BY person_id, CASE WHEN person_id IS NULL THEN coalesce(owner_speaker_id, owner_reference_id) ELSE NULL END,
+        coalesce(person_id::text, owner_speaker_id::text, owner_reference_id::text, 'unassigned') ORDER BY key LIMIT 1001`,
       );
       return { owners: owners.slice(0, 1000), truncated: owners.length > 1000 };
     });

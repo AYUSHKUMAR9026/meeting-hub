@@ -41,7 +41,11 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { createQueue } from '../src/jobs/queues';
 import { PermanentError, RetryableError } from '../src/lib/errors';
 import { createStepQueue } from '../src/jobs/step-queue';
-import { listJobDirs, meetingPrefix, MAX_PEAK_POINTS } from '../src/modules/media';
+import {
+  listJobDirs,
+  temporaryMeetingPrefix as meetingPrefix,
+  MAX_PEAK_POINTS,
+} from '../src/modules/media';
 import { getStep, stepJobId } from '../src/modules/processing';
 import { FakeLlmProvider } from '../src/modules/analysis';
 import { FakeProvider, RetryableProviderJobError } from '../src/modules/transcription';
@@ -552,7 +556,7 @@ describe('reprocessing', () => {
     });
     expect(noRecording.statusCode).toBe(409);
     expect(noRecording.headers['content-type']).toContain('application/problem+json');
-    expect(noRecording.json()).toMatchObject({ code: 'RECORDING_NOT_UPLOADED' });
+    expect(noRecording.json()).toMatchObject({ code: 'AUDIO_TEMPORARY' });
   });
 });
 

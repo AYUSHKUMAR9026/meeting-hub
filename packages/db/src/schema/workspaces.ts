@@ -22,6 +22,10 @@ export const workspaceSettings = pgTable(
     workspaceId: uuid('workspace_id')
       .primaryKey()
       .references(() => organization.id, { onDelete: 'cascade' }),
+    contentRetention: text('content_retention')
+      .$type<'pdf_only' | 'keep_transcript'>()
+      .notNull()
+      .default('pdf_only'),
     timezone: text('timezone').notNull().default('UTC'),
     retentionDays: integer('retention_days').notNull().default(30),
     sharingEnabled: boolean('sharing_enabled').notNull().default(true),

@@ -281,5 +281,20 @@ export const workspaceRoutes: FastifyPluginCallbackZod<{ deps: ApiDeps }> = (
     }),
   );
 
+  app.post(
+    '/v1/invitations/:id/decline',
+    {
+      config: { access: { kind: 'authenticated' }, rateLimit: rateLimits.acceptInvitation },
+      schema: {
+        tags: ['invitations'],
+        params: invitationIdParamsSchema,
+        response: { ...noContent, ...problems(403, 404, 409, ...SESSION_ERRORS) },
+      },
+    },
+    async (req, reply) => {
+      await workspaces.declineInvitation(currentUserOf(req), req.params.id, callerOf(req));
+      return reply.code(204).send(null);
+    },
+  );
   done();
 };

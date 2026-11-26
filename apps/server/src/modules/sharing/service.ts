@@ -1,3 +1,4 @@
+import { assertTranscriptAllowed } from '../results';
 import type { PublicShare, ShareLink } from '@meeting-hub/contracts';
 import {
   and,
@@ -55,6 +56,8 @@ export class ShareService {
   ) {
     const { db, audit, documents, maxDays, publicWebUrl } = this.deps;
     const meeting = await this.authorizedMeeting(actor, meetingId);
+    if (input.scope === 'document_and_transcript')
+      await assertTranscriptAllowed(db, actor.workspaceId, meetingId);
     if (!meeting.sharingEnabled)
       throw new ForbiddenError('Public sharing is disabled in this workspace.', {
         code: 'SHARING_DISABLED',
@@ -166,6 +169,8 @@ export class ShareService {
     const { workspaceId, meetingId, id: shareId } = row;
     const { document } = await documents.readScoped(workspaceId, meetingId);
     if (!document) throw missing();
+    if (row.scope === 'document_and_transcript')
+      await assertTranscriptAllowed(db, workspaceId, meetingId);
     const transcript =
       row.scope === 'document_and_transcript'
         ? await readTranscriptSource(

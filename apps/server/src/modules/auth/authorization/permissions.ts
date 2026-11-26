@@ -20,6 +20,7 @@ const MANAGERS: readonly WorkspaceRole[] = ['owner', 'admin'];
 const CONTRIBUTORS: readonly WorkspaceRole[] = ['owner', 'admin', 'member'];
 
 export const permissionMatrix = {
+  'workspace.purge_content': ['owner'],
   'workspace.read': ALL,
   'workspace.update': MANAGERS,
   'workspace.delete': ['owner'],

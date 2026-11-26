@@ -19,9 +19,9 @@ describe('storage keys', () => {
   it('builds ws/{wid}/meetings/{mid}/original/{uuid} with a fresh uuid each time', () => {
     const a = originalRecordingKey(WS, MEETING);
     const b = originalRecordingKey(WS, MEETING);
-    expect(a).toMatch(new RegExp(`^ws/${WS}/meetings/${MEETING}/original/[0-9a-f-]{36}$`));
+    expect(a).toMatch(new RegExp(`^temp/ws/${WS}/meetings/${MEETING}/original/[0-9a-f-]{36}$`));
     expect(a).not.toBe(b);
-    expect(a.startsWith(meetingPrefix(WS, MEETING))).toBe(true);
+    expect(a.startsWith('temp/' + meetingPrefix(WS, MEETING))).toBe(true);
   });
 
   it('refuses anything but UUIDs, so user input can never reach a key', () => {

@@ -96,9 +96,9 @@ describe('ffmpeg argument building', () => {
 describe('storage keys for run outputs', () => {
   it('derives them from the run id under the meeting prefix', () => {
     expect(normalizedAudioKey(WS, MEETING, RUN)).toBe(
-      `ws/${WS}/meetings/${MEETING}/normalized/${RUN}`,
+      `temp/ws/${WS}/meetings/${MEETING}/normalized/${RUN}`,
     );
-    expect(peaksKey(WS, MEETING, RUN)).toBe(`ws/${WS}/meetings/${MEETING}/peaks/${RUN}`);
+    expect(peaksKey(WS, MEETING, RUN)).toBe(`temp/ws/${WS}/meetings/${MEETING}/peaks/${RUN}`);
     expect(() => peaksKey(WS, MEETING, '../../etc')).toThrow();
   });
 });

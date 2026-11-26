@@ -1,3 +1,5 @@
+import { readinessRoutes } from './http/routes/readiness';
+import { resultRoutes } from './http/routes/results';
 import cors from '@fastify/cors';
 import swagger from '@fastify/swagger';
 import Fastify, { type FastifyBaseLogger, type FastifyInstance, LogController } from 'fastify';
@@ -136,6 +138,8 @@ export async function buildApp(deps: ApiDeps): Promise<FastifyInstance> {
   await app.register(transcriptionRoutes, { deps });
   await app.register(analysisRoutes, { deps });
   await app.register(reviewRoutes, { deps });
+  await app.register(resultRoutes, { deps });
+  await app.register(readinessRoutes, { deps });
   await app.register(progressRoutes, { deps });
 
   if (config.NODE_ENV !== 'production') {

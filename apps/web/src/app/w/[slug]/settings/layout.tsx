@@ -14,6 +14,7 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
     { href: base, label: 'General' },
     { href: `${base}/members`, label: 'Members' },
     { href: `${base}/people`, label: 'People' },
+    { href: `${base}/readiness`, label: 'System readiness' },
   ];
   return (
     <div className="grid gap-6">

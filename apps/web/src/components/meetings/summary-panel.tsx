@@ -116,11 +116,10 @@ function ItemForm({
       </div>
       {!item && (
         <div className="grid gap-2">
-          <Label htmlFor="segment-id">Evidence segment</Label>
+          <Label htmlFor="segment-id">Evidence segment (optional)</Label>
           <NativeSelect
             id="segment-id"
             value={selected ?? ''}
-            required
             onChange={(event) => setSelected(event.target.value || undefined)}
           >
             <option value="">Select a transcript segment</option>
@@ -153,7 +152,7 @@ function ItemForm({
       )}
       {error && <FormError message={error} />}
       <div className="flex gap-2">
-        <Button type="submit" size="sm" disabled={saving || (!item && !selected)}>
+        <Button type="submit" size="sm" disabled={saving}>
           Save
         </Button>
         <Button type="button" size="sm" variant="ghost" onClick={onCancel}>
@@ -172,6 +171,7 @@ export function SummaryPanel({
   canEdit,
   review,
   onCitation,
+  citationsInteractive = true,
 }: {
   meetingId: string;
   revision: string;
@@ -179,6 +179,7 @@ export function SummaryPanel({
   failed: boolean;
   canEdit: boolean;
   review: boolean;
+  citationsInteractive?: boolean;
   onCitation: (citation: CitationTarget) => void;
 }) {
   const [selected, setSelected] = useState<string>();
@@ -464,20 +465,26 @@ export function SummaryPanel({
                       </p>
                     )}
                     <div className="flex flex-wrap gap-1.5" aria-label="Evidence">
-                      {item.citations.map((citation) => (
-                        <Button
-                          key={citation.segmentId}
-                          type="button"
-                          size="xs"
-                          variant="outline"
-                          aria-label={`Open evidence at ${formatDuration(citation.startMs)}`}
-                          onClick={() =>
-                            onCitation({ ...citation, transcriptId: document.transcriptId })
-                          }
-                        >
-                          {formatDuration(citation.startMs)}
-                        </Button>
-                      ))}
+                      {item.citations.map((citation) =>
+                        citationsInteractive ? (
+                          <Button
+                            key={citation.segmentId}
+                            type="button"
+                            size="xs"
+                            variant="outline"
+                            aria-label={`Open evidence at ${formatDuration(citation.startMs)}`}
+                            onClick={() =>
+                              onCitation({ ...citation, transcriptId: document.transcriptId })
+                            }
+                          >
+                            {citation.speaker} {formatDuration(citation.startMs)}
+                          </Button>
+                        ) : (
+                          <span key={citation.segmentId} className="text-xs text-muted-foreground">
+                            {citation.speaker} {formatDuration(citation.startMs)}
+                          </span>
+                        ),
+                      )}
                     </div>
                     {review && (
                       <Button

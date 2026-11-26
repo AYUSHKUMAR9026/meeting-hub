@@ -12,7 +12,6 @@ export function RoomControls({ id, allowStart }: { id: string; allowStart: boole
   const ws = useWorkspace();
   const [room, setRoom] = useState<RoomView>();
   const [error, setError] = useState('');
-  const [recording, setRecording] = useState(true);
   useEffect(() => {
     if (!ws.features.includes('rooms.enabled')) return;
     const load = () => {
@@ -44,20 +43,16 @@ export function RoomControls({ id, allowStart }: { id: string; allowStart: boole
       {room.recordingStatus === 'failed' && <p role="alert">Recording failed</p>}
       {allowStart && room.canHost && (room.status === 'none' || room.status === 'scheduled') && (
         <>
-          <label>
-            <input
-              type="checkbox"
-              checked={recording}
-              onChange={(e) => setRecording(e.target.checked)}
-            />{' '}
-            Record this meeting
-          </label>
+          <p>
+            Audio is captured temporarily to create the decision PDF. Each participant must
+            acknowledge the processing notice before joining.
+          </p>
           <Button
             onClick={() => {
               void (async () => {
                 const r = await api.POST('/v1/meetings/{id}/room/start', {
                   params: { path: { id } },
-                  body: { recordingEnabled: recording },
+                  body: { recordingEnabled: true },
                 });
                 if (r.data) setRoom(r.data);
                 else setError(problemMessage(r.error));

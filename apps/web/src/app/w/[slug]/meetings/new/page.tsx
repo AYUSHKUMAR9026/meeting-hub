@@ -6,7 +6,7 @@ import { type FormEvent, useState } from 'react';
 import { toast } from 'sonner';
 
 import { FormError, FormField } from '@/components/app/form-field';
-import { useWorkspace } from '@/components/app/workspace-context';
+import { useCan, useWorkspace } from '@/components/app/workspace-context';
 import { ConsentCheckbox } from '@/components/meetings/consent-checkbox';
 import { AiDisclosure } from '@/components/meetings/ai-disclosure';
 import { FileDropZone, type SelectedRecording } from '@/components/meetings/file-drop-zone';
@@ -23,6 +23,12 @@ import { utcToZonedLocal, zonedLocalToUtc } from '@/lib/time-zone';
 export default function NewMeetingPage() {
   const workspace = useWorkspace();
   const router = useRouter();
+  const can = useCan();
+  const [mode, setMode] = useState<'start' | 'schedule' | 'upload'>(
+    workspace.features.includes('rooms.enabled') ? 'start' : 'upload',
+  );
+  const [inviteEmails, setInviteEmails] = useState('');
+  const [invitedEmails, setInvitedEmails] = useState<string[]>([]);
   const { canCreate, uploadsEnabled } = useMeetingPermissions(null);
   const tz = workspace.settings.timezone;
   const upload = useRecordingUpload();
@@ -48,7 +54,7 @@ export default function NewMeetingPage() {
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
-    if (recording && !consent) {
+    if ((recording || mode !== 'upload') && !consent) {
       setError('Confirm that everyone agreed to be recorded before uploading.');
       return;
     }
@@ -59,7 +65,8 @@ export default function NewMeetingPage() {
         params: { path: { wid: workspace.id } },
         body: {
           title,
-          occurredAt: zonedLocalToUtc(when, tz).toISOString(),
+          mode,
+          occurredAt: (mode === 'start' ? new Date() : zonedLocalToUtc(when, tz)).toISOString(),
           participantIds: participants.map((p) => p.id),
         },
       });
@@ -70,6 +77,39 @@ export default function NewMeetingPage() {
       }
       id = data.id;
       setMeetingId(id);
+    }
+    for (const email of [
+      ...new Set(
+        inviteEmails
+          .split(/[,;\s]+/)
+          .filter(Boolean)
+          .map((e) => e.toLowerCase()),
+      ),
+    ]) {
+      if (invitedEmails.includes(email)) continue;
+      const invite = await api.POST('/v1/workspaces/{wid}/invitations', {
+        params: { path: { wid: workspace.id } },
+        body: { email, role: 'member', meetingIds: [id] },
+      });
+      if (!invite.data) {
+        setSubmitting(false);
+        setError(problemMessage(invite.error, 'Could not invite this participant.'));
+        return;
+      }
+      setInvitedEmails((previous) => [...previous, email]);
+    }
+    if (mode === 'start') {
+      const started = await api.POST('/v1/meetings/{id}/room/start', {
+        params: { path: { id } },
+        body: { recordingEnabled: true },
+      });
+      if (!started.data) {
+        setSubmitting(false);
+        setError(problemMessage(started.error));
+        return;
+      }
+      router.push(meetingUrl(id) + '/room');
+      return;
     }
     if (!recording) {
       toast.success('Meeting created');
@@ -108,6 +148,39 @@ export default function NewMeetingPage() {
         </Link>
         <h1 className="text-2xl font-semibold tracking-tight">New meeting</h1>
       </div>
+      <div className="flex flex-wrap gap-3" aria-label="Meeting type">
+        {workspace.features.includes('rooms.enabled') && (
+          <>
+            <Button
+              variant={mode === 'start' ? 'default' : 'outline'}
+              disabled={meetingId !== null}
+              onClick={() => {
+                setMode('start');
+                setRecording(null);
+              }}
+            >
+              Start a meeting now
+            </Button>
+            <Button
+              variant={mode === 'schedule' ? 'default' : 'outline'}
+              disabled={meetingId !== null}
+              onClick={() => {
+                setMode('schedule');
+                setRecording(null);
+              }}
+            >
+              Schedule a meeting
+            </Button>
+          </>
+        )}
+        <Button
+          variant={mode === 'upload' ? 'secondary' : 'ghost'}
+          disabled={meetingId !== null}
+          onClick={() => setMode('upload')}
+        >
+          Upload a recording
+        </Button>
+      </div>
       <Card>
         <CardHeader>
           <CardTitle>Details</CardTitle>
@@ -141,7 +214,22 @@ export default function NewMeetingPage() {
                 disabled={locked || meetingId !== null}
               />
             </div>
-            {uploadsEnabled && (
+            {can('invitation.create') && (
+              <FormField
+                id="invite-emails"
+                label="Invite by email (comma separated)"
+                value={inviteEmails}
+                disabled={locked}
+                onChange={(e) => setInviteEmails(e.target.value)}
+              />
+            )}
+            {mode !== 'upload' && (
+              <>
+                <ConsentCheckbox checked={consent} onChange={setConsent} disabled={locked} />
+                <AiDisclosure />
+              </>
+            )}
+            {mode === 'upload' && uploadsEnabled && (
               <div className="grid gap-3">
                 <Label>Recording</Label>
                 <FileDropZone value={recording} onChange={setRecording} disabled={locked} />
@@ -162,7 +250,13 @@ export default function NewMeetingPage() {
               />
             ) : (
               <Button type="submit" className="justify-self-start" disabled={locked}>
-                {recording ? 'Create and upload' : 'Create meeting'}
+                {mode === 'start'
+                  ? 'Start meeting'
+                  : mode === 'schedule'
+                    ? 'Schedule meeting'
+                    : recording
+                      ? 'Create and upload'
+                      : 'Create meeting'}
               </Button>
             )}
           </form>

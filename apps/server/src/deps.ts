@@ -1,3 +1,4 @@
+import { ResultService } from './modules/results';
 import type { S3Client } from '@aws-sdk/client-s3';
 
 import { createMeetingDeletionScheduler } from './jobs/meeting-jobs';
@@ -37,6 +38,7 @@ import { createWorkspaceService, type WorkspaceService } from './modules/workspa
 
 /** Everything the API needs, created once at startup and injected (keeps tests swappable). */
 export interface ApiDeps {
+  results: ResultService;
   rooms: RoomService;
   config: Config;
   logger: Logger;
@@ -93,12 +95,29 @@ export function buildProcessing(
     llm?: LlmProvider;
   } = {},
 ): Processing {
+  const results = new ResultService({
+    db: infra.db.db,
+    storage: infra.storage,
+    audit: infra.audit,
+    logger: infra.logger,
+    ttlHours: config.RECORDING_TEMP_TTL_HOURS,
+    maxBytes: config.EXPORT_MAX_BYTES,
+    changed: async (id) => {
+      await infra.redis.publish(
+        'meeting-hub:processing:meeting:' + id,
+        JSON.stringify({ meetingId: id }),
+      );
+    },
+  });
   const speechLimiter = new RedisQuotaLimiter(
     infra.redis,
     'groq-stt',
     config.GROQ_API_KEY ?? 'offline',
   );
   return createProcessing({
+    settleResult: async (wid, mid) => {
+      await results.settle(wid, mid);
+    },
     db: infra.db.db,
     storage: infra.storage,
     audit: infra.audit,
@@ -214,7 +233,16 @@ export function createApiDeps(
       ),
     ),
   ];
-  const workspaces = createWorkspaceService({ db: db.db, auth, people, audit, flags, aiProviders });
+  const workspaces = createWorkspaceService({
+    db: db.db,
+    auth,
+    people,
+    audit,
+    flags,
+    aiProviders,
+    mailer,
+    webOrigin: config.WEB_ORIGIN,
+  });
   const processing = buildProcessing(config, {
     db,
     redis,
@@ -241,6 +269,14 @@ export function createApiDeps(
   });
   const documents = new DocumentService(db.db, audit);
   return {
+    results: new ResultService({
+      db: db.db,
+      storage,
+      audit,
+      logger,
+      ttlHours: config.RECORDING_TEMP_TTL_HOURS,
+      maxBytes: config.EXPORT_MAX_BYTES,
+    }),
     config,
     logger,
     db,
@@ -260,12 +296,20 @@ export function createApiDeps(
     stepQueue,
     processing,
     transcription: new TranscriptionService(db.db, audit),
-    rooms: new RoomService(db.db, config, storage, audit, async (id) => {
-      await redis.publish(
-        'meeting-hub:processing:meeting:' + id,
-        JSON.stringify({ meetingId: id }),
-      );
-    }),
+    rooms: new RoomService(
+      db.db,
+      config,
+      storage,
+      audit,
+      async (id) => {
+        await redis.publish(
+          'meeting-hub:processing:meeting:' + id,
+          JSON.stringify({ meetingId: id }),
+        );
+      },
+      undefined,
+      (wid) => flags.isEnabled('transcription.per_track_speakers', { workspaceId: wid }),
+    ),
     documents,
     exports: new ExportService({
       db: db.db,

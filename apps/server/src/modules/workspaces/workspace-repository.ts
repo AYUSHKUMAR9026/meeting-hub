@@ -1,9 +1,13 @@
+import { normalizeTimezone } from '@meeting-hub/contracts';
 import {
   and,
   asc,
   count,
   eq,
+  inArray,
   invitation,
+  meetings,
+  meetingInvitations,
   member,
   organization,
   sql,
@@ -23,6 +27,7 @@ export interface WorkspaceSummary {
 }
 
 export interface WorkspaceSettings {
+  contentRetention: 'pdf_only' | 'keep_transcript';
   timezone: string;
   retentionDays: number;
   glossary: string[];
@@ -51,6 +56,7 @@ export interface InvitationView {
 }
 
 export const DEFAULT_SETTINGS: WorkspaceSettings = {
+  contentRetention: 'pdf_only',
   timezone: 'UTC',
   retentionDays: 30,
   glossary: [],
@@ -72,6 +78,60 @@ function parseRole(raw: string): WorkspaceRole {
  */
 export class WorkspaceRepository {
   constructor(private readonly db: Database) {}
+
+  async meetingsForInvitation(workspaceId: string, invitationId: string) {
+    return this.db
+      .select({ id: meetings.id, title: meetings.title, occurredAt: meetings.occurredAt })
+      .from(meetingInvitations)
+      .innerJoin(
+        meetings,
+        and(
+          eq(meetings.id, meetingInvitations.meetingId),
+          eq(meetings.workspaceId, meetingInvitations.workspaceId),
+        ),
+      )
+      .where(
+        and(
+          eq(meetingInvitations.workspaceId, workspaceId),
+          eq(meetingInvitations.invitationId, invitationId),
+          sql`${meetings.deletedAt} IS NULL`,
+        ),
+      );
+  }
+
+  async linkMeetingInvitations(workspaceId: string, invitationId: string, meetingIds: string[]) {
+    if (!meetingIds.length) return;
+    await this.db
+      .insert(meetingInvitations)
+      .values(meetingIds.map((meetingId) => ({ workspaceId, invitationId, meetingId })))
+      .onConflictDoNothing();
+  }
+
+  async invitedMeetings(workspaceId: string, meetingIds: string[]) {
+    return this.db
+      .select({
+        id: meetings.id,
+        title: meetings.title,
+        occurredAt: meetings.occurredAt,
+        createdBy: meetings.createdBy,
+      })
+      .from(meetings)
+      .where(
+        and(
+          eq(meetings.workspaceId, workspaceId),
+          inArray(meetings.id, meetingIds),
+          sql`${meetings.deletedAt} IS NULL`,
+        ),
+      );
+  }
+
+  async acceptMeetingInvitations(workspaceId: string, invitationId: string, userId: string) {
+    await this.db.execute(sql`INSERT INTO meeting_participants (workspace_id, meeting_id, person_id)
+      SELECT mi.workspace_id, mi.meeting_id, p.id FROM meeting_invitations mi
+      JOIN people p ON p.workspace_id = mi.workspace_id AND p.user_id = ${userId}
+      JOIN meetings m ON m.id = mi.meeting_id AND m.workspace_id = mi.workspace_id AND m.deleted_at IS NULL
+      WHERE mi.workspace_id = ${workspaceId} AND mi.invitation_id = ${invitationId} ON CONFLICT DO NOTHING`);
+  }
 
   async listForUser(userId: string): Promise<WorkspaceSummary[]> {
     const rows = await this.db
@@ -115,6 +175,7 @@ export class WorkspaceRepository {
   async getSettings(workspaceId: string): Promise<WorkspaceSettings> {
     const [row] = await this.db
       .select({
+        contentRetention: workspaceSettings.contentRetention,
         timezone: workspaceSettings.timezone,
         retentionDays: workspaceSettings.retentionDays,
         glossary: workspaceSettings.glossary,
@@ -133,11 +194,16 @@ export class WorkspaceRepository {
   ): Promise<void> {
     await this.db
       .insert(workspaceSettings)
-      .values({ workspaceId, ...initial })
+      .values({
+        workspaceId,
+        ...initial,
+        ...(initial.timezone ? { timezone: normalizeTimezone(initial.timezone) } : {}),
+      })
       .onConflictDoNothing();
   }
 
   async updateSettings(workspaceId: string, patch: Partial<WorkspaceSettings>): Promise<void> {
+    if (patch.timezone) patch = { ...patch, timezone: normalizeTimezone(patch.timezone) };
     await this.db
       .insert(workspaceSettings)
       .values({ workspaceId, ...patch })
@@ -221,10 +287,15 @@ export class WorkspaceRepository {
     const rows = await this.db
       .select()
       .from(invitation)
-      .where(and(eq(invitation.organizationId, workspaceId), eq(invitation.status, 'pending')))
+      .where(
+        and(
+          eq(invitation.organizationId, workspaceId),
+          inArray(invitation.status, ['pending', 'accepted', 'rejected']),
+        ),
+      )
       .orderBy(asc(invitation.createdAt), asc(invitation.id));
     return rows
-      .filter((r) => r.expiresAt > new Date())
+      .filter((r) => r.status !== 'pending' || r.expiresAt > new Date())
       .map((r) => ({
         id: r.id,
         email: r.email,

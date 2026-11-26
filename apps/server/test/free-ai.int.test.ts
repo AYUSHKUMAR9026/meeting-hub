@@ -196,6 +196,7 @@ async function scenario(
     const [meeting] = await db
       .insert(meetings)
       .values({
+        resultPolicy: 'legacy',
         workspaceId,
         createdBy: owner.userId,
         title: 'Track processing',

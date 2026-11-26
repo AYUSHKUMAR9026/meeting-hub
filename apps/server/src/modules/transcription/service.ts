@@ -1,3 +1,4 @@
+import { assertTranscriptAllowed } from '../results';
 import type { TranscriptPage } from '@meeting-hub/contracts';
 import {
   and,
@@ -45,6 +46,7 @@ export class TranscriptionService {
     },
   ): Promise<TranscriptPage> {
     authorize(actor, 'meeting.read');
+    await assertTranscriptAllowed(this.db, actor.workspaceId, meetingId);
     const [transcript] = await this.current(
       this.db,
       actor.workspaceId,

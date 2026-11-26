@@ -62,6 +62,7 @@ export class PipelineDriver {
 
   constructor(
     private readonly deps: {
+      settleResult?: (workspaceId: string, meetingId: string) => Promise<void>;
       repo: ProcessingRepository;
       registry: StepRegistry;
       queue: StepQueue;
@@ -94,6 +95,7 @@ export class PipelineDriver {
     if (claim.kind === 'exhausted') {
       await this.publish(claim.run);
       await this.auditFinished(claim.run, 'processing.run_failed', claim.failure);
+      await this.settleResult(claim.run);
       logger.warn({ code: claim.failure.code }, 'step attempts exhausted; run failed');
       return 'failed';
     }
@@ -126,6 +128,7 @@ export class PipelineDriver {
       await this.publish(run);
       return { delayMs: committed.delayMs };
     }
+    await this.settleResult(run);
     logger.info({ next: committed.next }, 'step succeeded');
     await this.publish(run);
     if (committed.kind === 'completed') {
@@ -257,6 +260,7 @@ export class PipelineDriver {
       const step = await repo.findStep(tx, run.id, def.name);
       if (step?.status !== 'running') return { kind: 'inactive' };
       const now = this.now();
+      await repo.lockMeeting(tx, locked);
       await outcome.commit(new ProcessingTx(tx, now));
       if (outcome.wait) {
         await repo.markStepWaiting(tx, run.id, def.name, outcome.wait.deadlineAt, now);
@@ -327,6 +331,7 @@ export class PipelineDriver {
         'step failed; run failed',
       );
       await this.auditFinished(run, 'processing.run_failed', failure);
+      await this.settleResult(run);
       return 'failed';
     }
     logger.warn({ err, code: failure.code, attempt }, 'step failed; will retry');
@@ -347,6 +352,14 @@ export class PipelineDriver {
     } catch (err) {
       // Committed already: the sweeper enqueues it within a minute.
       logger.error({ err, next: step }, 'could not enqueue the next step; the sweeper will');
+    }
+  }
+
+  private async settleResult(run: RunRecord) {
+    try {
+      await this.deps.settleResult?.(run.workspaceId, run.meetingId);
+    } catch {
+      this.deps.logger.warn({ meetingId: run.meetingId }, 'result maintenance deferred');
     }
   }
 

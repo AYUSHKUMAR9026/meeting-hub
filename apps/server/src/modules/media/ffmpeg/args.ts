@@ -43,6 +43,68 @@ const inputSafety = () => [
   FORMAT_WHITELIST,
 ];
 
+/** Build a fallback mix only after the per-track transcription plan is unavailable. */
+export function mixSpeechArgs(input: {
+  tracks: { path: string; offsetMs: number }[];
+  outputPath: string;
+  threads: number;
+  maxSeconds: number;
+}): string[] {
+  if (
+    !input.tracks.length ||
+    input.tracks.length > 100 ||
+    input.tracks.some((t) => !Number.isSafeInteger(t.offsetMs) || t.offsetMs < 0)
+  )
+    throw new Error('Invalid mix inputs');
+  const filter =
+    input.tracks.map((t, i) => `[${i}:a]adelay=${t.offsetMs}:all=1[a${i}]`).join(';') +
+    ';' +
+    input.tracks.map((_, i) => `[a${i}]`).join('') +
+    `amix=inputs=${input.tracks.length}:duration=longest:normalize=1[out]`;
+  return [
+    '-hide_banner',
+    '-nostdin',
+    '-loglevel',
+    'error',
+    '-threads',
+    String(input.threads),
+    '-filter_complex_threads',
+    '1',
+    ...input.tracks.flatMap((t) => [
+      '-protocol_whitelist',
+      PROTOCOL_WHITELIST,
+      '-format_whitelist',
+      's16le',
+      '-f',
+      's16le',
+      '-ar',
+      '16000',
+      '-ac',
+      '1',
+      '-i',
+      fileUrl(t.path),
+    ]),
+    '-filter_complex',
+    filter,
+    '-map',
+    '[out]',
+    '-map_metadata',
+    '-1',
+    '-ac',
+    '1',
+    '-ar',
+    '16000',
+    '-c:a',
+    'pcm_s16le',
+    '-t',
+    String(input.maxSeconds),
+    '-f',
+    'wav',
+    '-y',
+    fileUrl(input.outputPath),
+  ];
+}
+
 /** ffprobe printing format and streams as JSON. */
 export function ffprobeArgs(inputPath: string): string[] {
   return [

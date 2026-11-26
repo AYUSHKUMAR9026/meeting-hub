@@ -396,6 +396,9 @@ importers:
       openapi-typescript:
         specifier: 7.13.0
         version: 7.13.0(typescript@6.0.3)
+      pdfjs-dist:
+        specifier: 6.5.438
+        version: 6.5.438
       tailwindcss:
         specifier: 4.3.3
         version: 4.3.3

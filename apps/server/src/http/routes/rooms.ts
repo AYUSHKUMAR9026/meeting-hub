@@ -1,5 +1,8 @@
+import { z } from 'zod';
 import {
   meetingParamsSchema,
+  roomMessageRequestSchema,
+  roomMessageListSchema,
   roomStartSchema,
   roomJoinSchema,
   roomTokenSchema,
@@ -12,6 +15,8 @@ import { problems, WORKSPACE_ERRORS } from './problems';
 
 export const roomRoutes: FastifyPluginCallbackZod<{ deps: ApiDeps }> = (app, { deps }, done) => {
   app.addHook('onSend', (_req, reply, payload, sent) => {
+    if (_req.url === '/v1/rooms/webhook')
+      deps.logger.info({ statusCode: reply.statusCode }, 'LiveKit webhook response');
     reply.header('Cache-Control', 'no-store');
     sent(null, payload);
   });
@@ -50,6 +55,32 @@ export const roomRoutes: FastifyPluginCallbackZod<{ deps: ApiDeps }> = (app, { d
   app.post('/v1/meetings/:id/room/end', { config, schema }, (req) =>
     deps.rooms.end(workspaceActorOf(req), req.params.id),
   );
+  app.get(
+    '/v1/meetings/:id/room/chat',
+    {
+      config,
+      schema: {
+        params: meetingParamsSchema,
+        response: { 200: roomMessageListSchema, ...problems(...WORKSPACE_ERRORS) },
+      },
+    },
+    (req) => deps.rooms.messages(workspaceActorOf(req), req.params.id),
+  );
+  app.post(
+    '/v1/meetings/:id/room/chat',
+    {
+      config,
+      schema: {
+        params: meetingParamsSchema,
+        body: roomMessageRequestSchema,
+        response: { 204: z.null(), ...problems(...WORKSPACE_ERRORS) },
+      },
+    },
+    async (req, reply) => {
+      await deps.rooms.saveMessage(workspaceActorOf(req), req.params.id, req.body);
+      return reply.code(204).send(null);
+    },
+  );
   app.register((webhook, _options, registered) => {
     webhook.addContentTypeParser(
       'application/webhook+json',
@@ -65,7 +96,8 @@ export const roomRoutes: FastifyPluginCallbackZod<{ deps: ApiDeps }> = (app, { d
           req.headers.authorization ?? '',
           (workspaceId) => deps.flags.isEnabled('rooms.enabled', { workspaceId }),
         );
-        return reply.status(204).send();
+        deps.logger.info({ signatureVerified: true, statusCode: 200 }, 'LiveKit webhook accepted');
+        return reply.status(200).send();
       },
     );
     registered();
