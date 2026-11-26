@@ -1,4 +1,4 @@
-import { pdfText } from '../../server/test/support/export-readers';
+import { pdfText } from './pdf';
 import { readFile } from 'node:fs/promises';
 
 import { type Browser, expect, type Page, test } from '@playwright/test';

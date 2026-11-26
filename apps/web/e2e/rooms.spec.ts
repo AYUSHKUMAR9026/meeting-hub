@@ -1,4 +1,4 @@
-import { pdfText } from '../../server/test/support/export-readers';
+import { pdfText } from './pdf';
 import { test, expect, type Page } from '@playwright/test';
 import { linkFromEmail } from './mailpit';
 
